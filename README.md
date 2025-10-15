@@ -49,7 +49,7 @@ Design prototype: [Figma Design](https://www.figma.com/design/K9Ev8RXEEskoVsBBo3
 1. **Clone the repository**
    ```bash
    git clone <repository-url>
-   cd gfunreach
+   cd gfundreach
    ```
 
 2. **Install dependencies**
