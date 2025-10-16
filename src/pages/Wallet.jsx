@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { collection, query, where, getDocs, orderBy, doc, updateDoc, increment } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { useAuth } from '../contexts/AuthContext';
-import Navbar from '../components/Navbar';
+import Layout from '../components/Layout';
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 import AddIcon from '@mui/icons-material/Add';
 import RemoveIcon from '@mui/icons-material/Remove';
@@ -103,40 +103,39 @@ const Wallet = () => {
   };
 
   return (
-    <div className="min-h-screen bg-surface">
-      <Navbar />
-      
-      <div className="max-w-6xl mx-auto px-4 py-8">
+    <Layout>
+      <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Wallet</h1>
-          <p className="text-gray-600">Manage your funds and transaction history</p>
+          <h1 className="text-3xl font-bold mb-2" style={{ color: 'var(--text)' }}>Wallet</h1>
+          <p className="text-gray-600 dark:text-gray-400">Manage your funds and transaction history</p>
         </div>
 
         {/* Wallet Balance Card */}
-        <div className="card p-8 mb-8 bg-gradient-to-br from-primary to-primary-700 text-white">
+        <div className="card p-8 mb-8" style={{ background: 'linear-gradient(135deg, #16a34a 0%, #15803d 100%)' }}>
           <div className="flex items-center justify-between">
             <div>
               <p className="text-white/80 mb-2">Available Balance</p>
-              <h2 className="text-5xl font-bold mb-6">
+              <h2 className="text-5xl font-bold mb-6 text-white">
                 {formatCurrency(userProfile?.walletBalance || 0)}
               </h2>
               <button
                 onClick={() => setShowTopUp(!showTopUp)}
-                className="bg-white text-primary px-6 py-3 rounded-full font-medium hover:bg-gray-100 transition-colors flex items-center gap-2"
+                className="bg-white px-6 py-3 rounded-full font-medium hover:bg-gray-100 transition-colors flex items-center gap-2"
+                style={{ color: '#16a34a' }}
               >
                 <AddIcon fontSize="small" />
                 Top Up Wallet
               </button>
             </div>
-            <AccountBalanceWalletIcon sx={{ fontSize: 120, opacity: 0.2 }} />
+            <AccountBalanceWalletIcon sx={{ fontSize: 120, opacity: 0.2, color: 'white' }} />
           </div>
         </div>
 
         {/* Top Up Form */}
         {showTopUp && (
           <div className="card p-6 mb-8">
-            <h3 className="text-xl font-bold text-gray-900 mb-4">Top Up Wallet</h3>
+            <h3 className="text-xl font-bold text-themed mb-4">Top Up Wallet</h3>
             <form onSubmit={handleTopUp} className="flex gap-4">
               <input
                 type="number"
@@ -176,7 +175,7 @@ const Wallet = () => {
               <div className="bg-primary-50 p-2 rounded-lg">
                 <VolunteerActivismIcon className="text-primary" />
               </div>
-              <p className="text-gray-600">Total Donated</p>
+              <p className="text-themed-secondary">Total Donated</p>
             </div>
             <p className="text-3xl font-bold text-primary">
               {formatCurrency(userProfile?.totalDonated || 0)}
@@ -188,7 +187,7 @@ const Wallet = () => {
               <div className="bg-secondary-50 p-2 rounded-lg">
                 <TrendingUpIcon className="text-secondary" />
               </div>
-              <p className="text-gray-600">Total Received</p>
+              <p className="text-themed-secondary">Total Received</p>
             </div>
             <p className="text-3xl font-bold text-secondary">
               {formatCurrency(userProfile?.totalReceived || 0)}
@@ -200,7 +199,7 @@ const Wallet = () => {
               <div className="bg-tertiary-50 p-2 rounded-lg">
                 <AccountBalanceWalletIcon className="text-tertiary" />
               </div>
-              <p className="text-gray-600">Transactions</p>
+              <p className="text-themed-secondary">Transactions</p>
             </div>
             <p className="text-3xl font-bold text-tertiary">
               {transactions.length}
@@ -210,7 +209,7 @@ const Wallet = () => {
 
         {/* Transaction History */}
         <div className="card p-6">
-          <h3 className="text-xl font-bold text-gray-900 mb-6">Transaction History</h3>
+          <h3 className="text-xl font-bold text-themed mb-6">Transaction History</h3>
 
           {loading && (
             <div className="space-y-4">
@@ -228,7 +227,7 @@ const Wallet = () => {
 
           {!loading && transactions.length === 0 && (
             <div className="text-center py-12">
-              <p className="text-gray-600 text-lg">No transactions yet</p>
+              <p className="text-themed-secondary text-lg">No transactions yet</p>
             </div>
           )}
 
@@ -253,19 +252,19 @@ const Wallet = () => {
                     )}
                   </div>
                   <div>
-                    <p className="font-medium text-gray-900">
+                    <p className="font-medium text-themed">
                       {transaction.role === 'donor' ? 'Donation Sent' : 'Donation Received'}
                     </p>
-                    <p className="text-sm text-gray-600">
+                    <p className="text-sm text-themed-secondary">
                       {transaction.role === 'donor'
                         ? `To: ${transaction.recipientName}`
                         : `From: ${transaction.donorName}`}
                     </p>
-                    <p className="text-xs text-gray-500 mt-1">
+                    <p className="text-xs text-themed-muted mt-1">
                       {transaction.postTitle}
                     </p>
                     {transaction.message && (
-                      <p className="text-sm text-gray-600 mt-1 italic">
+                      <p className="text-sm text-themed-secondary mt-1 italic">
                         "{transaction.message}"
                       </p>
                     )}
@@ -291,7 +290,7 @@ const Wallet = () => {
           </div>
         </div>
       </div>
-    </div>
+    </Layout>
   );
 };
 

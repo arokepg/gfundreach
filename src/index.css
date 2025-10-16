@@ -1,16 +1,71 @@
 @import "tailwindcss";
 
-body {
-  background-color: #FFFBFE;
-  color: #111827;
+/* Global theme variables */
+:root {
+  color-scheme: light dark;
+  --bg: #f9fafb;           /* gray-50 */
+  --text: #111827;         /* gray-900 */
+  --text-secondary: #4b5563; /* gray-600 */
+  --text-muted: #6b7280;   /* gray-500 */
+  --card-bg: #ffffff;      /* white */
+  --card-border: #e5e7eb;  /* gray-200 */
+  --surface-bg: #ffffff;   /* white (for sidebar/topbar) */
+  --surface-border: #e5e7eb; /* gray-200 */
+  --hover-bg: #f3f4f6;     /* gray-100 */
+  --input-bg: #f3f4f6;     /* gray-100 */
+  --muted-text: #6b7280;   /* gray-500 */
+}
+
+html.dark {
+  --bg: #111827;           /* gray-900 */
+  --text: #f3f4f6;         /* gray-100 */
+  --text-secondary: #d1d5db; /* gray-300 */
+  --text-muted: #9ca3af;   /* gray-400 */
+  --card-bg: #1f2937;      /* gray-800 */
+  --card-border: #374151;  /* gray-700 */
+  --surface-bg: #1f2937;   /* gray-800 */
+  --surface-border: #374151; /* gray-700 */
+  --hover-bg: #374151;     /* gray-700 */
+  --input-bg: #374151;     /* gray-700 */
+  --muted-text: #9ca3af;   /* gray-400 */
+}
+
+html, body, #root {
+  margin: 0;
+  padding: 0;
   font-family: sans-serif;
+  min-height: 100vh;
+}
+
+/* Use variables so the whole page flips themes consistently */
+body {
+  background-color: var(--bg);
+  color: var(--text);
+  transition: background-color 200ms ease, color 200ms ease;
 }
 
 .card {
-  background-color: white;
+  background-color: var(--card-bg);
   border-radius: 1rem;
   box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--card-border);
+  color: var(--text);
+}
+
+/* Ensure card adjusts in dark mode even without Tailwind classes */
+html.dark .card {
+  background-color: var(--card-bg);
+  border-color: var(--card-border);
+}
+
+/* Surface containers (sidebar, topbar) */
+.surface {
+  background-color: var(--surface-bg);
+  color: var(--text);
+}
+
+.border-surface {
+  border-color: var(--surface-border);
 }
 
 .btn-primary {
@@ -57,7 +112,9 @@ body {
 .input-field {
   width: 100%;
   padding: 0.75rem 1rem;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--card-border);
+  background-color: var(--input-bg);
+  color: var(--text);
   border-radius: 0.75rem;
   outline: none;
   transition: all 0.2s;
@@ -66,6 +123,10 @@ body {
 .input-field:focus {
   border-color: #6750A4;
   box-shadow: 0 0 0 2px #EBE3FF;
+}
+
+.input-field::placeholder {
+  color: var(--muted-text);
 }
 
 .nav-link {
@@ -87,5 +148,33 @@ body {
   padding: 0.5rem 1rem;
   border-radius: 0.5rem;
   font-weight: 500;
+}
+
+/* Pills for filters */
+.pill {
+  background-color: var(--hover-bg);
+  color: var(--text);
+}
+
+.pill:hover {
+  filter: brightness(0.95);
+}
+
+.pill-active {
+  background-color: var(--text);
+  color: var(--bg);
+}
+
+/* Text utility classes */
+.text-themed {
+  color: var(--text);
+}
+
+.text-themed-secondary {
+  color: var(--text-secondary);
+}
+
+.text-themed-muted {
+  color: var(--text-muted);
 }
 

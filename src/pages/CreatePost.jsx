@@ -4,7 +4,7 @@ import { collection, addDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../config/firebase';
 import { useAuth } from '../contexts/AuthContext';
-import Navbar from '../components/Navbar';
+import Layout from '../components/Layout';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 
@@ -104,10 +104,8 @@ const CreatePost = () => {
   };
 
   return (
-    <div className="min-h-screen bg-surface">
-      <Navbar />
-      
-      <div className="max-w-3xl mx-auto px-4 py-8">
+    <Layout>
+      <div className="max-w-3xl mx-auto">
         {/* Header */}
         <div className="mb-8">
           <button
@@ -262,7 +260,7 @@ const CreatePost = () => {
           </form>
         </div>
       </div>
-    </div>
+    </Layout>
   );
 };
 

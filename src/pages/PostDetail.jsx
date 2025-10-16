@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { doc, getDoc, collection, addDoc, updateDoc, increment, query, where, getDocs } from 'firebase/firestore';
+import { doc, getDoc, collection, addDoc, updateDoc, increment } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { useAuth } from '../contexts/AuthContext';
-import Navbar from '../components/Navbar';
+import Layout from '../components/Layout';
 import LinearProgress from '@mui/material/LinearProgress';
 import PersonIcon from '@mui/icons-material/Person';
 import FavoriteIcon from '@mui/icons-material/Favorite';
@@ -131,8 +131,7 @@ const PostDetail = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-surface">
-        <Navbar />
+      <Layout>
         <div className="max-w-4xl mx-auto px-4 py-8">
           <div className="card p-8 animate-pulse">
             <div className="h-8 bg-gray-200 rounded w-3/4 mb-4"></div>
@@ -140,14 +139,13 @@ const PostDetail = () => {
             <div className="h-64 bg-gray-200 rounded"></div>
           </div>
         </div>
-      </div>
+      </Layout>
     );
   }
 
   if (error && !post) {
     return (
-      <div className="min-h-screen bg-surface">
-        <Navbar />
+      <Layout>
         <div className="max-w-4xl mx-auto px-4 py-8">
           <div className="card p-8 text-center">
             <p className="text-error text-lg">{error}</p>
@@ -156,15 +154,13 @@ const PostDetail = () => {
             </button>
           </div>
         </div>
-      </div>
+      </Layout>
     );
   }
 
   return (
-    <div className="min-h-screen bg-surface">
-      <Navbar />
-      
-      <div className="max-w-4xl mx-auto px-4 py-8">
+    <Layout>
+      <div className="max-w-4xl mx-auto">
         <button
           onClick={() => navigate('/')}
           className="flex items-center gap-2 text-primary hover:underline mb-6"
@@ -360,7 +356,7 @@ const PostDetail = () => {
           </div>
         </div>
       </div>
-    </div>
+    </Layout>
   );
 };
 
