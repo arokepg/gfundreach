@@ -58,8 +58,8 @@ const Home = () => {
       {/* Main Content - Offset by sidebar (always use collapsed width) */}
       <div className="pl-20 transition-all">
         {/* Top Header */}
-  <header className="surface border-b border-surface sticky top-0 z-40 px-6 py-4">
-          <div className="flex items-center justify-between max-w-[1400px] mx-auto">
+  <header className="surface border-b border-surface sticky top-0 z-40 h-[73px] flex items-center px-6">
+          <div className="flex items-center justify-between max-w-[1400px] mx-auto w-full">
             {/* Empty space for alignment */}
             <div></div>
 

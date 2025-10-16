@@ -26,20 +26,20 @@ const Sidebar = () => {
     <div
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      className={`fixed left-0 top-0 h-screen surface border-r border-surface transition-all duration-300 z-50 ${
+      className={`fixed left-0 top-0 h-full surface border-r border-surface transition-all duration-300 z-50 ${
         isHovered ? 'w-64' : 'w-20'
       }`}
     >
       {/* Header */}
-  <div className="flex items-center justify-center p-4 border-b border-surface">
+  <div className="flex items-center justify-center h-[73px] border-b border-surface">
         <Link to="/" className="flex items-center space-x-2">
           {isHovered ? (
             <span className="text-2xl font-bold whitespace-nowrap">
-              <span className="text-green-600">G</span>
-              <span className="text-gray-900 dark:text-white">fundreach</span>
+              <span className="text-green-600 dark:text-green-500">G</span>
+              <span className="text-themed">fundreach</span>
             </span>
           ) : (
-            <span className="text-2xl font-bold text-green-600">G</span>
+            <span className="text-2xl font-bold text-green-600 dark:text-green-500">G</span>
           )}
         </Link>
       </div>
@@ -52,7 +52,7 @@ const Sidebar = () => {
             <Link
               key={item.path}
               to={item.path}
-              className={`flex items-center space-x-3 px-4 py-3 rounded-xl transition-all ${
+              className={`flex items-center ${isHovered ? 'space-x-3' : 'justify-center'} px-4 py-3 rounded-xl transition-all ${
                 active
                   ? 'bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400'
                   : ''

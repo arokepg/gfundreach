@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
+import { collection, query, where, getDocs, orderBy, deleteDoc, doc } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -11,7 +11,9 @@ import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 import LogoutIcon from '@mui/icons-material/Logout';
 import LightModeIcon from '@mui/icons-material/LightMode';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
-import LinearProgress from '@mui/material/LinearProgress';
+import EditIcon from '@mui/icons-material/Edit';
+import DeleteIcon from '@mui/icons-material/Delete';
+import BarChartIcon from '@mui/icons-material/BarChart';
 
 const Profile = () => {
   const { currentUser, userProfile, logout } = useAuth();
@@ -64,6 +66,34 @@ const Profile = () => {
     } catch (error) {
       console.error('Failed to log out:', error);
     }
+  };
+
+  const handleDeleteCampaign = async (e, postId) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (window.confirm('Are you sure you want to delete this campaign? This action cannot be undone.')) {
+      try {
+        await deleteDoc(doc(db, 'posts', postId));
+        setUserPosts(userPosts.filter(post => post.id !== postId));
+        alert('Campaign deleted successfully');
+      } catch (error) {
+        console.error('Error deleting campaign:', error);
+        alert('Failed to delete campaign. Please try again.');
+      }
+    }
+  };
+
+  const handleEditCampaign = (e, postId) => {
+    e.preventDefault();
+    e.stopPropagation();
+    navigate(`/edit-campaign/${postId}`);
+  };
+
+  const handleViewStats = (e, postId) => {
+    e.preventDefault();
+    e.stopPropagation();
+    navigate(`/campaign-stats/${postId}`);
   };
 
   return (
@@ -203,58 +233,78 @@ const Profile = () => {
 
           <div className="grid md:grid-cols-2 gap-6">
             {userPosts.map((post) => (
-              <Link
+              <div
                 key={post.id}
-                to={`/post/${post.id}`}
-                className="card p-6 hover:shadow-lg transition-shadow"
+                className="card p-6 hover:shadow-lg transition-shadow relative"
               >
-                {post.imageUrl && (
-                  <img
-                    src={post.imageUrl}
-                    alt={post.title}
-                    className="w-full h-48 object-cover rounded-xl mb-4"
-                  />
-                )}
-                
-                <span className="inline-block bg-primary-50 text-primary px-3 py-1 rounded-full text-sm font-medium mb-3">
-                  {post.category}
-                </span>
-
-                <h3 className="text-xl font-bold text-themed mb-2">
-                  {post.title}
-                </h3>
-                
-                <p className="text-themed-secondary mb-4 line-clamp-2">
-                  {post.description}
-                </p>
-
-                <div className="mb-4">
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="text-xl font-bold text-primary">
-                      {formatCurrency(post.currentAmount || 0)}
-                    </span>
-                    <span className="text-gray-600 text-sm">
-                      of {formatCurrency(post.goalAmount)}
-                    </span>
-                  </div>
-                  <LinearProgress
-                    variant="determinate"
-                    value={calculateProgress(post.currentAmount || 0, post.goalAmount)}
-                    sx={{
-                      height: 6,
-                      borderRadius: 3,
-                      backgroundColor: '#E7E0EC',
-                      '& .MuiLinearProgress-bar': {
-                      backgroundColor: '#6750A4',
-                    },
-                  }}
-                />
+                {/* Management Actions */}
+                <div className="absolute top-4 right-4 flex gap-2">
+                  <button
+                    onClick={(e) => handleViewStats(e, post.id)}
+                    className="p-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors"
+                    title="View Statistics"
+                  >
+                    <BarChartIcon fontSize="small" />
+                  </button>
+                  <button
+                    onClick={(e) => handleEditCampaign(e, post.id)}
+                    className="p-2 bg-primary hover:bg-primary-dark text-white rounded-lg transition-colors"
+                    title="Edit Campaign"
+                  >
+                    <EditIcon fontSize="small" />
+                  </button>
+                  <button
+                    onClick={(e) => handleDeleteCampaign(e, post.id)}
+                    className="p-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors"
+                    title="Delete Campaign"
+                  >
+                    <DeleteIcon fontSize="small" />
+                  </button>
                 </div>
 
-                <p className="text-sm text-themed-secondary">
-                  {post.supporters || 0} supporters
-                </p>
-              </Link>
+                <Link to={`/post/${post.id}`} className="block">
+                  {post.imageUrl && (
+                    <img
+                      src={post.imageUrl}
+                      alt={post.title}
+                      className="w-full h-48 object-cover rounded-xl mb-4"
+                    />
+                  )}
+                  
+                  <span className="inline-block bg-primary-50 text-primary px-3 py-1 rounded-full text-sm font-medium mb-3">
+                    {post.category}
+                  </span>
+
+                  <h3 className="text-xl font-bold text-themed mb-2">
+                    {post.title}
+                  </h3>
+                  
+                  <p className="text-themed-secondary mb-4 line-clamp-2">
+                    {post.description}
+                  </p>
+
+                  <div className="mb-4">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-xl font-bold text-primary">
+                        {formatCurrency(post.currentAmount || 0)}
+                      </span>
+                      <span className="text-gray-600 text-sm">
+                        of {formatCurrency(post.goalAmount)}
+                      </span>
+                    </div>
+                    <div className="relative w-full h-3 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                      <div 
+                        className="absolute top-0 left-0 h-full bg-green-500 rounded-full transition-all"
+                        style={{ width: `${Math.min(calculateProgress(post.currentAmount || 0, post.goalAmount), 100)}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  <p className="text-sm text-themed-secondary">
+                    {post.supporters || 0} supporters
+                  </p>
+                </Link>
+              </div>
             ))}
           </div>
         </div>

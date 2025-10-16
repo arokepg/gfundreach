@@ -88,7 +88,7 @@ const NotificationDropdown = () => {
         onMouseEnter={(e)=>{ e.currentTarget.style.backgroundColor = 'var(--hover-bg)'; }}
         onMouseLeave={(e)=>{ e.currentTarget.style.backgroundColor = 'transparent'; }}
       >
-        <NotificationsIcon className="text-gray-700 dark:text-gray-300" />
+        <NotificationsIcon className="text-themed-secondary" />
         {unreadCount > 0 && (
           <span className="absolute top-1 right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-semibold">
             {unreadCount}
@@ -101,7 +101,7 @@ const NotificationDropdown = () => {
   <div className="absolute right-0 mt-2 w-96 surface rounded-2xl shadow-xl border border-surface z-50 overflow-hidden">
           {/* Header */}
           <div className="px-4 py-3 border-b border-surface flex items-center justify-between">
-            <h3 className="text-lg font-bold text-gray-900 dark:text-white">
+            <h3 className="text-lg font-bold text-themed">
               Notifications
             </h3>
             {unreadCount > 0 && (
@@ -117,7 +117,7 @@ const NotificationDropdown = () => {
           {/* Notifications List */}
           <div className="max-h-96 overflow-y-auto">
             {notifications.length === 0 ? (
-              <div className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
+              <div className="px-4 py-8 text-center text-themed-muted">
                 No notifications yet
               </div>
             ) : (
@@ -139,10 +139,10 @@ const NotificationDropdown = () => {
 
                     {/* Content */}
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm text-gray-900 dark:text-white">
+                      <p className="text-sm text-themed">
                         {notification.message}
                       </p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      <p className="text-xs text-themed-muted mt-1">
                         {notification.time}
                       </p>
                     </div>
@@ -158,7 +158,7 @@ const NotificationDropdown = () => {
                       onMouseEnter={(e)=>{ e.currentTarget.style.backgroundColor = 'var(--hover-bg)'; }}
                       onMouseLeave={(e)=>{ e.currentTarget.style.backgroundColor = 'transparent'; }}
                     >
-                      <CloseIcon className="text-gray-400 dark:text-gray-500 text-sm" />
+                      <CloseIcon className="text-themed-muted text-sm" />
                     </button>
 
                     {/* Unread Indicator */}

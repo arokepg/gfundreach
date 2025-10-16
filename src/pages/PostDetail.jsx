@@ -1,14 +1,16 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { doc, getDoc, collection, addDoc, updateDoc, increment } from 'firebase/firestore';
+import { doc, getDoc, collection, addDoc, updateDoc, increment, deleteDoc } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { useAuth } from '../contexts/AuthContext';
 import Layout from '../components/Layout';
-import LinearProgress from '@mui/material/LinearProgress';
 import PersonIcon from '@mui/icons-material/Person';
 import FavoriteIcon from '@mui/icons-material/Favorite';
 import ShareIcon from '@mui/icons-material/Share';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import BarChartIcon from '@mui/icons-material/BarChart';
+import EditIcon from '@mui/icons-material/Edit';
+import DeleteIcon from '@mui/icons-material/Delete';
 
 const PostDetail = () => {
   const { id } = useParams();
@@ -129,6 +131,29 @@ const PostDetail = () => {
     }
   };
 
+  const handleDeleteCampaign = async () => {
+    if (window.confirm('Are you sure you want to delete this campaign? This action cannot be undone.')) {
+      try {
+        await deleteDoc(doc(db, 'posts', id));
+        alert('Campaign deleted successfully');
+        navigate('/profile');
+      } catch (error) {
+        console.error('Error deleting campaign:', error);
+        alert('Failed to delete campaign. Please try again.');
+      }
+    }
+  };
+
+  const handleEditCampaign = () => {
+    navigate(`/edit-campaign/${id}`);
+  };
+
+  const handleViewStats = () => {
+    navigate(`/campaign-stats/${id}`);
+  };
+
+  const isOwner = currentUser && post && currentUser.uid === post.authorId;
+
   if (loading) {
     return (
       <Layout>
@@ -175,24 +200,53 @@ const PostDetail = () => {
             {/* Post Card */}
             <div className="card p-6">
               {/* Author Info */}
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-12 h-12 bg-primary-100 rounded-full flex items-center justify-center">
-                  {post.authorPhoto ? (
-                    <img
-                      src={post.authorPhoto}
-                      alt={post.authorName}
-                      className="w-12 h-12 rounded-full object-cover"
-                    />
-                  ) : (
-                    <PersonIcon className="text-primary" />
-                  )}
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 bg-primary-100 rounded-full flex items-center justify-center">
+                    {post.authorPhoto ? (
+                      <img
+                        src={post.authorPhoto}
+                        alt={post.authorName}
+                        className="w-12 h-12 rounded-full object-cover"
+                      />
+                    ) : (
+                      <PersonIcon className="text-primary" />
+                    )}
+                  </div>
+                  <div>
+                    <p className="font-medium text-themed">{post.authorName}</p>
+                    <p className="text-sm text-themed-muted">
+                      {new Date(post.createdAt).toLocaleDateString()}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <p className="font-medium text-gray-900">{post.authorName}</p>
-                  <p className="text-sm text-gray-500">
-                    {new Date(post.createdAt).toLocaleDateString()}
-                  </p>
-                </div>
+
+                {/* Campaign Management Buttons - Only visible to owner */}
+                {isOwner && (
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleViewStats}
+                      className="p-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors"
+                      title="View Statistics"
+                    >
+                      <BarChartIcon fontSize="small" />
+                    </button>
+                    <button
+                      onClick={handleEditCampaign}
+                      className="p-2 bg-primary hover:bg-primary-dark text-white rounded-lg transition-colors"
+                      title="Edit Campaign"
+                    >
+                      <EditIcon fontSize="small" />
+                    </button>
+                    <button
+                      onClick={handleDeleteCampaign}
+                      className="p-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors"
+                      title="Delete Campaign"
+                    >
+                      <DeleteIcon fontSize="small" />
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* Category */}
@@ -203,7 +257,7 @@ const PostDetail = () => {
               </div>
 
               {/* Title */}
-              <h1 className="text-3xl font-bold text-gray-900 mb-4">
+              <h1 className="text-3xl font-bold text-themed mb-4">
                 {post.title}
               </h1>
 
@@ -218,7 +272,7 @@ const PostDetail = () => {
 
               {/* Description */}
               <div className="prose max-w-none">
-                <p className="text-gray-700 whitespace-pre-wrap leading-relaxed">
+                <p className="text-themed-secondary whitespace-pre-wrap leading-relaxed">
                   {post.description}
                 </p>
               </div>
@@ -246,22 +300,16 @@ const PostDetail = () => {
                     {formatCurrency(post.currentAmount || 0)}
                   </span>
                 </div>
-                <p className="text-gray-600 mb-3">
+                <p className="text-themed-secondary mb-3">
                   raised of {formatCurrency(post.goalAmount)} goal
                 </p>
-                <LinearProgress
-                  variant="determinate"
-                  value={calculateProgress(post.currentAmount || 0, post.goalAmount)}
-                  sx={{
-                    height: 10,
-                    borderRadius: 5,
-                    backgroundColor: '#E7E0EC',
-                    '& .MuiLinearProgress-bar': {
-                      backgroundColor: '#6750A4',
-                    },
-                  }}
-                />
-                <p className="text-sm text-gray-600 mt-2">
+                <div className="relative w-full h-3 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden mb-2">
+                  <div
+                    className="absolute top-0 left-0 h-full bg-green-500 rounded-full transition-all"
+                    style={{ width: `${Math.min(calculateProgress(post.currentAmount || 0, post.goalAmount), 100)}%` }}
+                  />
+                </div>
+                <p className="text-sm text-themed-secondary mt-2">
                   {Math.round(calculateProgress(post.currentAmount || 0, post.goalAmount))}% funded
                 </p>
               </div>
@@ -269,7 +317,7 @@ const PostDetail = () => {
               {/* Stats */}
               <div className="flex items-center gap-2 mb-6 pb-6 border-b border-outline-variant">
                 <FavoriteIcon fontSize="small" className="text-error" />
-                <span className="text-gray-700">
+                <span className="text-themed-secondary">
                   <strong>{post.supporters || 0}</strong> supporters
                 </span>
               </div>
@@ -277,7 +325,7 @@ const PostDetail = () => {
               {/* Donation Form */}
               {currentUser && currentUser.uid !== post.authorId && (
                 <div>
-                  <h3 className="text-lg font-bold text-gray-900 mb-4">
+                  <h3 className="text-lg font-bold text-themed mb-4">
                     Support this campaign
                   </h3>
 
@@ -295,7 +343,7 @@ const PostDetail = () => {
 
                   <form onSubmit={handleDonate} className="space-y-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="block text-sm font-medium text-themed mb-2">
                         Donation Amount (USD)
                       </label>
                       <input
@@ -308,13 +356,13 @@ const PostDetail = () => {
                         step="0.01"
                         required
                       />
-                      <p className="text-xs text-gray-500 mt-1">
+                      <p className="text-xs text-themed-muted mt-1">
                         Wallet Balance: {formatCurrency(userProfile?.walletBalance || 0)}
                       </p>
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="block text-sm font-medium text-themed mb-2">
                         Message (Optional)
                       </label>
                       <textarea

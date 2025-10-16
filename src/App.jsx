@@ -12,6 +12,8 @@ import Wallet from './pages/Wallet';
 import Explore from './pages/Explore';
 import Saved from './pages/Saved';
 import Group from './pages/Group';
+import EditCampaign from './pages/EditCampaign';
+import CampaignStats from './pages/CampaignStats';
 
 function App() {
   return (
@@ -93,6 +95,22 @@ function App() {
             element={
               <ProtectedRoute>
                 <Wallet />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/edit-campaign/:id"
+            element={
+              <ProtectedRoute>
+                <EditCampaign />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/campaign-stats/:id"
+            element={
+              <ProtectedRoute>
+                <CampaignStats />
               </ProtectedRoute>
             }
           />
