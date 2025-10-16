@@ -3,16 +3,15 @@ import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 
-// TODO: Replace with your Firebase config
-// Get this from Firebase Console > Project Settings > Your apps
+// Firebase configuration using environment variables
 const firebaseConfig = {
-  apiKey: "AIzaSyCpiVx8ZHPuTwlj5E3Yy2TrVFtjxsp4L-E",
-  authDomain: "gfundreach.firebaseapp.com",
-  projectId: "gfundreach",
-  storageBucket: "gfundreach.firebasestorage.app",
-  messagingSenderId: "117924750009",
-  appId: "1:117924750009:web:1b2b9d96b1eabea8d1f168",
-  measurementId: "G-2NTNXDWEXH"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyCpiVx8ZHPuTwlj5E3Yy2TrVFtjxsp4L-E",
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "gfundreach.firebaseapp.com",
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "gfundreach",
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "gfundreach.firebasestorage.app",
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "117924750009",
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:117924750009:web:1b2b9d96b1eabea8d1f168",
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || "G-2NTNXDWEXH"
 };
 
 // Initialize Firebase

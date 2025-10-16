@@ -8,6 +8,9 @@ import CreatePost from './pages/CreatePost';
 import PostDetail from './pages/PostDetail';
 import Profile from './pages/Profile';
 import Wallet from './pages/Wallet';
+import Explore from './pages/Explore';
+import Saved from './pages/Saved';
+import Group from './pages/Group';
 
 function App() {
   return (
@@ -24,6 +27,30 @@ function App() {
             element={
               <ProtectedRoute>
                 <Home />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/explore"
+            element={
+              <ProtectedRoute>
+                <Explore />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/saved"
+            element={
+              <ProtectedRoute>
+                <Saved />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/group"
+            element={
+              <ProtectedRoute>
+                <Group />
               </ProtectedRoute>
             }
           />
