@@ -1,40 +1,91 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
-@layer base {
-  body {
-    @apply bg-surface text-gray-900 font-sans;
-  }
+body {
+  background-color: #FFFBFE;
+  color: #111827;
+  font-family: sans-serif;
 }
 
-@layer components {
-  .card {
-    @apply bg-white rounded-2xl shadow-sm border border-outline-variant;
-  }
-  
-  .btn-primary {
-    @apply bg-primary text-white px-6 py-3 rounded-full font-medium hover:bg-primary-700 transition-colors shadow-md;
-  }
-  
-  .btn-secondary {
-    @apply bg-secondary text-white px-6 py-3 rounded-full font-medium hover:bg-secondary-700 transition-colors;
-  }
-  
-  .btn-outline {
-    @apply border-2 border-primary text-primary px-6 py-3 rounded-full font-medium hover:bg-primary-50 transition-colors;
-  }
-  
-  .input-field {
-    @apply w-full px-4 py-3 border border-outline rounded-xl focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary-100 transition-all;
-  }
-  
-  .nav-link {
-    @apply text-gray-700 hover:text-primary hover:bg-primary-50 px-4 py-2 rounded-lg transition-colors;
-  }
-  
-  .nav-link-active {
-    @apply text-primary bg-primary-50 px-4 py-2 rounded-lg font-medium;
-  }
+.card {
+  background-color: white;
+  border-radius: 1rem;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  border: 1px solid #e5e7eb;
+}
+
+.btn-primary {
+  background-color: #6750A4;
+  color: white;
+  padding: 0.75rem 1.5rem;
+  border-radius: 9999px;
+  font-weight: 500;
+  transition: all 0.2s;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.btn-primary:hover {
+  background-color: #4F378B;
+}
+
+.btn-secondary {
+  background-color: #625B71;
+  color: white;
+  padding: 0.75rem 1.5rem;
+  border-radius: 9999px;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.btn-secondary:hover {
+  background-color: #4A4458;
+}
+
+.btn-outline {
+  border: 2px solid #6750A4;
+  color: #6750A4;
+  padding: 0.75rem 1.5rem;
+  border-radius: 9999px;
+  font-weight: 500;
+  transition: all 0.2s;
+  background-color: transparent;
+}
+
+.btn-outline:hover {
+  background-color: #F5F1FF;
+}
+
+.input-field {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.75rem;
+  outline: none;
+  transition: all 0.2s;
+}
+
+.input-field:focus {
+  border-color: #6750A4;
+  box-shadow: 0 0 0 2px #EBE3FF;
+}
+
+.nav-link {
+  color: #374151;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  transition: all 0.2s;
+  text-decoration: none;
+}
+
+.nav-link:hover {
+  color: #6750A4;
+  background-color: #F5F1FF;
+}
+
+.nav-link-active {
+  color: #6750A4;
+  background-color: #F5F1FF;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  font-weight: 500;
 }
 

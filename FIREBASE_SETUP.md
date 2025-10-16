@@ -66,37 +66,22 @@ service cloud.firestore {
 
 3. Click "Publish"
 
-## Step 5: Enable Storage
+## Step 5: Enable Storage (OPTIONAL - Requires Blaze Plan)
 
+**Note:** Firebase Storage requires the Blaze (pay-as-you-go) plan. If you want to avoid costs, skip this step and use external image URLs instead (e.g., Imgur, Cloudinary free tier).
+
+If you want to enable Storage:
 1. Click "Storage" in the left menu
 2. Click "Get started"
 3. Choose "Start in test mode"
 4. Click "Next"
 5. Select location
 6. Click "Done"
+7. Go to Storage → Rules and add security rules
 
-## Step 6: Setup Storage Rules
+**Alternative:** Configure the app to use external image URLs (no Firebase Storage needed).
 
-1. Go to Storage → Rules
-2. Replace the rules with:
-
-```javascript
-rules_version = '2';
-service firebase.storage {
-  match /b/{bucket}/o {
-    match /posts/{allPaths=**} {
-      allow read: if true;
-      allow write: if request.auth != null 
-        && request.resource.size < 10 * 1024 * 1024 // 10MB limit
-        && request.resource.contentType.matches('image/.*');
-    }
-  }
-}
-```
-
-3. Click "Publish"
-
-## Step 7: Get Firebase Configuration
+## Step 6: Get Firebase Configuration
 
 1. In Project Settings (gear icon) → General
 2. Scroll down to "Your apps"
@@ -116,7 +101,7 @@ const firebaseConfig = {
 };
 ```
 
-## Step 8: Create Firestore Indexes (Optional but Recommended)
+## Step 7: Create Firestore Indexes (Optional but Recommended)
 
 For better query performance, create these composite indexes:
 
@@ -131,7 +116,7 @@ For better query performance, create these composite indexes:
    - Collection ID: `transactions`
    - Fields: `recipientId` (Ascending), `createdAt` (Descending)
 
-## Step 9: Optional - Firebase Hosting
+## Step 8: Optional - Firebase Hosting
 
 To deploy your app to Firebase Hosting:
 
