@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { collection, query, where, getDocs, orderBy, doc, updateDoc, increment } from 'firebase/firestore';
-import { db } from '../config/firebase';
-import { useAuth } from '../contexts/AuthContext';
-import Layout from '../components/Layout';
+import { db } from '../../config/firebase';
+import { useAuth } from '../../contexts/AuthContext';
+import Layout from '../../components/Layout';
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 import AddIcon from '@mui/icons-material/Add';
 import RemoveIcon from '@mui/icons-material/Remove';

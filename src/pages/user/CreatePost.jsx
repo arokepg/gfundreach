@@ -2,9 +2,9 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { collection, addDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { db, storage } from '../config/firebase';
-import { useAuth } from '../contexts/AuthContext';
-import Layout from '../components/Layout';
+import { db, storage } from '../../config/firebase';
+import { useAuth } from '../../contexts/AuthContext';
+import Layout from '../../components/Layout';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 
@@ -81,6 +81,7 @@ const CreatePost = () => {
       // Create post document
       await addDoc(collection(db, 'posts'), {
         title: formData.title,
+        titleLower: (formData.title || '').toLowerCase().trim(),
         description: formData.description,
         category: formData.category,
         goalAmount: parseFloat(formData.goalAmount),
@@ -204,58 +205,38 @@ const CreatePost = () => {
             {/* Image Upload */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Campaign Image (Optional)
+                Upload Image
               </label>
-              <div className="border-2 border-dashed border-outline-variant rounded-xl p-8 text-center hover:border-primary transition-colors">
+              <div className="flex items-center gap-4">
                 <input
                   type="file"
                   accept="image/*"
                   onChange={handleImageChange}
                   className="hidden"
-                  id="image-upload"
+                  id="imageUpload"
                 />
-                <label htmlFor="image-upload" className="cursor-pointer">
-                  {imagePreview ? (
-                    <div>
-                      <img
-                        src={imagePreview}
-                        alt="Preview"
-                        className="max-h-64 mx-auto rounded-lg mb-4"
-                      />
-                      <p className="text-primary font-medium">Click to change image</p>
-                    </div>
-                  ) : (
-                    <div>
-                      <CloudUploadIcon sx={{ fontSize: 48 }} className="text-gray-400 mb-2" />
-                      <p className="text-gray-600 mb-2">
-                        Click to upload an image
-                      </p>
-                      <p className="text-sm text-gray-500">
-                        PNG, JPG up to 10MB
-                      </p>
-                    </div>
-                  )}
+                <label
+                  htmlFor="imageUpload"
+                  className="btn-secondary inline-flex items-center gap-2 cursor-pointer"
+                >
+                  <CloudUploadIcon />
+                  Choose File
                 </label>
+                {imagePreview && (
+                  <img
+                    src={imagePreview}
+                    alt="Preview"
+                    className="w-24 h-24 object-cover rounded-lg border"
+                  />
+                )}
               </div>
             </div>
 
-            {/* Submit Button */}
-            <div className="flex gap-4">
-              <button
-                type="submit"
-                disabled={loading}
-                className="btn-primary flex-1"
-              >
-                {loading ? 'Creating...' : 'Create Campaign'}
+            <div className="flex items-center gap-4">
+              <button type="submit" className="btn-primary">
+                {loading ? 'Creating...' : 'Create Post'}
               </button>
-              <button
-                type="button"
-                onClick={() => navigate('/')}
-                className="btn-outline"
-                disabled={loading}
-              >
-                Cancel
-              </button>
+              {error && <span className="text-red-600 text-sm">{error}</span>}
             </div>
           </form>
         </div>

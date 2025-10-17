@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import { collection, query, where, getDocs, orderBy, deleteDoc, doc } from 'firebase/firestore';
-import { db } from '../config/firebase';
-import { useAuth } from '../contexts/AuthContext';
-import { useTheme } from '../contexts/ThemeContext';
+import { db } from '../../config/firebase';
+import { useAuth } from '../../contexts/AuthContext';
+import { useTheme } from '../../contexts/ThemeContext';
 import { Link, useNavigate } from 'react-router-dom';
-import Layout from '../components/Layout';
+import Layout from '../../components/Layout';
 import PersonIcon from '@mui/icons-material/Person';
 import VolunteerActivismIcon from '@mui/icons-material/VolunteerActivism';
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
@@ -26,6 +26,7 @@ const Profile = () => {
     if (currentUser) {
       fetchUserPosts();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser]);
 
   const fetchUserPosts = async () => {
@@ -100,61 +101,63 @@ const Profile = () => {
     <Layout>
       <div className="max-w-6xl mx-auto">
         {/* Profile Header */}
-  <div className="card p-8 mb-8">
-          <div className="flex flex-col md:flex-row items-center gap-6">
+        <div className="card p-4 md:p-8 mb-6 md:mb-8">
+          <div className="flex flex-col md:flex-row items-center gap-4 md:gap-6">
             {/* Profile Picture */}
-            <div className="w-32 h-32 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center flex-shrink-0">
-              {currentUser?.photoURL ? (
+            <div className="w-24 h-24 md:w-32 md:h-32 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center flex-shrink-0">
+              {(userProfile?.photoURL || currentUser?.photoURL) ? (
                 <img
-                  src={currentUser.photoURL}
-                  alt={currentUser.displayName}
-                  className="w-32 h-32 rounded-full object-cover"
+                  src={userProfile?.photoURL || currentUser?.photoURL}
+                  alt={currentUser?.displayName || 'Profile Avatar'}
+                  className="w-24 h-24 md:w-32 md:h-32 rounded-full object-cover"
+                  loading="lazy"
+                  referrerPolicy="no-referrer"
                 />
               ) : (
-                <PersonIcon sx={{ fontSize: 64 }} className="text-green-600 dark:text-green-400" />
+                <PersonIcon sx={{ fontSize: { xs: 48, md: 64 } }} className="text-green-600 dark:text-green-400" />
               )}
             </div>
 
             {/* Profile Info */}
             <div className="flex-1 text-center md:text-left">
-              <h1 className="text-3xl font-bold mb-2" style={{ color: 'var(--text)' }}>
+              <h1 className="text-2xl md:text-3xl font-bold mb-2" style={{ color: 'var(--text)' }}>
                 {currentUser?.displayName || 'Anonymous User'}
               </h1>
-              <p className="text-gray-600 dark:text-gray-400 mb-4">{currentUser?.email}</p>
+              <p className="text-sm md:text-base text-gray-600 dark:text-gray-400 mb-4">{currentUser?.email}</p>
               {userProfile?.bio && (
-                <p className="text-gray-700 dark:text-gray-300 mb-4">{userProfile.bio}</p>
+                <p className="text-sm md:text-base text-gray-700 dark:text-gray-300 mb-4">{userProfile.bio}</p>
               )}
 
               {/* Stats */}
-              <div className="grid grid-cols-3 gap-4 mt-6">
-                <div className="text-center p-4 bg-green-50 dark:bg-green-900/20 rounded-xl">
-                  <p className="text-2xl font-bold text-green-600 dark:text-green-400">
+              <div className="grid grid-cols-3 gap-2 md:gap-4 mt-4 md:mt-6">
+                <div className="text-center p-3 md:p-4 bg-green-50 dark:bg-green-900/20 rounded-xl">
+                  <p className="text-xl md:text-2xl font-bold text-green-600 dark:text-green-400">
                     {userPosts.length}
                   </p>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Campaigns</p>
+                  <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400">Campaigns</p>
                 </div>
-                <div className="text-center p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl">
-                  <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                <div className="text-center p-3 md:p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl">
+                  <p className="text-xl md:text-2xl font-bold text-blue-600 dark:text-blue-400">
                     {formatCurrency(userProfile?.totalDonated || 0)}
                   </p>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Donated</p>
+                  <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400">Donated</p>
                 </div>
-                <div className="text-center p-4 bg-purple-50 dark:bg-purple-900/20 rounded-xl">
-                  <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">
+                <div className="text-center p-3 md:p-4 bg-purple-50 dark:bg-purple-900/20 rounded-xl">
+                  <p className="text-xl md:text-2xl font-bold text-purple-600 dark:text-purple-400">
                     {formatCurrency(userProfile?.totalReceived || 0)}
                   </p>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Received</p>
+                  <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400">Received</p>
                 </div>
               </div>
             </div>
           </div>
 
           {/* Action Buttons */}
-          <div className="mt-6 flex flex-wrap gap-4 justify-center md:justify-start">
+          <div className="mt-4 md:mt-6 flex flex-wrap gap-3 md:gap-4 justify-center md:justify-start">
             {/* Theme Toggle Button */}
             <button
               onClick={toggleTheme}
-              className="flex items-center gap-2 px-6 py-3 rounded-full transition-colors"
+              className="flex items-center gap-2 px-4 md:px-6 py-2 md:py-3 rounded-full transition-all duration-300 active:scale-95"
               style={{ backgroundColor: 'var(--hover-bg)', color: 'var(--text)' }}
               onMouseEnter={(e)=>{ e.currentTarget.style.backgroundColor = 'rgba(103,80,164,0.15)'; }}
               onMouseLeave={(e)=>{ e.currentTarget.style.backgroundColor = 'var(--hover-bg)'; }}
@@ -238,27 +241,27 @@ const Profile = () => {
                 className="card p-6 hover:shadow-lg transition-shadow relative"
               >
                 {/* Management Actions */}
-                <div className="absolute top-4 right-4 flex gap-2">
+                <div className="absolute top-2 right-2 md:top-4 md:right-4 flex gap-1 md:gap-2">
                   <button
                     onClick={(e) => handleViewStats(e, post.id)}
-                    className="p-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors"
+                    className="p-1.5 md:p-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-all duration-300 hover:scale-110 active:scale-95 shadow-md flex items-center justify-center"
                     title="View Statistics"
                   >
-                    <BarChartIcon fontSize="small" />
+                    <BarChartIcon style={{ fontSize: '20px' }} />
                   </button>
                   <button
                     onClick={(e) => handleEditCampaign(e, post.id)}
-                    className="p-2 bg-primary hover:bg-primary-dark text-white rounded-lg transition-colors"
+                    className="p-1.5 md:p-2 bg-[#6750A4] hover:bg-[#4F378B] text-white rounded-lg transition-all duration-300 hover:scale-110 active:scale-95 shadow-md flex items-center justify-center"
                     title="Edit Campaign"
                   >
-                    <EditIcon fontSize="small" />
+                    <EditIcon style={{ fontSize: '20px' }} />
                   </button>
                   <button
                     onClick={(e) => handleDeleteCampaign(e, post.id)}
-                    className="p-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors"
+                    className="p-1.5 md:p-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-all duration-300 hover:scale-110 active:scale-95 shadow-md flex items-center justify-center"
                     title="Delete Campaign"
                   >
-                    <DeleteIcon fontSize="small" />
+                    <DeleteIcon style={{ fontSize: '20px' }} />
                   </button>
                 </div>
 

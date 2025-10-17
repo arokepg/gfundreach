@@ -24,15 +24,15 @@ const Navbar = () => {
   const isActive = (path) => location.pathname === path;
 
   return (
-    <nav className="bg-white shadow-md sticky top-0 z-50">
+    <nav className="bg-white shadow-md sticky top-0 z-50 transition-all duration-300">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-2">
-            <div className="bg-primary rounded-full p-2">
+          <Link to="/" className="flex items-center gap-2 group">
+            <div className="bg-primary rounded-full p-2 transition-all duration-300 group-hover:scale-110 group-hover:rotate-6">
               <VolunteerActivismIcon sx={{ color: 'white', fontSize: 24 }} />
             </div>
-            <span className="text-2xl font-bold text-primary">Gfundreach</span>
+            <span className="text-2xl font-bold text-primary transition-all duration-300 group-hover:tracking-wide">Gfundreach</span>
           </Link>
 
           {/* Navigation Links */}
@@ -68,7 +68,7 @@ const Navbar = () => {
             </Link>
             <button
               onClick={handleLogout}
-              className="text-gray-600 hover:text-error hover:bg-error-50 p-2 rounded-lg transition-colors"
+              className="text-gray-600 hover:text-error hover:bg-error-50 p-2 rounded-lg transition-all duration-300 hover:scale-110 active:scale-95"
               title="Logout"
             >
               <LogoutIcon />
@@ -80,7 +80,7 @@ const Navbar = () => {
         <div className="md:hidden flex justify-around py-2 border-t border-outline-variant">
           <Link
             to="/"
-            className={`flex flex-col items-center ${
+            className={`flex flex-col items-center transition-all duration-300 hover:scale-110 ${
               isActive('/') ? 'text-primary' : 'text-gray-600'
             }`}
           >
@@ -89,7 +89,7 @@ const Navbar = () => {
           </Link>
           <Link
             to="/wallet"
-            className={`flex flex-col items-center ${
+            className={`flex flex-col items-center transition-all duration-300 hover:scale-110 ${
               isActive('/wallet') ? 'text-primary' : 'text-gray-600'
             }`}
           >
@@ -98,7 +98,7 @@ const Navbar = () => {
           </Link>
           <Link
             to="/profile"
-            className={`flex flex-col items-center ${
+            className={`flex flex-col items-center transition-all duration-300 hover:scale-110 ${
               isActive('/profile') ? 'text-primary' : 'text-gray-600'
             }`}
           >

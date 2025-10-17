@@ -1,25 +1,28 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
+import { SearchProvider } from './contexts/SearchContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import ProtectedRoute from './components/ProtectedRoute';
-import Login from './pages/Login';
-import Register from './pages/Register';
-import Home from './pages/Home';
-import CreatePost from './pages/CreatePost';
-import PostDetail from './pages/PostDetail';
-import Profile from './pages/Profile';
-import Wallet from './pages/Wallet';
-import Explore from './pages/Explore';
-import Saved from './pages/Saved';
-import Group from './pages/Group';
-import EditCampaign from './pages/EditCampaign';
-import CampaignStats from './pages/CampaignStats';
+import Login from './pages/user/Login';
+import Register from './pages/user/Register';
+import Home from './pages/user/Home';
+import CreatePost from './pages/user/CreatePost';
+import PostDetail from './pages/user/PostDetail';
+import Profile from './pages/user/Profile';
+import Wallet from './pages/user/Wallet';
+import Explore from './pages/user/Explore';
+import Saved from './pages/user/Saved';
+import Group from './pages/user/Group';
+import EditCampaign from './pages/user/EditCampaign';
+import CampaignStats from './pages/user/CampaignStats';
+import AdminBackfill from './pages/admin/AdminBackfill';
 
 function App() {
   return (
     <Router>
       <ThemeProvider>
         <AuthProvider>
+        <SearchProvider>
         <Routes>
           {/* Public Routes */}
           <Route path="/login" element={<Login />} />
@@ -114,10 +117,19 @@ function App() {
               </ProtectedRoute>
             }
           />
+          <Route
+            path="/admin/backfill"
+            element={
+              <ProtectedRoute>
+                <AdminBackfill />
+              </ProtectedRoute>
+            }
+          />
           
           {/* Fallback */}
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
+        </SearchProvider>
       </AuthProvider>
       </ThemeProvider>
     </Router>

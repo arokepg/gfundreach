@@ -37,6 +37,8 @@ export const AuthProvider = ({ children }) => {
       email,
       displayName,
       photoURL: result.user.photoURL || '',
+      emailLower: (email || '').toLowerCase(),
+      displayNameLower: (displayName || '').toLowerCase(),
       bio: '',
       walletBalance: 0,
       totalDonated: 0,
@@ -65,12 +67,25 @@ export const AuthProvider = ({ children }) => {
         email: result.user.email,
         displayName: result.user.displayName,
         photoURL: result.user.photoURL || '',
+        emailLower: (result.user.email || '').toLowerCase(),
+        displayNameLower: (result.user.displayName || '').toLowerCase(),
         bio: '',
         walletBalance: 0,
         totalDonated: 0,
         totalReceived: 0,
         createdAt: new Date().toISOString(),
       });
+    } else {
+      // Update photoURL if it exists in Google account but not in Firestore
+      const userData = userDoc.data();
+      if (result.user.photoURL && userData.photoURL !== result.user.photoURL) {
+        await setDoc(doc(db, 'users', result.user.uid), {
+          ...userData,
+          photoURL: result.user.photoURL,
+          displayName: result.user.displayName, // Also update display name
+          displayNameLower: (result.user.displayName || '').toLowerCase(),
+        }, { merge: true });
+      }
     }
     
     return result;

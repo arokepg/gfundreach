@@ -4,40 +4,65 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import ChatIcon from '@mui/icons-material/Chat';
 import PersonIcon from '@mui/icons-material/Person';
+import SearchIcon from '@mui/icons-material/Search';
+import SearchSidebar from './SearchSidebar';
+import { useSearch } from '../contexts/SearchContext';
 
 const Layout = ({ children }) => {
-  const { currentUser } = useAuth();
+  const { currentUser, userProfile } = useAuth();
+  const { open } = useSearch();
+  const avatarUrl = userProfile?.photoURL || currentUser?.photoURL || null;
 
   return (
     <div className="min-h-screen transition-colors">
       {/* Sidebar */}
       <Sidebar />
 
-      {/* Main Content - Offset by sidebar (always use collapsed width) */}
-      <div className="pl-20 transition-all">
+      {/* Main Content - Offset by sidebar on desktop, no offset on mobile */}
+      <div className="md:pl-20 transition-all pb-20 md:pb-0">
         {/* Top Header */}
-  <header className="surface border-b border-surface sticky top-0 z-40 h-[73px] flex items-center px-6">
+  <header className="surface border-b border-surface sticky top-0 z-40 h-[73px] flex items-center px-4 md:px-6">
           <div className="flex items-center justify-between max-w-[1400px] mx-auto w-full">
-            {/* Empty space for alignment */}
-            <div></div>
+            {/* Mobile Logo */}
+            <div className="md:hidden">
+              <Link to="/" className="flex items-center gap-2">
+                <span className="text-xl font-bold">
+                  <span className="text-green-600 dark:text-green-500">G</span>
+                  <span className="text-themed">fundreach</span>
+                </span>
+              </Link>
+            </div>
+            
+            {/* Desktop empty space for alignment */}
+            <div className="hidden md:block"></div>
 
             {/* Right Icons */}
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 md:gap-4">
+              <button className="p-2 rounded-full transition-all duration-300 hover:scale-110 active:scale-95" style={{ backgroundColor: 'transparent' }}
+                onClick={open}
+                onMouseEnter={(e)=>{ e.currentTarget.style.backgroundColor = 'var(--hover-bg)'; }}
+                onMouseLeave={(e)=>{ e.currentTarget.style.backgroundColor = 'transparent'; }}
+                aria-label="Open search"
+              >
+                <SearchIcon className="text-gray-700 dark:text-gray-300" />
+              </button>
               <NotificationDropdown />
-              <button className="p-2 rounded-full transition-colors" style={{ backgroundColor: 'transparent' }}
+              <button className="p-2 rounded-full transition-all duration-300 hover:scale-110 active:scale-95" style={{ backgroundColor: 'transparent' }}
                 onMouseEnter={(e)=>{ e.currentTarget.style.backgroundColor = 'var(--hover-bg)'; }}
                 onMouseLeave={(e)=>{ e.currentTarget.style.backgroundColor = 'transparent'; }}>
                 <ChatIcon className="text-gray-700 dark:text-gray-300" />
               </button>
               <Link 
                 to="/profile" 
-                className="w-10 h-10 rounded-full flex items-center justify-center overflow-hidden"
+                className="w-10 h-10 rounded-full flex items-center justify-center overflow-hidden transition-transform duration-300 hover:scale-110 active:scale-95 bg-gray-100 dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700"
               >
-                {currentUser?.photoURL ? (
+                {avatarUrl ? (
                   <img 
-                    src={currentUser.photoURL} 
+                    src={avatarUrl} 
                     alt="Profile" 
-                    className="w-full h-full object-cover" 
+                    className="w-full h-full object-cover"
+                    loading="lazy"
+                    referrerPolicy="no-referrer"
                   />
                 ) : (
                   <PersonIcon className="text-gray-600 dark:text-gray-300" />
@@ -47,8 +72,11 @@ const Layout = ({ children }) => {
           </div>
         </header>
 
+        {/* Search Sidebar */}
+        <SearchSidebar />
+
         {/* Page Content */}
-        <div className="max-w-[1400px] mx-auto px-6 py-6">
+        <div className="max-w-[1400px] mx-auto px-4 md:px-6 py-4 md:py-6">
           {children}
         </div>
       </div>

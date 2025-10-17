@@ -14,6 +14,9 @@
   --hover-bg: #f3f4f6;     /* gray-100 */
   --input-bg: #f3f4f6;     /* gray-100 */
   --muted-text: #6b7280;   /* gray-500 */
+  /* Sidebar sizing for coordinated offsets */
+  --sidebar-width: 5rem;   /* collapsed width (synced by Sidebar hover) */
+  --sidebar-left: 0;       /* 0 on mobile, equals sidebar width on md+ */
 }
 
 html.dark {
@@ -28,6 +31,11 @@ html.dark {
   --hover-bg: #374151;     /* gray-700 */
   --input-bg: #374151;     /* gray-700 */
   --muted-text: #9ca3af;   /* gray-400 */
+}
+
+/* On md and up, offset search sidebar by current sidebar width */
+@media (min-width: 768px) {
+  :root { --sidebar-left: var(--sidebar-width); }
 }
 
 html, body, #root {
@@ -50,6 +58,7 @@ body {
   box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
   border: 1px solid var(--card-border);
   color: var(--text);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* Ensure card adjusts in dark mode even without Tailwind classes */
@@ -74,12 +83,20 @@ html.dark .card {
   padding: 0.75rem 1.5rem;
   border-radius: 9999px;
   font-weight: 500;
-  transition: all 0.2s;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  transform: translateY(0);
 }
 
 .btn-primary:hover {
   background-color: #4F378B;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 12px -2px rgba(103, 80, 164, 0.3);
+}
+
+.btn-primary:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px -1px rgba(0, 0, 0, 0.1);
 }
 
 .btn-secondary {
@@ -88,11 +105,19 @@ html.dark .card {
   padding: 0.75rem 1.5rem;
   border-radius: 9999px;
   font-weight: 500;
-  transition: all 0.2s;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transform: translateY(0);
 }
 
 .btn-secondary:hover {
   background-color: #4A4458;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 10px -2px rgba(98, 91, 113, 0.3);
+}
+
+.btn-secondary:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px -1px rgba(0, 0, 0, 0.1);
 }
 
 .btn-outline {
@@ -101,12 +126,21 @@ html.dark .card {
   padding: 0.75rem 1.5rem;
   border-radius: 9999px;
   font-weight: 500;
-  transition: all 0.2s;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   background-color: transparent;
+  transform: translateY(0);
 }
 
 .btn-outline:hover {
   background-color: #F5F1FF;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px -2px rgba(103, 80, 164, 0.2);
+  border-color: #4F378B;
+}
+
+.btn-outline:active {
+  transform: translateY(0);
+  box-shadow: none;
 }
 
 .input-field {
@@ -117,12 +151,13 @@ html.dark .card {
   color: var(--text);
   border-radius: 0.75rem;
   outline: none;
-  transition: all 0.2s;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .input-field:focus {
   border-color: #6750A4;
-  box-shadow: 0 0 0 2px #EBE3FF;
+  box-shadow: 0 0 0 3px #EBE3FF;
+  transform: translateY(-1px);
 }
 
 .input-field::placeholder {
@@ -133,13 +168,15 @@ html.dark .card {
   color: #374151;
   padding: 0.5rem 1rem;
   border-radius: 0.5rem;
-  transition: all 0.2s;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   text-decoration: none;
+  position: relative;
 }
 
 .nav-link:hover {
   color: #6750A4;
   background-color: #F5F1FF;
+  transform: translateY(-1px);
 }
 
 .nav-link-active {
@@ -148,21 +185,28 @@ html.dark .card {
   padding: 0.5rem 1rem;
   border-radius: 0.5rem;
   font-weight: 500;
+  box-shadow: 0 2px 4px -1px rgba(103, 80, 164, 0.2);
 }
 
 /* Pills for filters */
 .pill {
   background-color: var(--hover-bg);
   color: var(--text);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transform: scale(1);
 }
 
 .pill:hover {
   filter: brightness(0.95);
+  transform: scale(1.05);
+  box-shadow: 0 2px 6px -1px rgba(0, 0, 0, 0.1);
 }
 
 .pill-active {
   background-color: var(--text);
   color: var(--bg);
+  transform: scale(1);
+  box-shadow: 0 2px 6px -1px rgba(0, 0, 0, 0.15);
 }
 
 /* Text utility classes */
@@ -177,4 +221,133 @@ html.dark .card {
 .text-themed-muted {
   color: var(--text-muted);
 }
+
+/* Loading spinner animation */
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+/* Ripple effect for buttons */
+button {
+  position: relative;
+  overflow: hidden;
+}
+
+button:active::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.5);
+  transform: translate(-50%, -50%);
+  animation: ripple 0.6s ease-out;
+}
+
+@keyframes ripple {
+  to {
+    width: 200%;
+    height: 200%;
+    opacity: 0;
+  }
+}
+
+/* Smooth page transitions */
+.page-enter {
+  opacity: 0;
+  transform: translateY(20px);
+}
+
+.page-enter-active {
+  opacity: 1;
+  transform: translateY(0);
+  transition: all 0.3s ease-out;
+}
+
+/* Shimmer loading effect */
+@keyframes shimmer {
+  0% {
+    background-position: -1000px 0;
+  }
+  100% {
+    background-position: 1000px 0;
+  }
+}
+
+.shimmer {
+  animation: shimmer 2s infinite linear;
+  background: linear-gradient(
+    to right,
+    var(--card-bg) 4%,
+    var(--hover-bg) 25%,
+    var(--card-bg) 36%
+  );
+  background-size: 1000px 100%;
+}
+
+/* Mobile optimizations */
+@media (max-width: 768px) {
+  /* Remove hover effects on mobile to prevent sticky hovers */
+  * {
+    -webkit-tap-highlight-color: rgba(103, 80, 164, 0.2);
+  }
+  
+  /* Improve touch targets */
+  button, a {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
+/* Hide scrollbar but keep functionality */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* Safe area support for notched devices */
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* Touch-friendly active states */
+@media (hover: none) {
+  .btn-primary:active {
+    transform: scale(0.98);
+  }
+  
+  .btn-secondary:active {
+    transform: scale(0.98);
+  }
+  
+  .btn-outline:active {
+    transform: scale(0.98);
+  }
+}
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Prevent text selection on interactive elements */
+button, .pill, .nav-link {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
 

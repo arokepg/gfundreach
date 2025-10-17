@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import { collection, query, orderBy, getDocs, limit } from 'firebase/firestore';
-import { db } from '../config/firebase';
-import Layout from '../components/Layout';
-import ExploreSection from '../components/ExploreSection';
-import PostCard from '../components/PostCard';
-import FilterTabs from '../components/FilterTabs';
+import { db } from '../../config/firebase';
+import Layout from '../../components/Layout';
+import ExploreSection from '../../components/ExploreSection';
+import PostCard from '../../components/PostCard';
+import FilterTabs from '../../components/FilterTabs';
 
 const Explore = () => {
   const [posts, setPosts] = useState([]);

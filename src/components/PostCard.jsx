@@ -32,14 +32,14 @@ const PostCard = ({ post }) => {
   };
 
   return (
-  <div className="card overflow-hidden hover:shadow-md transition-shadow">
+  <div className="card overflow-hidden hover:shadow-lg transition-all duration-300 md:hover:-translate-y-1 animate-fade-in">
       {/* Header */}
-      <div className="p-4 flex items-start justify-between">
+      <div className="p-3 md:p-4 flex items-start justify-between">
         <div className="flex items-center space-x-3 flex-1">
           <img
             src={post.authorPhoto || 'https://via.placeholder.com/40'}
             alt={post.authorName}
-            className="w-10 h-10 rounded-full object-cover"
+            className="w-10 h-10 rounded-full object-cover ring-2 ring-primary-100 transition-transform duration-300 hover:scale-110"
           />
           <div className="flex-1 min-w-0">
             <div className="flex items-center space-x-1">
@@ -66,12 +66,12 @@ const PostCard = ({ post }) => {
       </div>
 
       {/* Content */}
-      <Link to={`/post/${post.id}`} className="block px-4 pb-3">
-        <p className="text-themed mb-2 line-clamp-2">
+      <Link to={`/post/${post.id}`} className="block px-3 md:px-4 pb-3">
+        <p className="text-themed mb-2 line-clamp-2 text-sm md:text-base">
           {post.description}
         </p>
         {post.category && (
-          <span className="text-sm text-blue-600 dark:text-blue-400">
+          <span className="text-xs md:text-sm text-blue-600 dark:text-blue-400">
             #{post.category}
           </span>
         )}
@@ -79,60 +79,60 @@ const PostCard = ({ post }) => {
 
       {/* Image */}
       {post.imageUrl && (
-        <Link to={`/post/${post.id}`}>
+        <Link to={`/post/${post.id}`} className="block overflow-hidden">
           <img
             src={post.imageUrl}
             alt={post.title}
-            className="w-full max-h-96 object-cover"
+            className="w-full max-h-64 md:max-h-96 object-cover transition-transform duration-500 hover:scale-105"
           />
         </Link>
       )}
 
       {/* Location */}
       {post.location && (
-        <div className="px-4 py-2 flex items-center space-x-1 text-sm text-themed-secondary">
+        <div className="px-3 md:px-4 py-2 flex items-center space-x-1 text-xs md:text-sm text-themed-secondary">
           <LocationOnIcon className="text-sm" />
           <span>{post.location}</span>
         </div>
       )}
 
       {/* Progress Bar */}
-      <div className="px-4 py-3">
+      <div className="px-3 md:px-4 py-3">
         <div className="relative w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
           <div
-            className="absolute top-0 left-0 h-full bg-green-500 rounded-full transition-all"
+            className="absolute top-0 left-0 h-full bg-green-500 rounded-full transition-all duration-700 ease-out"
             style={{ width: `${Math.min(progress, 100)}%` }}
           />
         </div>
         <div className="flex justify-between items-center mt-2">
-          <span className="text-sm font-semibold text-green-600 dark:text-green-400">
+          <span className="text-xs md:text-sm font-semibold text-green-600 dark:text-green-400">
             ${post.currentAmount?.toLocaleString() || 0}
           </span>
-          <span className="text-sm text-themed-muted">
+          <span className="text-xs md:text-sm text-themed-muted">
             ${post.goalAmount?.toLocaleString() || 0}
           </span>
         </div>
       </div>
 
       {/* Actions */}
-  <div className="px-4 py-3 border-t border-surface flex items-center justify-between">
-        <div className="flex items-center space-x-6">
-          <button className="flex items-center space-x-1 text-themed-secondary hover:text-red-500 dark:hover:text-red-400 transition-colors">
-            <FavoriteIcon className="text-sm" />
-            <span className="text-sm">{post.likes || 100}</span>
+  <div className="px-3 md:px-4 py-3 border-t border-surface flex items-center justify-between">
+        <div className="flex items-center space-x-4 md:space-x-6">
+          <button className="flex items-center space-x-1 text-themed-secondary hover:text-red-500 dark:hover:text-red-400 transition-all duration-300 active:scale-110 md:hover:scale-110 md:active:scale-95">
+            <FavoriteIcon className="text-sm md:text-base" />
+            <span className="text-xs md:text-sm">{post.likes || 100}</span>
           </button>
-          <button className="flex items-center space-x-1 text-themed-secondary hover:text-blue-500 dark:hover:text-blue-400 transition-colors">
-            <ChatBubbleOutlineIcon className="text-sm" />
-            <span className="text-sm">{post.comments || 15}</span>
+          <button className="flex items-center space-x-1 text-themed-secondary hover:text-blue-500 dark:hover:text-blue-400 transition-all duration-300 active:scale-110 md:hover:scale-110 md:active:scale-95">
+            <ChatBubbleOutlineIcon className="text-sm md:text-base" />
+            <span className="text-xs md:text-sm">{post.comments || 15}</span>
           </button>
-          <button className="flex items-center space-x-1 text-themed-secondary hover:text-green-500 dark:hover:text-green-400 transition-colors">
-            <ShareIcon className="text-sm" />
-            <span className="text-sm">{post.shares || 2}</span>
+          <button className="flex items-center space-x-1 text-themed-secondary hover:text-green-500 dark:hover:text-green-400 transition-all duration-300 active:scale-110 md:hover:scale-110 md:active:scale-95">
+            <ShareIcon className="text-sm md:text-base" />
+            <span className="text-xs md:text-sm">{post.shares || 2}</span>
           </button>
         </div>
         <Link
           to={`/post/${post.id}`}
-          className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-full text-sm font-medium transition-colors"
+          className="px-4 md:px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-full text-xs md:text-sm font-medium transition-all duration-300 hover:shadow-lg active:scale-95 md:hover:-translate-y-0.5 md:active:translate-y-0"
         >
           Help Now
         </Link>

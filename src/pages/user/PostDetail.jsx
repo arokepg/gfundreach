@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { doc, getDoc, collection, addDoc, updateDoc, increment, deleteDoc } from 'firebase/firestore';
-import { db } from '../config/firebase';
-import { useAuth } from '../contexts/AuthContext';
-import Layout from '../components/Layout';
+import { db } from '../../config/firebase';
+import { useAuth } from '../../contexts/AuthContext';
+import Layout from '../../components/Layout';
 import PersonIcon from '@mui/icons-material/Person';
 import FavoriteIcon from '@mui/icons-material/Favorite';
 import ShareIcon from '@mui/icons-material/Share';
@@ -225,25 +225,25 @@ const PostDetail = () => {
                 {isOwner && (
                   <div className="flex gap-2">
                     <button
-                      onClick={handleViewStats}
-                      className="p-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors"
+                      onClick={() => navigate(`/campaign-stats/${id}`)}
+                      className="p-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-all duration-300 hover:scale-110 active:scale-95 shadow-md flex items-center justify-center"
                       title="View Statistics"
                     >
-                      <BarChartIcon fontSize="small" />
+                      <BarChartIcon style={{ fontSize: '20px' }} />
                     </button>
                     <button
                       onClick={handleEditCampaign}
-                      className="p-2 bg-primary hover:bg-primary-dark text-white rounded-lg transition-colors"
+                      className="p-2 bg-[#6750A4] hover:bg-[#4F378B] text-white rounded-lg transition-all duration-300 hover:scale-110 active:scale-95 shadow-md flex items-center justify-center"
                       title="Edit Campaign"
                     >
-                      <EditIcon fontSize="small" />
+                      <EditIcon style={{ fontSize: '20px' }} />
                     </button>
                     <button
                       onClick={handleDeleteCampaign}
-                      className="p-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors"
+                      className="p-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-all duration-300 hover:scale-110 active:scale-95 shadow-md flex items-center justify-center"
                       title="Delete Campaign"
                     >
-                      <DeleteIcon fontSize="small" />
+                      <DeleteIcon style={{ fontSize: '20px' }} />
                     </button>
                   </div>
                 )}
