@@ -3,8 +3,10 @@ import { AuthProvider } from './contexts/AuthContext';
 import { SearchProvider } from './contexts/SearchContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import ProtectedRoute from './components/ProtectedRoute';
+import Welcome from './pages/user/Welcome';
 import Login from './pages/user/Login';
 import Register from './pages/user/Register';
+import ForgotPassword from './pages/user/ForgotPassword';
 import Home from './pages/user/Home';
 import CreatePost from './pages/user/CreatePost';
 import PostDetail from './pages/user/PostDetail';
@@ -25,8 +27,10 @@ function App() {
         <SearchProvider>
         <Routes>
           {/* Public Routes */}
+          <Route path="/welcome" element={<Welcome />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
           
           {/* Protected Routes */}
           <Route

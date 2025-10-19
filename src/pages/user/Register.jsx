@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import FacebookIcon from '@mui/icons-material/Facebook';
 import GoogleIcon from '@mui/icons-material/Google';
-import VolunteerActivismIcon from '@mui/icons-material/VolunteerActivism';
+import AppleIcon from '@mui/icons-material/Apple';
 
 const Register = () => {
   const [formData, setFormData] = useState({
@@ -60,123 +62,136 @@ const Register = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-50 to-secondary-50 px-4 py-12">
-      <div className="max-w-md w-full">
-        {/* Logo and Title */}
-        <div className="text-center mb-8">
-          <div className="flex justify-center mb-4">
-            <div className="bg-primary rounded-full p-4">
-              <VolunteerActivismIcon sx={{ fontSize: 48, color: 'white' }} />
-            </div>
-          </div>
-          <h1 className="text-4xl font-bold text-primary mb-2">Gfundreach</h1>
-          <p className="text-gray-600">Join us in making a difference</p>
-        </div>
-
-        {/* Register Card */}
-        <div className="card p-8">
-          <h2 className="text-2xl font-bold text-center mb-6">Create Account</h2>
-
-          {error && (
-            <div className="bg-error-50 border border-error text-error-700 px-4 py-3 rounded-xl mb-4">
-              {error}
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Full Name
-              </label>
-              <input
-                type="text"
-                name="displayName"
-                value={formData.displayName}
-                onChange={handleChange}
-                className="input-field"
-                placeholder="Enter your full name"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Email
-              </label>
-              <input
-                type="email"
-                name="email"
-                value={formData.email}
-                onChange={handleChange}
-                className="input-field"
-                placeholder="Enter your email"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Password
-              </label>
-              <input
-                type="password"
-                name="password"
-                value={formData.password}
-                onChange={handleChange}
-                className="input-field"
-                placeholder="Create a password"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Confirm Password
-              </label>
-              <input
-                type="password"
-                name="confirmPassword"
-                value={formData.confirmPassword}
-                onChange={handleChange}
-                className="input-field"
-                placeholder="Confirm your password"
-                required
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="btn-primary w-full"
-            >
-              {loading ? 'Creating Account...' : 'Sign Up'}
-            </button>
-          </form>
-
-          <div className="relative my-6">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-outline-variant"></div>
-            </div>
-            <div className="relative flex justify-center text-sm">
-              <span className="px-4 bg-white text-gray-500">Or continue with</span>
-            </div>
-          </div>
-
+    <div className="min-h-screen flex items-center justify-center bg-white p-4">
+      <div className="w-full max-w-5xl">
+        <div className="bg-gray-200 rounded-3xl overflow-hidden shadow-xl relative">
+          {/* Back Button - Positioned on the card itself */}
           <button
-            onClick={handleGoogleSignup}
-            disabled={loading}
-            className="w-full flex items-center justify-center gap-3 px-6 py-3 border-2 border-outline rounded-full hover:bg-gray-50 transition-colors"
+            onClick={() => navigate('/welcome')}
+            className="absolute top-6 left-6 w-10 h-10 bg-white rounded-full flex items-center justify-center hover:bg-gray-100 transition-colors shadow-md z-10"
           >
-            <GoogleIcon />
-            <span className="font-medium">Continue with Google</span>
+            <ArrowBackIcon className="text-gray-700" />
           </button>
 
-          <p className="text-center text-gray-600 mt-6">
-            Already have an account?{' '}
-            <Link to="/login" className="text-primary font-medium hover:underline">
-              Log in
-            </Link>
-          </p>
+          <div className="flex flex-col md:flex-row min-h-[600px]">
+            {/* Left Side - Branding */}
+            <div className="md:w-1/2 bg-gray-200 p-8 md:p-12 flex flex-col justify-center items-center relative">
+              <div className="text-center">
+                <div className="flex items-center justify-center mb-4">
+                  <div className="w-12 h-12 bg-green-600 rounded-full flex items-center justify-center">
+                    <span className="text-white text-2xl font-bold">G</span>
+                  </div>
+                  <h1 className="text-4xl font-bold text-gray-800 ml-2">fundreach</h1>
+                </div>
+                <p className="text-gray-800 text-2xl font-bold mt-8">Welcome back! Glad</p>
+                <p className="text-gray-800 text-2xl font-bold">to see you, Again!</p>
+                
+                <div className="mt-8">
+                  <p className="text-gray-600 text-sm mb-4">Or Login with</p>
+                  <div className="flex gap-4 justify-center">
+                    <button 
+                      onClick={() => {/* Facebook login */}}
+                      className="w-16 h-16 bg-white rounded-xl flex items-center justify-center hover:bg-gray-50 transition-colors shadow-sm"
+                    >
+                      <FacebookIcon sx={{ fontSize: 32, color: '#1877F2' }} />
+                    </button>
+                    <button 
+                      onClick={handleGoogleSignup}
+                      disabled={loading}
+                      className="w-16 h-16 bg-white rounded-xl flex items-center justify-center hover:bg-gray-50 transition-colors shadow-sm disabled:opacity-50"
+                    >
+                      <GoogleIcon sx={{ fontSize: 32, color: '#DB4437' }} />
+                    </button>
+                    <button 
+                      onClick={() => {/* Apple login */}}
+                      className="w-16 h-16 bg-white rounded-xl flex items-center justify-center hover:bg-gray-50 transition-colors shadow-sm"
+                    >
+                      <AppleIcon sx={{ fontSize: 32, color: '#000000' }} />
+                    </button>
+                  </div>
+                </div>
+
+                <p className="text-center text-gray-600 mt-6 text-sm">
+                  Already have an account?{' '}
+                  <Link to="/login" className="text-cyan-500 font-medium hover:underline">
+                    Login Now
+                  </Link>
+                </p>
+              </div>
+            </div>
+
+            {/* Vertical Divider */}
+            <div className="hidden md:block w-px bg-gray-800"></div>
+
+            {/* Right Side - Register Form */}
+            <div className="md:w-1/2 bg-gray-200 p-8 md:p-12 flex flex-col justify-center relative">
+              <div className="max-w-md w-full mx-auto mt-8 md:mt-0">
+                {error && (
+                  <div className="bg-red-50 border border-red-300 text-red-700 px-4 py-3 rounded-xl mb-4">
+                    {error}
+                  </div>
+                )}
+
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  <div>
+                    <input
+                      type="text"
+                      name="displayName"
+                      value={formData.displayName}
+                      onChange={handleChange}
+                      className="w-full px-4 py-3 rounded-xl border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-gray-400 text-gray-700 placeholder-gray-400"
+                      placeholder="Username"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <input
+                      type="email"
+                      name="email"
+                      value={formData.email}
+                      onChange={handleChange}
+                      className="w-full px-4 py-3 rounded-xl border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-gray-400 text-gray-700 placeholder-gray-400"
+                      placeholder="Email"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <input
+                      type="password"
+                      name="password"
+                      value={formData.password}
+                      onChange={handleChange}
+                      className="w-full px-4 py-3 rounded-xl border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-gray-400 text-gray-700 placeholder-gray-400"
+                      placeholder="Password"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <input
+                      type="password"
+                      name="confirmPassword"
+                      value={formData.confirmPassword}
+                      onChange={handleChange}
+                      className="w-full px-4 py-3 rounded-xl border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-gray-400 text-gray-700 placeholder-gray-400"
+                      placeholder="Confirm password"
+                      required
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full bg-gray-800 text-white py-3 rounded-xl font-semibold hover:bg-gray-900 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {loading ? 'Creating Account...' : 'Agree and Register'}
+                  </button>
+                </form>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>

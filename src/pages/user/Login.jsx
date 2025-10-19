@@ -1,12 +1,17 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import FacebookIcon from '@mui/icons-material/Facebook';
 import GoogleIcon from '@mui/icons-material/Google';
-import VolunteerActivismIcon from '@mui/icons-material/VolunteerActivism';
+import AppleIcon from '@mui/icons-material/Apple';
+import VisibilityIcon from '@mui/icons-material/Visibility';
+import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 
 const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { login, loginWithGoogle } = useAuth();
@@ -41,91 +46,132 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-50 to-secondary-50 px-4">
-      <div className="max-w-md w-full animate-fade-in">
-        {/* Logo and Title */}
-        <div className="text-center mb-8">
-          <div className="flex justify-center mb-4">
-            <div className="bg-primary rounded-full p-4 animate-bounce-soft">
-              <VolunteerActivismIcon sx={{ fontSize: 48, color: 'white' }} />
-            </div>
-          </div>
-          <h1 className="text-4xl font-bold text-primary mb-2 animate-slide-in">Gfundreach</h1>
-          <p className="text-gray-600 animate-slide-in">Help those in need, one donation at a time</p>
-        </div>
-
-        {/* Login Card */}
-        <div className="card p-8 animate-slide-up">
-          <h2 className="text-2xl font-bold text-center mb-6">Welcome Back</h2>
-          
-          {error && (
-            <div className="bg-error-50 border border-error text-error-700 px-4 py-3 rounded-xl mb-4">
-              {error}
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Email
-              </label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="input-field"
-                placeholder="Enter your email"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Password
-              </label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="input-field"
-                placeholder="Enter your password"
-                required
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="btn-primary w-full"
-            >
-              {loading ? 'Logging in...' : 'Log In'}
-            </button>
-          </form>
-
-          <div className="relative my-6">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-outline-variant"></div>
-            </div>
-            <div className="relative flex justify-center text-sm">
-              <span className="px-4 bg-white text-gray-500">Or continue with</span>
-            </div>
-          </div>
-
+    <div className="min-h-screen flex items-center justify-center bg-white p-4">
+      <div className="w-full max-w-5xl">
+        <div className="bg-gray-200 rounded-3xl overflow-hidden shadow-xl relative">
+          {/* Back Button - Positioned on the card itself */}
           <button
-            onClick={handleGoogleLogin}
-            disabled={loading}
-            className="w-full flex items-center justify-center gap-3 px-6 py-3 border-2 border-outline rounded-full hover:bg-gray-50 transition-all duration-300 hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed"
+            onClick={() => navigate('/welcome')}
+            className="absolute top-6 left-6 w-10 h-10 bg-white rounded-full flex items-center justify-center hover:bg-gray-100 transition-colors shadow-md z-10"
           >
-            <GoogleIcon />
-            <span className="font-medium">Continue with Google</span>
+            <ArrowBackIcon className="text-gray-700" />
           </button>
 
-          <p className="text-center text-gray-600 mt-6">
-            Don't have an account?{' '}
-            <Link to="/register" className="text-primary font-medium hover:underline">
-              Sign up
-            </Link>
-          </p>
+          <div className="flex flex-col md:flex-row min-h-[600px]">
+            {/* Left Side - Branding */}
+            <div className="md:w-1/2 bg-gray-200 p-8 md:p-12 flex flex-col justify-center items-center relative">
+              <div className="text-center">
+                <div className="flex items-center justify-center mb-4">
+                  <div className="w-12 h-12 bg-green-600 rounded-full flex items-center justify-center">
+                    <span className="text-white text-2xl font-bold">G</span>
+                  </div>
+                  <h1 className="text-4xl font-bold text-gray-800 ml-2">fundreach</h1>
+                </div>
+                <p className="text-gray-600 text-lg mt-2">Description/Logo</p>
+              </div>
+            </div>
+
+            {/* Vertical Divider */}
+            <div className="hidden md:block w-px bg-gray-800"></div>
+
+            {/* Right Side - Login Form */}
+            <div className="md:w-1/2 bg-gray-200 p-8 md:p-12 flex flex-col justify-center relative">
+              <div className="max-w-md w-full mx-auto mt-8 md:mt-0">
+                <h2 className="text-3xl font-bold text-gray-800 mb-8">Login</h2>
+
+                {error && (
+                  <div className="bg-red-50 border border-red-300 text-red-700 px-4 py-3 rounded-xl mb-4">
+                    {error}
+                  </div>
+                )}
+
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  <div>
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="w-full px-4 py-3 rounded-xl border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-gray-400 text-gray-700 placeholder-gray-400"
+                      placeholder="Enter your email"
+                      required
+                    />
+                  </div>
+
+                  <div className="relative">
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="w-full px-4 py-3 pr-20 rounded-xl border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-gray-400 text-gray-700 placeholder-gray-400"
+                      placeholder="Enter your password"
+                      required
+                    />
+                    {/* Icon container is vertically centered and offset to avoid Edge's autofill/ellipsis control */}
+                    <div className="absolute inset-y-0 right-6 flex items-center">
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="p-1 text-gray-500 hover:text-gray-700 focus:outline-none"
+                        aria-label={showPassword ? 'Hide password' : 'Show password'}
+                      >
+                        {showPassword ? (
+                          <VisibilityOffIcon fontSize="small" />
+                        ) : (
+                          <VisibilityIcon fontSize="small" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="text-right">
+                    <Link to="/forgot-password" className="text-gray-600 text-sm hover:text-gray-800">
+                      Forgot Password?
+                    </Link>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full bg-gray-800 text-white py-3 rounded-xl font-semibold hover:bg-gray-900 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {loading ? 'Logging in...' : 'Login'}
+                  </button>
+                </form>
+
+                <div className="mt-8">
+                  <p className="text-center text-gray-600 text-sm mb-4">Or Login with</p>
+                  <div className="flex gap-4 justify-center">
+                    <button
+                      onClick={() => {/* Facebook login */}}
+                      className="w-16 h-16 bg-white rounded-xl flex items-center justify-center hover:bg-gray-50 transition-colors shadow-sm"
+                    >
+                      <FacebookIcon sx={{ fontSize: 32, color: '#1877F2' }} />
+                    </button>
+                    <button
+                      onClick={handleGoogleLogin}
+                      disabled={loading}
+                      className="w-16 h-16 bg-white rounded-xl flex items-center justify-center hover:bg-gray-50 transition-colors shadow-sm disabled:opacity-50"
+                    >
+                      <GoogleIcon sx={{ fontSize: 32, color: '#DB4437' }} />
+                    </button>
+                    <button
+                      onClick={() => {/* Apple login */}}
+                      className="w-16 h-16 bg-white rounded-xl flex items-center justify-center hover:bg-gray-50 transition-colors shadow-sm"
+                    >
+                      <AppleIcon sx={{ fontSize: 32, color: '#000000' }} />
+                    </button>
+                  </div>
+                </div>
+
+                <p className="text-center text-gray-600 mt-8">
+                  Don't have an account?{' '}
+                  <Link to="/register" className="text-cyan-500 font-medium hover:underline">
+                    Register Now
+                  </Link>
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
