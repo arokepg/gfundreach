@@ -9,6 +9,7 @@ import Home from './pages/user/Home';
 import CreatePost from './pages/user/CreatePost';
 import PostDetail from './pages/user/PostDetail';
 import Profile from './pages/user/Profile';
+import EditProfile from './pages/user/EditProfile';
 import Wallet from './pages/user/Wallet';
 import Explore from './pages/user/Explore';
 import Saved from './pages/user/Saved';
@@ -90,6 +91,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <Profile />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/edit-profile"
+            element={
+              <ProtectedRoute>
+                <EditProfile />
               </ProtectedRoute>
             }
           />
