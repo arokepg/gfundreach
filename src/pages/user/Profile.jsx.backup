@@ -100,10 +100,6 @@ const Profile = () => {
     navigate(`/campaign-stats/${postId}`);
   };
 
-  const handleEditProfile = () => {
-    navigate('/edit-profile');
-  };
-
   // Calculate user stats
   const helpedCount = userProfile?.helpedPeople || 5;
   const joinDate = userProfile?.createdAt?.toDate ? 
@@ -133,20 +129,11 @@ const Profile = () => {
 
             {/* Profile Name and Title */}
             <div className="flex-1">
-              <div className="flex items-center gap-3">
-                <h1 className="text-3xl font-bold mb-1" style={{ color: 'var(--text)' }}>
-                  {currentUser?.displayName || 'Anonymous User'}
-                </h1>
-                <button
-                  onClick={handleEditProfile}
-                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-all duration-300 hover:scale-110 active:scale-95"
-                  title="Edit Profile"
-                >
-                  <EditIcon className="text-gray-600 dark:text-gray-400" style={{ fontSize: '20px' }} />
-                </button>
-              </div>
+              <h1 className="text-3xl font-bold mb-1" style={{ color: 'var(--text)' }}>
+                {currentUser?.displayName || 'Anonymous User'}
+              </h1>
               <p className="text-lg text-gray-600 dark:text-gray-400">
-                {userProfile?.title || userProfile?.bio || 'username'}
+                {userProfile?.title || userProfile?.bio || 'Bubble Princess'}
               </p>
             </div>
           </div>
@@ -157,74 +144,41 @@ const Profile = () => {
           <div className="flex border-b border-gray-200 dark:border-gray-700">
             <button
               onClick={() => setActiveTab('personal')}
-              className={`px-6 py-3 font-medium transition-all duration-300 relative ${
+              className={`px-6 py-3 font-medium transition-colors relative ${
                 activeTab === 'personal'
-                  ? 'text-green-700 dark:text-green-400'
-                  : ''
+                  ? 'text-[#6750A4] dark:text-[#D0BCFF]'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-300'
               }`}
-              style={{ color: activeTab === 'personal' ? undefined : 'var(--text)' }}
-              onMouseEnter={(e) => {
-                if (activeTab !== 'personal') {
-                  e.currentTarget.style.backgroundColor = 'var(--hover-bg)';
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (activeTab !== 'personal') {
-                  e.currentTarget.style.backgroundColor = 'transparent';
-                }
-              }}
             >
               Personal Info
               {activeTab === 'personal' && (
-                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-green-600 dark:bg-green-500"></div>
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#6750A4] dark:bg-[#D0BCFF]"></div>
               )}
             </button>
             <button
               onClick={() => setActiveTab('posts')}
-              className={`px-6 py-3 font-medium transition-all duration-300 relative ${
+              className={`px-6 py-3 font-medium transition-colors relative ${
                 activeTab === 'posts'
-                  ? 'text-green-700 dark:text-green-400'
-                  : ''
+                  ? 'text-[#6750A4] dark:text-[#D0BCFF]'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-300'
               }`}
-              style={{ color: activeTab === 'posts' ? undefined : 'var(--text)' }}
-              onMouseEnter={(e) => {
-                if (activeTab !== 'posts') {
-                  e.currentTarget.style.backgroundColor = 'var(--hover-bg)';
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (activeTab !== 'posts') {
-                  e.currentTarget.style.backgroundColor = 'transparent';
-                }
-              }}
             >
               Posts
               {activeTab === 'posts' && (
-                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-green-600 dark:bg-green-500"></div>
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#6750A4] dark:bg-[#D0BCFF]"></div>
               )}
             </button>
             <button
               onClick={() => setActiveTab('donations')}
-              className={`px-6 py-3 font-medium transition-all duration-300 relative ${
+              className={`px-6 py-3 font-medium transition-colors relative ${
                 activeTab === 'donations'
-                  ? 'text-green-700 dark:text-green-400'
-                  : ''
+                  ? 'text-[#6750A4] dark:text-[#D0BCFF]'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-300'
               }`}
-              style={{ color: activeTab === 'donations' ? undefined : 'var(--text)' }}
-              onMouseEnter={(e) => {
-                if (activeTab !== 'donations') {
-                  e.currentTarget.style.backgroundColor = 'var(--hover-bg)';
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (activeTab !== 'donations') {
-                  e.currentTarget.style.backgroundColor = 'transparent';
-                }
-              }}
             >
               Donation History
               {activeTab === 'donations' && (
-                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-green-600 dark:bg-green-500"></div>
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#6750A4] dark:bg-[#D0BCFF]"></div>
               )}
             </button>
           </div>
@@ -286,7 +240,7 @@ const Profile = () => {
                     <div>
                       <p className="text-sm text-gray-600 dark:text-gray-400">Age & Gender</p>
                       <p className="font-medium" style={{ color: 'var(--text)' }}>
-                        {userProfile?.age || '20'} • {userProfile?.gender || 'Male'}
+                        {userProfile?.age || '18'} • {userProfile?.gender || 'Female'}
                       </p>
                     </div>
                   </div>
@@ -308,7 +262,7 @@ const Profile = () => {
                     <div>
                       <p className="text-sm text-gray-600 dark:text-gray-400">Email</p>
                       <p className="font-medium" style={{ color: 'var(--text)' }}>
-                        {currentUser?.email || 'youremail@gmail.com'}
+                        {currentUser?.email || 'nglinh070307@gmail.com'}
                       </p>
                     </div>
                   </div>
@@ -330,7 +284,7 @@ const Profile = () => {
                     <div>
                       <p className="text-sm text-gray-600 dark:text-gray-400">About</p>
                       <p className="font-medium" style={{ color: 'var(--text)' }}>
-                        {userProfile?.bio || 'I\'m disabled'}
+                        {userProfile?.bio || 'I want to spread kindness'}
                       </p>
                     </div>
                   </div>
@@ -477,6 +431,192 @@ const Profile = () => {
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      </div>
+    </Layout>
+  );
+};
+
+export default Profile;
+                  <p className="text-xl md:text-2xl font-bold text-green-600 dark:text-green-400">
+                    {userPosts.length}
+                  </p>
+                  <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400">Campaigns</p>
+                </div>
+                <div className="text-center p-3 md:p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl">
+                  <p className="text-xl md:text-2xl font-bold text-blue-600 dark:text-blue-400">
+                    {formatCurrency(userProfile?.totalDonated || 0)}
+                  </p>
+                  <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400">Donated</p>
+                </div>
+                <div className="text-center p-3 md:p-4 bg-purple-50 dark:bg-purple-900/20 rounded-xl">
+                  <p className="text-xl md:text-2xl font-bold text-purple-600 dark:text-purple-400">
+                    {formatCurrency(userProfile?.totalReceived || 0)}
+                  </p>
+                  <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400">Received</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="mt-4 md:mt-6 flex flex-wrap gap-3 md:gap-4 justify-center md:justify-start">
+            {/* Theme Toggle Button */}
+            <button
+              onClick={toggleTheme}
+              className="flex items-center gap-2 px-4 md:px-6 py-2 md:py-3 rounded-full transition-all duration-300 active:scale-95"
+              style={{ backgroundColor: 'var(--hover-bg)', color: 'var(--text)' }}
+              onMouseEnter={(e)=>{ e.currentTarget.style.backgroundColor = 'rgba(103,80,164,0.15)'; }}
+              onMouseLeave={(e)=>{ e.currentTarget.style.backgroundColor = 'var(--hover-bg)'; }}
+            >
+              {isDarkMode ? <LightModeIcon /> : <DarkModeIcon />}
+              <span className="font-medium">
+                {isDarkMode ? 'Light Mode' : 'Dark Mode'}
+              </span>
+            </button>
+
+            {/* Logout Button */}
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-2 px-6 py-3 bg-red-500 hover:bg-red-600 text-white rounded-full transition-colors"
+            >
+              <LogoutIcon />
+              <span className="font-medium">Logout</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Quick Actions */}
+        <div className="grid md:grid-cols-2 gap-4 mb-8">
+          <Link to="/wallet" className="card p-6 hover:shadow-lg transition-shadow">
+            <div className="flex items-center gap-4">
+              <div className="bg-green-50 dark:bg-green-900/20 p-3 rounded-full">
+                <AccountBalanceWalletIcon className="text-green-600 dark:text-green-400" sx={{ fontSize: 32 }} />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-themed">Wallet</h3>
+                <p className="text-2xl font-bold text-green-600 dark:text-green-400">
+                  {formatCurrency(userProfile?.walletBalance || 0)}
+                </p>
+              </div>
+            </div>
+          </Link>
+
+          <Link to="/create-post" className="card p-6 hover:shadow-lg transition-shadow">
+            <div className="flex items-center gap-4">
+              <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-full">
+                <VolunteerActivismIcon className="text-blue-600 dark:text-blue-400" sx={{ fontSize: 32 }} />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-themed">Create Campaign</h3>
+                <p className="text-gray-600 dark:text-gray-400">Start a new fundraiser</p>
+              </div>
+            </div>
+          </Link>
+        </div>
+
+        {/* User's Campaigns */}
+        <div>
+          <h2 className="text-2xl font-bold text-themed mb-6">My Campaigns</h2>
+          
+          {loading && (
+            <div className="space-y-4">
+              {[1, 2].map((i) => (
+                <div key={i} className="card p-6 animate-pulse">
+                  <div className="h-4 bg-gray-200 rounded w-3/4 mb-4"></div>
+                  <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {!loading && userPosts.length === 0 && (
+            <div className="card p-12 text-center">
+              <p className="text-themed-secondary text-lg mb-4">
+                You haven't created any campaigns yet
+              </p>
+              <Link to="/create-post" className="btn-primary inline-block">
+                Create Your First Campaign
+              </Link>
+            </div>
+          )}
+
+          <div className="grid md:grid-cols-2 gap-6">
+            {userPosts.map((post) => (
+              <div
+                key={post.id}
+                className="card p-6 hover:shadow-lg transition-shadow relative"
+              >
+                {/* Management Actions */}
+                <div className="absolute top-2 right-2 md:top-4 md:right-4 flex gap-1 md:gap-2">
+                  <button
+                    onClick={(e) => handleViewStats(e, post.id)}
+                    className="p-1.5 md:p-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-all duration-300 hover:scale-110 active:scale-95 shadow-md flex items-center justify-center"
+                    title="View Statistics"
+                  >
+                    <BarChartIcon style={{ fontSize: '20px' }} />
+                  </button>
+                  <button
+                    onClick={(e) => handleEditCampaign(e, post.id)}
+                    className="p-1.5 md:p-2 bg-[#6750A4] hover:bg-[#4F378B] text-white rounded-lg transition-all duration-300 hover:scale-110 active:scale-95 shadow-md flex items-center justify-center"
+                    title="Edit Campaign"
+                  >
+                    <EditIcon style={{ fontSize: '20px' }} />
+                  </button>
+                  <button
+                    onClick={(e) => handleDeleteCampaign(e, post.id)}
+                    className="p-1.5 md:p-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-all duration-300 hover:scale-110 active:scale-95 shadow-md flex items-center justify-center"
+                    title="Delete Campaign"
+                  >
+                    <DeleteIcon style={{ fontSize: '20px' }} />
+                  </button>
+                </div>
+
+                <Link to={`/post/${post.id}`} className="block">
+                  {post.imageUrl && (
+                    <img
+                      src={post.imageUrl}
+                      alt={post.title}
+                      className="w-full h-48 object-cover rounded-xl mb-4"
+                    />
+                  )}
+                  
+                  <span className="inline-block bg-primary-50 text-primary px-3 py-1 rounded-full text-sm font-medium mb-3">
+                    {post.category}
+                  </span>
+
+                  <h3 className="text-xl font-bold text-themed mb-2">
+                    {post.title}
+                  </h3>
+                  
+                  <p className="text-themed-secondary mb-4 line-clamp-2">
+                    {post.description}
+                  </p>
+
+                  <div className="mb-4">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-xl font-bold text-primary">
+                        {formatCurrency(post.currentAmount || 0)}
+                      </span>
+                      <span className="text-gray-600 text-sm">
+                        of {formatCurrency(post.goalAmount)}
+                      </span>
+                    </div>
+                    <div className="relative w-full h-3 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                      <div 
+                        className="absolute top-0 left-0 h-full bg-green-500 rounded-full transition-all"
+                        style={{ width: `${Math.min(calculateProgress(post.currentAmount || 0, post.goalAmount), 100)}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  <p className="text-sm text-themed-secondary">
+                    {post.supporters || 0} supporters
+                  </p>
+                </Link>
+              </div>
+            ))}
           </div>
         </div>
       </div>
