@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import FavoriteIcon from '@mui/icons-material/Favorite';
 import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutline';
 import ShareIcon from '@mui/icons-material/Share';
@@ -6,6 +6,7 @@ import LocationOnIcon from '@mui/icons-material/LocationOn';
 import VerifiedIcon from '@mui/icons-material/Verified';
 
 const PostCard = ({ post }) => {
+  const navigate = useNavigate();
   const progress = post.goalAmount ? (post.currentAmount / post.goalAmount) * 100 : 0;
   const timeAgo = (timestamp) => {
     if (!timestamp) return 'Just now';
@@ -31,8 +32,26 @@ const PostCard = ({ post }) => {
     }
   };
 
+  const navigateToPost = () => {
+    // Defensive: ensure id exists
+    if (post?.id) {
+      navigate(`/post/${post.id}`);
+    }
+  };
+
   return (
-  <div className="card overflow-hidden hover:shadow-lg transition-all duration-300 md:hover:-translate-y-1 animate-fade-in">
+  <div
+    className="card overflow-hidden hover:shadow-lg transition-all duration-300 md:hover:-translate-y-1 animate-fade-in cursor-pointer"
+    onClick={navigateToPost}
+    role="button"
+    tabIndex={0}
+    onKeyDown={(e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        navigateToPost();
+      }
+    }}
+  >
       {/* Header */}
       <div className="p-3 md:p-4 flex items-start justify-between">
         <div className="flex items-center space-x-3 flex-1">
@@ -46,6 +65,7 @@ const PostCard = ({ post }) => {
               <Link
                 to={`/profile/${post.authorId}`}
                 className="font-semibold text-themed hover:underline"
+                onClick={(e) => e.stopPropagation()}
               >
                 {post.authorName}
               </Link>
@@ -66,7 +86,7 @@ const PostCard = ({ post }) => {
       </div>
 
       {/* Content */}
-      <Link to={`/post/${post.id}`} className="block px-3 md:px-4 pb-3">
+      <Link to={`/post/${post.id}`} className="block px-3 md:px-4 pb-3" onClick={(e) => e.stopPropagation()}>
         <p className="text-themed mb-2 line-clamp-2 text-sm md:text-base">
           {post.description}
         </p>
@@ -79,7 +99,7 @@ const PostCard = ({ post }) => {
 
       {/* Image */}
       {post.imageUrl && (
-        <Link to={`/post/${post.id}`} className="block overflow-hidden">
+        <Link to={`/post/${post.id}`} className="block overflow-hidden" onClick={(e) => e.stopPropagation()}>
           <img
             src={post.imageUrl}
             alt={post.title}
@@ -133,6 +153,7 @@ const PostCard = ({ post }) => {
         <Link
           to={`/post/${post.id}`}
           className="px-4 md:px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-full text-xs md:text-sm font-medium transition-all duration-300 hover:shadow-lg active:scale-95 md:hover:-translate-y-0.5 md:active:translate-y-0"
+          onClick={(e) => e.stopPropagation()}
         >
           Help Now
         </Link>
