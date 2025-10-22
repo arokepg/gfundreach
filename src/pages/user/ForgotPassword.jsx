@@ -29,7 +29,15 @@ const ForgotPassword = () => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-white p-4">
       <div className="w-full max-w-5xl">
-        <div className="bg-gray-200 rounded-3xl overflow-hidden shadow-xl">
+        <div className="bg-gray-200 rounded-3xl overflow-hidden shadow-xl relative">
+          {/* Back Button - positioned on the card container for consistency */}
+          <button
+            onClick={() => navigate('/login')}
+            className="absolute top-6 left-6 w-10 h-10 bg-white rounded-full flex items-center justify-center hover:bg-gray-100 transition-colors shadow-md z-10"
+          >
+            <ArrowBackIcon className="text-gray-700" />
+          </button>
+
           <div className="flex flex-col md:flex-row min-h-[600px]">
             {/* Left Side - Branding */}
             <div className="md:w-1/2 bg-gray-200 p-8 md:p-12 flex flex-col justify-center items-center relative">
@@ -48,14 +56,6 @@ const ForgotPassword = () => {
 
             {/* Right Side - Forgot Password Form */}
             <div className="md:w-1/2 bg-gray-200 p-8 md:p-12 flex flex-col justify-center relative">
-              {/* Back Button */}
-              <button
-                onClick={() => navigate('/login')}
-                className="absolute top-6 left-6 w-10 h-10 bg-white rounded-full flex items-center justify-center hover:bg-gray-100 transition-colors shadow-md"
-              >
-                <ArrowBackIcon className="text-gray-700" />
-              </button>
-
               <div className="max-w-md w-full mx-auto">
                 <h2 className="text-3xl font-bold text-gray-800 mb-4">Forgot Password?</h2>
                 <p className="text-gray-600 mb-8">
