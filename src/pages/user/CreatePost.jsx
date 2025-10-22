@@ -106,26 +106,18 @@ const CreatePost = () => {
 
   return (
     <Layout>
-      <div className="max-w-3xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <button
-            onClick={() => navigate('/')}
-            className="flex items-center gap-2 text-primary hover:underline mb-4"
-          >
-            <ArrowBackIcon fontSize="small" />
-            Back to Home
-          </button>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Create Fundraising Post
-          </h1>
-          <p className="text-gray-600">
-            Share your story and start raising funds
-          </p>
-        </div>
+      <div className="max-w-3xl mx-auto p-6">
+        <button
+          onClick={() => navigate('/')}
+          className="flex items-center gap-2 text-themed-secondary hover:text-themed mb-6 transition-colors"
+        >
+          <ArrowBackIcon />
+          <span>Back to Home</span>
+        </button>
 
-        {/* Form */}
         <div className="card p-8">
+          <h1 className="text-3xl font-bold text-themed mb-6">Create Campaign</h1>
+
           {error && (
             <div className="bg-error-50 border border-error text-error-700 px-4 py-3 rounded-xl mb-6">
               {error}
@@ -135,7 +127,7 @@ const CreatePost = () => {
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Title */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-themed mb-2">
                 Campaign Title *
               </label>
               <input
@@ -144,14 +136,14 @@ const CreatePost = () => {
                 value={formData.title}
                 onChange={handleChange}
                 className="input-field"
-                placeholder="e.g., Help Sarah Fight Cancer"
+                placeholder="Enter campaign title"
                 required
               />
             </div>
 
             {/* Category */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-themed mb-2">
                 Category *
               </label>
               <select
@@ -171,8 +163,8 @@ const CreatePost = () => {
 
             {/* Goal Amount */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Fundraising Goal (USD) *
+              <label className="block text-sm font-medium text-themed mb-2">
+                Goal Amount (USD) *
               </label>
               <input
                 type="number"
@@ -180,7 +172,7 @@ const CreatePost = () => {
                 value={formData.goalAmount}
                 onChange={handleChange}
                 className="input-field"
-                placeholder="e.g., 5000"
+                placeholder="Enter goal amount"
                 min="1"
                 step="0.01"
                 required
@@ -189,22 +181,23 @@ const CreatePost = () => {
 
             {/* Description */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Campaign Description *
+              <label className="block text-sm font-medium text-themed mb-2">
+                Description *
               </label>
               <textarea
                 name="description"
                 value={formData.description}
                 onChange={handleChange}
-                className="input-field min-h-[200px] resize-y"
-                placeholder="Tell your story... What are you raising funds for? Why is it important? How will the funds be used?"
+                className="input-field resize-none"
+                rows="6"
+                placeholder="Tell people about your campaign..."
                 required
               />
             </div>
 
             {/* Image Upload */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-themed mb-2">
                 Upload Image
               </label>
               <div className="flex items-center gap-4">
@@ -232,11 +225,21 @@ const CreatePost = () => {
               </div>
             </div>
 
-            <div className="flex items-center gap-4">
-              <button type="submit" className="btn-primary">
-                {loading ? 'Creating...' : 'Create Post'}
+            <div className="flex gap-4">
+              <button
+                type="submit"
+                disabled={loading}
+                className="btn-primary flex-1"
+              >
+                {loading ? 'Creating...' : 'Create Campaign'}
               </button>
-              {error && <span className="text-red-600 text-sm">{error}</span>}
+              <button
+                type="button"
+                onClick={() => navigate('/')}
+                className="btn-secondary flex-1"
+              >
+                Cancel
+              </button>
             </div>
           </form>
         </div>

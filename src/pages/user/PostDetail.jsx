@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { doc, getDoc, collection, addDoc, updateDoc, increment, deleteDoc } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import { useAuth } from '../../contexts/AuthContext';
@@ -26,17 +26,24 @@ const PostDetail = () => {
 
   useEffect(() => {
     fetchPost();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   const fetchPost = async () => {
     try {
+      console.log('Fetching post with id:', id);
       const postDoc = await getDoc(doc(db, 'posts', id));
+      console.log('Post exists:', postDoc.exists());
       if (postDoc.exists()) {
-        setPost({ id: postDoc.id, ...postDoc.data() });
+        const postData = { id: postDoc.id, ...postDoc.data() };
+        console.log('Post data:', postData);
+        setPost(postData);
       } else {
+        console.log('Post not found');
         setError('Post not found');
       }
     } catch (err) {
+      console.error('Error fetching post:', err);
       setError('Failed to fetch post: ' + err.message);
     } finally {
       setLoading(false);
@@ -168,12 +175,12 @@ const PostDetail = () => {
     );
   }
 
-  if (error && !post) {
+  if (!post || error) {
     return (
       <Layout>
         <div className="max-w-4xl mx-auto px-4 py-8">
           <div className="card p-8 text-center">
-            <p className="text-error text-lg">{error}</p>
+            <p className="text-error text-lg">{error || 'Post not found'}</p>
             <button onClick={() => navigate('/')} className="btn-primary mt-4">
               Back to Home
             </button>
@@ -202,7 +209,10 @@ const PostDetail = () => {
               {/* Author Info */}
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-primary-100 rounded-full flex items-center justify-center">
+                  <Link 
+                    to={`/profile/${post.authorId}`}
+                    className="w-12 h-12 bg-primary-100 rounded-full flex items-center justify-center hover:opacity-80 transition-opacity"
+                  >
                     {post.authorPhoto ? (
                       <img
                         src={post.authorPhoto}
@@ -212,9 +222,14 @@ const PostDetail = () => {
                     ) : (
                       <PersonIcon className="text-primary" />
                     )}
-                  </div>
+                  </Link>
                   <div>
-                    <p className="font-medium text-themed">{post.authorName}</p>
+                    <Link 
+                      to={`/profile/${post.authorId}`}
+                      className="font-medium text-themed hover:underline"
+                    >
+                      {post.authorName}
+                    </Link>
                     <p className="text-sm text-themed-muted">
                       {new Date(post.createdAt).toLocaleDateString()}
                     </p>

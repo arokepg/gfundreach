@@ -79,17 +79,6 @@ const Home = () => {
           <RightSidebar />
         </div>
       </div>
-
-      {/* Floating Action Button for Mobile */}
-      <Link
-        to="/create-post"
-        className="md:hidden fixed bottom-20 right-4 w-14 h-14 bg-[#6750A4] hover:bg-[#4F378B] text-white rounded-full shadow-lg flex items-center justify-center transition-all duration-300 active:scale-95 z-40"
-        style={{ boxShadow: '0 4px 12px rgba(103, 80, 164, 0.4)' }}
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-        </svg>
-      </Link>
     </Layout>
   );
 };
