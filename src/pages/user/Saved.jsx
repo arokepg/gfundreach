@@ -27,11 +27,16 @@ const Saved = () => {
   useEffect(() => {
     if (currentUser) {
       loadData();
+    } else {
+      setLoading(false);
+      console.log('⚠️ No current user, skipping load');
     }
-  }, [currentUser]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUser, selectedCollection]); // Added selectedCollection as dependency
 
   const loadData = async () => {
     setLoading(true);
+    console.log('🔄 Loading saved items for user:', currentUser?.uid);
     try {
       const [items, cols] = await Promise.all([
         getSavedItems(currentUser.uid, selectedCollection),
@@ -39,10 +44,12 @@ const Saved = () => {
       ]);
       setSavedItems(items);
       setCollections(cols);
+      console.log(`✅ Loaded ${items.length} saved items and ${cols.length} collections`);
     } catch (error) {
-      console.error('Error loading saved data:', error);
+      console.error('❌ Error loading saved data:', error);
     } finally {
       setLoading(false);
+      console.log('✅ Saved items loading complete');
     }
   };
 
@@ -117,14 +124,7 @@ const Saved = () => {
     });
   };
 
-  const handleShowAll = () => {
-    setSelectedCollection(null);
-    setLoading(true);
-    getSavedItems(currentUser.uid).then((items) => {
-      setSavedItems(items);
-      setLoading(false);
-    });
-  };
+  // Removed unused handleShowAll to satisfy linter
 
   return (
     <Layout>
@@ -132,13 +132,13 @@ const Saved = () => {
         <div className="flex flex-col lg:flex-row gap-6">
           {/* Main Content */}
           <div className="flex-1 lg:order-1">
-            <div className="mb-6">
-              <h1 className="text-2xl font-bold text-themed mb-2">
+            <div className="mb-6 flex items-end justify-between gap-4">
+              <h1 className="text-2xl font-bold text-themed">
                 {selectedCollection
                   ? collections.find((c) => c.id === selectedCollection)?.name
                   : 'All saved items'}
               </h1>
-              <p className="text-sm text-themed-muted">
+              <p className="text-sm text-themed-muted whitespace-nowrap">
                 {savedItems.length} {savedItems.length === 1 ? 'item' : 'items'}
               </p>
             </div>
@@ -163,86 +163,81 @@ const Saved = () => {
                 </Link>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="space-y-4">
                 {savedItems.map((item) => (
-                  <div key={item.id} className="card overflow-hidden group relative">
-                    {/* Image */}
-                    <Link 
-                      to={
-                        item.itemType === 'post' && item.campaignId
-                          ? `/community-post/${item.campaignId}/${item.itemId}`
-                          : `/post/${item.itemId}`
-                      } 
-                      className="block"
-                    >
-                      <div className="relative aspect-video overflow-hidden" style={{ backgroundColor: 'var(--card-bg)' }}>
-                        {item.imageUrl ? (
-                          <img
-                            src={item.imageUrl}
-                            alt={item.title}
-                            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                          />
-                        ) : (
-                          <div className="flex items-center justify-center h-full" style={{ backgroundColor: 'var(--hover-bg)' }}>
-                            <BookmarkIcon sx={{ fontSize: 48 }} className="text-gray-400" />
-                          </div>
-                        )}
-                        
-                        {/* Type Badge */}
-                        <div className="absolute top-2 right-2">
-                          <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                            item.itemType === 'campaign' 
-                              ? 'bg-green-600 text-white' 
-                              : 'bg-blue-600 text-white'
-                          }`}>
-                            {item.itemType === 'campaign' ? 'Campaign' : 'Post'}
-                          </span>
-                        </div>
-                      </div>
-                    </Link>
-
-                    {/* Content */}
-                    <div className="p-4">
-                      <Link 
+                  <div key={item.id} className="card overflow-hidden group relative p-0">
+                    <div className="flex flex-col sm:flex-row">
+                      {/* Thumbnail */}
+                      <Link
                         to={
                           item.itemType === 'post' && item.campaignId
                             ? `/community-post/${item.campaignId}/${item.itemId}`
                             : `/post/${item.itemId}`
                         }
+                        className="sm:w-56 h-40 sm:h-36 block flex-shrink-0"
                       >
-                        <h3 className="font-semibold text-themed mb-2 line-clamp-2 hover:text-green-600 dark:hover:text-green-400 transition-colors">
-                          {item.title}
-                        </h3>
+                        <div className="w-full h-full overflow-hidden" style={{ backgroundColor: 'var(--card-bg)' }}>
+                          {item.imageUrl ? (
+                            <img
+                              src={item.imageUrl}
+                              alt={item.title}
+                              className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: 'var(--hover-bg)' }}>
+                              <BookmarkIcon sx={{ fontSize: 36 }} className="text-gray-400" />
+                            </div>
+                          )}
+                        </div>
                       </Link>
-                      <p className="text-sm text-themed-muted mb-2 line-clamp-2">
-                        {item.description}
-                      </p>
-                      <div className="flex items-center gap-2 text-xs text-themed-muted mb-3">
-                        <span>Saved from {item.authorName}</span>
-                      </div>
-
-                      {/* Actions */}
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => {
-                            setSelectedItem(item);
-                            setShowAddToCollectionModal(true);
-                          }}
-                          className="flex-1 px-3 py-2 text-themed rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-1"
-                          style={{ backgroundColor: 'var(--hover-bg)' }}
-                          onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--input-bg)'; }}
-                          onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'var(--hover-bg)'; }}
-                        >
-                          <FolderIcon fontSize="small" />
-                          Add to collection
-                        </button>
-                        <button
-                          onClick={() => handleUnsaveItem(item.id)}
-                          className="p-2 hover:bg-red-100 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                          title="Remove from saved"
-                        >
-                          <DeleteIcon fontSize="small" className="text-red-600" />
-                        </button>
+                      {/* Info + Actions */}
+                      <div className="flex-1 p-4 flex items-start justify-between gap-4">
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <Link
+                              to={
+                                item.itemType === 'post' && item.campaignId
+                                  ? `/community-post/${item.campaignId}/${item.itemId}`
+                                  : `/post/${item.itemId}`
+                              }
+                            >
+                              <h3 className="font-semibold text-themed text-base sm:text-lg truncate hover:text-green-600 dark:hover:text-green-400 transition-colors">
+                                {item.title}
+                              </h3>
+                            </Link>
+                            <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${
+                              item.itemType === 'campaign' ? 'bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400' : 'bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300'
+                            }`}>
+                              {item.itemType === 'campaign' ? 'Campaign' : 'Post'}
+                            </span>
+                          </div>
+                          {item.description && (
+                            <p className="text-sm text-themed-muted line-clamp-2 mb-2">{item.description}</p>
+                          )}
+                          <div className="text-xs text-themed-muted">Saved from {item.authorName}</div>
+                        </div>
+                        <div className="flex-shrink-0 flex items-center gap-2">
+                          <button
+                            onClick={() => {
+                              setSelectedItem(item);
+                              setShowAddToCollectionModal(true);
+                            }}
+                            className="px-3 py-2 text-themed rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-1"
+                            style={{ backgroundColor: 'var(--hover-bg)' }}
+                            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--input-bg)'; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'var(--hover-bg)'; }}
+                          >
+                            <FolderIcon fontSize="small" />
+                            Add to collection
+                          </button>
+                          <button
+                            onClick={() => handleUnsaveItem(item.id)}
+                            className="p-2 hover:bg-red-100 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                            title="Remove from saved"
+                          >
+                            <DeleteIcon fontSize="small" className="text-red-600" />
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>

@@ -72,6 +72,7 @@ export const isItemSaved = async (userId, itemId) => {
  */
 export const getSavedItems = async (userId, collectionId = null) => {
   try {
+    console.log(`🔍 Fetching saved items for user: ${userId}, collection: ${collectionId || 'all'}`);
     let q;
     if (collectionId) {
       q = query(
@@ -92,9 +93,10 @@ export const getSavedItems = async (userId, collectionId = null) => {
       ...doc.data()
     }));
 
+    console.log(`✅ Found ${items.length} saved items`);
     return items;
   } catch (error) {
-    console.error('Error getting saved items:', error);
+    console.error('❌ Error getting saved items:', error);
     return [];
   }
 };
@@ -128,6 +130,7 @@ export const createCollection = async (userId, name, description = '') => {
  */
 export const getUserCollections = async (userId) => {
   try {
+    console.log(`🔍 Fetching collections for user: ${userId}`);
     const q = query(
       collection(db, 'collections'),
       where('userId', '==', userId)
@@ -139,9 +142,10 @@ export const getUserCollections = async (userId) => {
       ...doc.data()
     }));
 
+    console.log(`✅ Found ${collections.length} collections`);
     return collections;
   } catch (error) {
-    console.error('Error getting collections:', error);
+    console.error('❌ Error getting collections:', error);
     return [];
   }
 };

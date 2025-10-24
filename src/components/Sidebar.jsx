@@ -11,17 +11,19 @@ import AddCircleIcon from '@mui/icons-material/AddCircle';
 import PersonIcon from '@mui/icons-material/Person';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
+// no pin UI in hover-only mode
 
 const Sidebar = () => {
   const [isHovered, setIsHovered] = useState(false);
-  // Pin state disabled for hover-only auto-collapse behavior
-  const [isPinned, setIsPinned] = useState(false);
+  // Click-sticky prevents collapse flicker during navigation
+  const [isClickSticky, setIsClickSticky] = useState(false);
   const [hoverTimer, setHoverTimer] = useState(null);
+  const [clickTimer, setClickTimer] = useState(null);
   const location = useLocation();
   const { open } = useSearch();
   const { currentUser, userProfile } = useAuth();
   const { isDarkMode } = useTheme();
-  const expanded = isHovered;
+  const expanded = isHovered || isClickSticky;
 
   const menuItems = [
     { icon: <HomeIcon />, label: 'Home', path: '/' },
@@ -69,6 +71,9 @@ const Sidebar = () => {
       clearTimeout(hoverTimer);
       setHoverTimer(null);
     }
+    // Don't collapse if click-sticky is active
+    if (isClickSticky) return;
+    
     // Auto-collapse when not detecting hover
     setIsHovered(false);
     if (typeof document !== 'undefined') {
@@ -76,14 +81,38 @@ const Sidebar = () => {
     }
   };
 
-  const handleItemClick = () => {
-    // Keep expanded while interacting; rely on hover to maintain state
+  // On mousedown before navigation, make it sticky briefly to avoid collapse flicker
+  const handleItemMouseDown = () => {
+    if (clickTimer) clearTimeout(clickTimer);
+    setIsClickSticky(true);
     setIsHovered(true);
+    if (typeof document !== 'undefined') {
+      document.documentElement.style.setProperty('--sidebar-width', '16rem');
+    }
+    const t = setTimeout(() => {
+      setIsClickSticky(false);
+      if (!isHovered && typeof document !== 'undefined') {
+        document.documentElement.style.setProperty('--sidebar-width', '5rem');
+      }
+    }, 1200);
+    setClickTimer(t);
+  };
+
+  // Optionally extend stickiness a bit on click
+  const handleItemClick = () => {
+    if (clickTimer) clearTimeout(clickTimer);
+    const t = setTimeout(() => {
+      setIsClickSticky(false);
+      if (!isHovered && typeof document !== 'undefined') {
+        document.documentElement.style.setProperty('--sidebar-width', '5rem');
+      }
+    }, 1500);
+    setClickTimer(t);
   };
 
   const handleOutsideClick = () => {
     // Collapse when clicking outside
-    setIsPinned(false);
+    setIsClickSticky(false);
     setIsHovered(false);
   };
 
@@ -91,7 +120,9 @@ const Sidebar = () => {
   useEffect(() => {
     const handleClickOutside = (event) => {
       const sidebar = document.querySelector('[data-sidebar]');
-      if ((isHovered || isPinned) && sidebar && !sidebar.contains(event.target)) {
+      if ((isHovered || isClickSticky) && sidebar && !sidebar.contains(event.target)) {
+        // If click-sticky active, ignore outside clicks
+        if (isClickSticky) return;
         handleOutsideClick();
       }
     };
@@ -105,11 +136,10 @@ const Sidebar = () => {
   // Cleanup timer on unmount
   useEffect(() => {
     return () => {
-      if (hoverTimer) {
-        clearTimeout(hoverTimer);
-      }
+      if (hoverTimer) clearTimeout(hoverTimer);
+      if (clickTimer) clearTimeout(clickTimer);
     };
-  }, [hoverTimer]);
+  }, [hoverTimer, clickTimer]);
 
   return (
     <>
@@ -124,7 +154,7 @@ const Sidebar = () => {
         style={{}}
       >
       {/* Header */}
-  <div className="flex items-center justify-center h-[73px] border-b border-surface">
+      <div className="flex items-center justify-center h-[73px] border-b border-surface">
         <Link to="/" className="flex items-center space-x-2">
           {expanded ? (
             <span className="text-2xl font-bold whitespace-nowrap">
@@ -141,6 +171,7 @@ const Sidebar = () => {
       <div className="p-4">
         <Link
           to="/create-post"
+          onMouseDown={handleItemMouseDown}
           onClick={handleItemClick}
           className={`flex items-center ${expanded ? 'space-x-3 justify-start' : 'justify-center'} px-4 py-3 rounded-full transition-all duration-300 hover:scale-105 active:scale-95 shadow-md hover:shadow-lg font-medium`}
           style={{
@@ -178,6 +209,7 @@ const Sidebar = () => {
                   : ''
               }`}
               title={!expanded ? item.label : ''}
+              onMouseDown={handleItemMouseDown}
               onClick={(e)=>{ 
                 if(item.label === 'Search'){ 
                   e.preventDefault(); 
@@ -205,6 +237,8 @@ const Sidebar = () => {
       <div className="p-4 border-t border-surface">
         <Link
           to="/profile"
+          onMouseDown={handleItemMouseDown}
+          onClick={handleItemClick}
           className={
             expanded
               ? 'block rounded-2xl p-4 transition-all duration-300 hover:shadow-lg hover:scale-[1.02] active:scale-95 border shadow-sm'
@@ -219,7 +253,6 @@ const Sidebar = () => {
               : {}
           }
           title={!expanded ? 'Profile' : ''}
-          onClick={handleItemClick}
         >
           {/* Profile Header */}
           <div className={`flex items-center ${expanded ? 'gap-3 mb-3' : 'justify-center'}`}>

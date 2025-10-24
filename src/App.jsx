@@ -3,6 +3,7 @@ import { AuthProvider } from './contexts/AuthContext';
 import { SearchProvider } from './contexts/SearchContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import ProtectedRoute from './components/ProtectedRoute';
+import ErrorBoundary from './components/ErrorBoundary';
 import Welcome from './pages/user/Welcome';
 import Login from './pages/user/Login';
 import Register from './pages/user/Register';
@@ -17,6 +18,7 @@ import Wallet from './pages/user/Wallet';
 import Explore from './pages/user/Explore';
 import Saved from './pages/user/Saved';
 import Group from './pages/user/Group';
+import GroupDetail from './pages/user/GroupDetail';
 import EditCampaign from './pages/user/EditCampaign';
 import CampaignStats from './pages/user/CampaignStats';
 import AdminBackfill from './pages/admin/AdminBackfill';
@@ -26,8 +28,9 @@ function App() {
     <Router>
       <ThemeProvider>
         <AuthProvider>
-        <SearchProvider>
-        <Routes>
+  <SearchProvider>
+  <ErrorBoundary>
+  <Routes>
           {/* Public Routes */}
           <Route path="/welcome" element={<Welcome />} />
           <Route path="/login" element={<Login />} />
@@ -72,6 +75,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <Group />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/group/:id"
+            element={
+              <ProtectedRoute>
+                <GroupDetail />
               </ProtectedRoute>
             }
           />
@@ -158,7 +169,8 @@ function App() {
           
           {/* Fallback */}
           <Route path="*" element={<Navigate to="/" />} />
-        </Routes>
+  </Routes>
+  </ErrorBoundary>
         </SearchProvider>
       </AuthProvider>
       </ThemeProvider>

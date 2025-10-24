@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { collection, query, where, orderBy, onSnapshot, doc, updateDoc, deleteDoc, limit } from 'firebase/firestore';
+import { collection, query, where, orderBy, onSnapshot, doc, updateDoc, deleteDoc, limit, getDocs } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { formatNotificationMessage, getTimeAgo } from '../utils/notifications';
@@ -17,10 +17,11 @@ const NotificationDropdown = () => {
   
   const dropdownRef = useRef(null);
 
-  // Fetch notifications from Firestore
+  // Fetch notifications lazily (subscribe only when dropdown is open)
   useEffect(() => {
-    if (!currentUser?.uid) return;
+    if (!currentUser?.uid || !isOpen) return;
 
+    let unsub = () => {};
     const q = query(
       collection(db, 'notifications'),
       where('recipientId', '==', currentUser.uid),
@@ -28,18 +29,38 @@ const NotificationDropdown = () => {
       limit(20)
     );
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const notifs = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      setNotifications(notifs);
-    }, (error) => {
-      console.warn('Error fetching notifications:', error);
-    });
+    try {
+      // Prefer realtime when index is available and SDK is stable
+      unsub = onSnapshot(q, (snapshot) => {
+        const notifs = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+        setNotifications(notifs);
+      }, async (error) => {
+        console.warn('Realtime notifications failed, falling back to one-time fetch:', error);
+        try {
+          const snap = await getDocs(q);
+          const notifs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+          setNotifications(notifs);
+        } catch (err) {
+          console.warn('Fallback one-time notifications fetch also failed:', err);
+        }
+      });
+    } catch (e) {
+      console.warn('Subscription setup failed, using one-time fetch', e);
+      (async () => {
+        try {
+          const snap = await getDocs(q);
+          const notifs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+          setNotifications(notifs);
+        } catch (err) {
+          console.warn('One-time notifications fetch failed:', err);
+        }
+      })();
+    }
 
-    return () => unsubscribe();
-  }, [currentUser]);
+    return () => {
+      try { unsub(); } catch { /* noop */ }
+    };
+  }, [currentUser, isOpen]);
 
   // Close dropdown when clicking outside
   useEffect(() => {

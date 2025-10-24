@@ -1,27 +1,228 @@
-import { Link } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import Layout from '../../components/Layout';
 import GroupIcon from '@mui/icons-material/Group';
-import HomeIcon from '@mui/icons-material/Home';
+import AddIcon from '@mui/icons-material/Add';
+import CloseIcon from '@mui/icons-material/Close';
+import SearchIcon from '@mui/icons-material/Search';
+import ImageIcon from '@mui/icons-material/Image';
+import { useAuth } from '../../contexts/AuthContext';
+import { createGroup, listGroups, getMember } from '../../utils/groups';
 
 const Group = () => {
+  const { currentUser } = useAuth();
+  const navigate = useNavigate();
+  const [groups, setGroups] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showCreate, setShowCreate] = useState(false);
+  const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
+  const [bannerFile, setBannerFile] = useState(null);
+  const [bannerPreview, setBannerPreview] = useState(null);
+  const [creating, setCreating] = useState(false);
+  const [q, setQ] = useState('');
+  const [roles, setRoles] = useState({}); // { [groupId]: 'admin'|'moderator'|'member' }
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const list = await listGroups();
+        setGroups(list);
+        // Fetch current user's role in each group
+        if (currentUser && list.length) {
+          const pairs = await Promise.all(
+            list.map(async (g) => {
+              try {
+                const m = await getMember(g.id, currentUser.uid);
+                return [g.id, m?.role || null];
+              } catch {
+                return [g.id, null];
+              }
+            })
+          );
+          const map = Object.fromEntries(pairs);
+          setRoles(map);
+        }
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [currentUser]);
+
+  const filtered = useMemo(() => {
+    if (!q.trim()) return groups;
+    const s = q.toLowerCase();
+    return groups.filter(g => (g.name || '').toLowerCase().includes(s));
+  }, [groups, q]);
+
+  const onBannerChange = (e) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    setBannerFile(f);
+    const reader = new FileReader();
+    reader.onloadend = () => setBannerPreview(reader.result);
+    reader.readAsDataURL(f);
+  };
+
+  const handleCreate = async (e) => {
+    e.preventDefault();
+    if (!currentUser) return alert('Please log in to create a group');
+    if (!name.trim()) return;
+    setCreating(true);
+    try {
+      const id = await createGroup(currentUser.uid, { name: name.trim(), description, bannerFile });
+      setShowCreate(false);
+      setName('');
+      setDescription('');
+      setBannerFile(null);
+      setBannerPreview(null);
+      navigate(`/group/${id}`);
+    } catch (err) {
+      alert('Failed to create group: ' + err.message);
+    } finally {
+      setCreating(false);
+    }
+  };
+
   return (
     <Layout>
-      <div className="flex items-center justify-center py-20">
-        <div className="text-center">
-          <div className="mb-6">
-            <GroupIcon sx={{ fontSize: 80, color: '#6750A4' }} />
+      <div className="max-w-6xl mx-auto p-4 flex gap-6">
+        {/* Actions sidebar (move to right on large screens) */}
+        <div className="w-64 flex-shrink-0 lg:order-2">
+          <div className="card p-4">
+            <button
+              onClick={() => setShowCreate(true)}
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-full bg-green-600 hover:bg-green-700 text-white transition-colors"
+            >
+              <AddIcon /> Create group
+            </button>
           </div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">Groups</h1>
-          <p className="text-gray-600 dark:text-gray-400 mb-6">This feature is coming soon!</p>
-          <Link
-            to="/"
-            className="inline-flex items-center gap-2 bg-primary text-white px-6 py-3 rounded-full hover:bg-primary-dark transition-colors"
-          >
-            <HomeIcon />
-            Back to Home
-          </Link>
+          <div className="card p-4 mt-4">
+            <div className="flex items-center gap-2 text-themed">
+              <GroupIcon />
+              <span className="font-semibold">Your groups</span>
+            </div>
+            <div className="mt-3 space-y-2">
+              {groups.slice(0, 5).map(g => (
+                <Link key={g.id} to={`/group/${g.id}`} className="block px-3 py-2 rounded-lg hover:bg-[var(--hover-bg)]">
+                  <span className="font-medium text-themed">{g.name}</span>
+                </Link>
+              ))}
+            </div>
+          </div>
+        </div>
+
+  {/* Main list */}
+  <div className="flex-1 lg:order-1">
+          <div className="flex items-center justify-between mb-4">
+            <h1 className="text-2xl font-bold text-themed">Discover groups</h1>
+            <div className="flex items-center gap-2 p-2 rounded-lg" style={{ backgroundColor: 'var(--hover-bg)' }}>
+              <SearchIcon className="text-themed-secondary" />
+              <input
+                value={q}
+                onChange={(e)=> setQ(e.target.value)}
+                placeholder="Search groups"
+                className="bg-transparent outline-none text-themed"
+              />
+            </div>
+          </div>
+
+          {loading ? (
+            <div className="card p-6 text-themed-muted">Loading...</div>
+          ) : filtered.length === 0 ? (
+            <div className="card p-6 text-themed-muted">No groups yet</div>
+          ) : (
+            <div className="grid grid-cols-1 gap-4">
+              {filtered.map(g => {
+                const role = roles[g.id];
+                const rolePill = role === 'admin'
+                  ? 'bg-purple-100 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300'
+                  : role === 'moderator'
+                  ? 'bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300'
+                  : role === 'member'
+                  ? 'bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400'
+                  : 'hidden';
+                return (
+                  <div key={g.id} className="card overflow-hidden p-0">
+                    {/* Banner on top */}
+                    <div className="w-full h-40" style={{ backgroundColor: 'var(--card-bg)' }}>
+                      {g.bannerUrl ? (
+                        <img src={g.bannerUrl} alt={g.name} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-themed-secondary">No banner</div>
+                      )}
+                    </div>
+                    {/* Info below */}
+                    <div className="p-4 flex items-center justify-between gap-4 flex-wrap">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-semibold text-themed text-lg truncate">{g.name}</h3>
+                          <span className={`px-2 py-1 text-xs font-medium rounded-full ${rolePill}`}>{role ? role.charAt(0).toUpperCase()+role.slice(1) : ''}</span>
+                        </div>
+                        {g.description && (
+                          <p className="text-sm text-themed-muted mt-1 line-clamp-2">{g.description}</p>
+                        )}
+                      </div>
+                      <div className="flex-shrink-0">
+                        <Link to={`/group/${g.id}`} className="px-4 py-2 rounded-full bg-green-600 hover:bg-green-700 text-white text-sm whitespace-nowrap">Visit</Link>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
+
+      {/* Create modal */}
+      {showCreate && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="card w-full max-w-2xl p-0 overflow-hidden">
+            <div className="flex items-center justify-between p-4 border-b border-outline-variant">
+              <h2 className="text-lg font-bold text-themed">Create group</h2>
+              <button onClick={()=> setShowCreate(false)} className="p-1 rounded-full" style={{ backgroundColor: 'transparent' }} onMouseEnter={(e)=> e.currentTarget.style.backgroundColor='var(--hover-bg)'} onMouseLeave={(e)=> e.currentTarget.style.backgroundColor='transparent'}>
+                <CloseIcon />
+              </button>
+            </div>
+            <form onSubmit={handleCreate} className="p-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="md:col-span-1 space-y-3">
+                <div className="w-20 h-20 rounded-full overflow-hidden bg-gray-200 dark:bg-gray-800 flex items-center justify-center">
+                  {bannerPreview ? (
+                    <img src={bannerPreview} alt="banner" className="w-full h-full object-cover" />
+                  ) : (
+                    <ImageIcon className="text-gray-400" />
+                  )}
+                </div>
+                <div>
+                  <input id="banner-upload" type="file" accept="image/*" className="hidden" onChange={onBannerChange} />
+                  <label htmlFor="banner-upload" className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm cursor-pointer" style={{ backgroundColor: 'var(--hover-bg)' }}>
+                    <ImageIcon fontSize="small" /> Add banner
+                  </label>
+                </div>
+              </div>
+              <div className="md:col-span-2 space-y-3">
+                <input
+                  className="input-field w-full"
+                  placeholder="Group name"
+                  value={name}
+                  onChange={(e)=> setName(e.target.value)}
+                />
+                <textarea
+                  className="input-field w-full min-h-[120px]"
+                  placeholder="Description (optional)"
+                  value={description}
+                  onChange={(e)=> setDescription(e.target.value)}
+                />
+                <div className="flex justify-end gap-2">
+                  <button type="button" onClick={()=> setShowCreate(false)} className="px-4 py-2 rounded-lg text-themed" style={{ backgroundColor: 'var(--hover-bg)' }}>Cancel</button>
+                  <button disabled={!name.trim() || creating} className="px-4 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white disabled:opacity-60">{creating ? 'Creating...' : 'Create'}</button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </Layout>
   );
 };

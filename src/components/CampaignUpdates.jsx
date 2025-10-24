@@ -105,6 +105,16 @@ const CampaignUpdates = ({ campaignId, onUpdateCountChange }) => {
       setCreating(true);
 
       let imageUrl = '';
+      let parentTitle = '';
+      // Fetch parent campaign title for easier feed rendering
+      try {
+        const parentSnap = await getDoc(doc(db, 'posts', campaignId));
+        if (parentSnap.exists()) {
+          parentTitle = parentSnap.data()?.title || '';
+        }
+      } catch (err) {
+        console.warn('Failed to fetch parent campaign title', err);
+      }
       // Upload image if provided
       if (image) {
         const imageRef = ref(storage, `community-posts/${campaignId}/${Date.now()}_${image.name}`);
@@ -118,6 +128,7 @@ const CampaignUpdates = ({ campaignId, onUpdateCountChange }) => {
         authorId: currentUser.uid,
         authorName: currentUser.displayName || 'Anonymous',
         authorPhoto: currentUser.photoURL || '',
+        campaignTitle: parentTitle,
         createdAt: serverTimestamp(),
       });
 
@@ -129,7 +140,7 @@ const CampaignUpdates = ({ campaignId, onUpdateCountChange }) => {
       });
 
       // Get campaign details to notify the owner
-      const campaignDoc = await getDoc(doc(db, 'posts', campaignId));
+  const campaignDoc = await getDoc(doc(db, 'posts', campaignId));
       if (campaignDoc.exists()) {
         const campaignData = campaignDoc.data();
         
