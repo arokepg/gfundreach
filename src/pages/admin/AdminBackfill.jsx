@@ -59,8 +59,31 @@ export default function AdminBackfill() {
         for (const d of group) {
           const p = d.data();
           const tLower = (p.title || '').toLowerCase().trim();
-          if (p.titleLower !== tLower) {
-            batch.set(doc(db, 'posts', d.id), { titleLower: tLower }, { merge: true });
+          const updates = {};
+          if (p.titleLower !== tLower) updates.titleLower = tLower;
+          if (typeof p.updateCount !== 'number') updates.updateCount = p.updateCount || 0;
+          if (!('lastUpdateAt' in p)) updates.lastUpdateAt = null;
+          if (!('lastUpdatePreview' in p)) updates.lastUpdatePreview = '';
+          if (!('visibility' in p)) updates.visibility = 'public';
+          if (!('campaignStatus' in p)) updates.campaignStatus = 'active';
+          if (!('shortSummary' in p) || !p.shortSummary) {
+            const desc = (p.description || '').toString();
+            updates.shortSummary = desc.slice(0, 160);
+          }
+          if (Array.isArray(p.tags)) {
+            const tl = p.tags.map((t) => (t || '').toString().toLowerCase());
+            if (JSON.stringify(p.tagsLower || []) !== JSON.stringify(tl)) updates.tagsLower = tl;
+          } else if (!('tags' in p)) {
+            updates.tags = [];
+            updates.tagsLower = [];
+          }
+          // Add reaction/engagement fields
+          if (!('likesCount' in p)) updates.likesCount = 0;
+          if (!('likedBy' in p)) updates.likedBy = [];
+          if (!('sharesCount' in p)) updates.sharesCount = 0;
+          
+          if (Object.keys(updates).length) {
+            batch.set(doc(db, 'posts', d.id), updates, { merge: true });
             postsUpdated++;
           }
         }

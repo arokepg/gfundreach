@@ -49,8 +49,8 @@ const Home = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
         {/* Main Column - Feed */}
         <div className="lg:col-span-2">
-          <div className="mb-4 md:mb-6">
-            <h2 className="text-xl md:text-2xl font-bold mb-3 md:mb-4" style={{ color: 'var(--text)' }}>
+          <div className="mb-4 md:mb-6 flex items-center justify-between">
+            <h2 className="text-xl md:text-2xl font-bold" style={{ color: 'var(--text)' }}>
               Latest posts
             </h2>
             <FilterTabs activeTab={activeTab} onTabChange={handleTabChange} />

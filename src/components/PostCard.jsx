@@ -1,5 +1,10 @@
+import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { doc, updateDoc, increment, arrayUnion, arrayRemove } from 'firebase/firestore';
+import { db } from '../config/firebase';
+import { useAuth } from '../contexts/AuthContext';
 import FavoriteIcon from '@mui/icons-material/Favorite';
+import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
 import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutline';
 import ShareIcon from '@mui/icons-material/Share';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
@@ -7,6 +12,11 @@ import VerifiedIcon from '@mui/icons-material/Verified';
 
 const PostCard = ({ post }) => {
   const navigate = useNavigate();
+  const { currentUser } = useAuth();
+  const [isLiked, setIsLiked] = useState(post.likedBy?.includes(currentUser?.uid) || false);
+  const [likesCount, setLikesCount] = useState(post.likesCount || 0);
+  const [sharesCount, setSharesCount] = useState(post.sharesCount || 0);
+  const [commentsCount, setCommentsCount] = useState(post.updateCount || 0);
   const progress = post.goalAmount ? (post.currentAmount / post.goalAmount) * 100 : 0;
   const timeAgo = (timestamp) => {
     if (!timestamp) return 'Just now';
@@ -36,6 +46,69 @@ const PostCard = ({ post }) => {
     // Defensive: ensure id exists
     if (post?.id) {
       navigate(`/post/${post.id}`);
+    }
+  };
+
+  const handleLike = async (e) => {
+    e.stopPropagation();
+    
+    if (!currentUser) {
+      alert('Please log in to like this campaign');
+      return;
+    }
+
+    try {
+      const postRef = doc(db, 'posts', post.id);
+      
+      if (isLiked) {
+        // Unlike
+        await updateDoc(postRef, {
+          likedBy: arrayRemove(currentUser.uid),
+          likesCount: increment(-1),
+        });
+        setIsLiked(false);
+        setLikesCount(prev => prev - 1);
+      } else {
+        // Like
+        await updateDoc(postRef, {
+          likedBy: arrayUnion(currentUser.uid),
+          likesCount: increment(1),
+        });
+        setIsLiked(true);
+        setLikesCount(prev => prev + 1);
+      }
+    } catch (error) {
+      console.error('Error toggling like:', error);
+    }
+  };
+
+  const handleShare = async (e) => {
+    e.stopPropagation();
+    
+    try {
+      // Increment share count
+      const postRef = doc(db, 'posts', post.id);
+      await updateDoc(postRef, {
+        sharesCount: increment(1),
+      });
+      setSharesCount(prev => prev + 1);
+
+      // Share via Web Share API or copy link
+      const url = `${window.location.origin}/post/${post.id}`;
+      if (navigator.share) {
+        await navigator.share({
+          title: post.title,
+          text: post.description,
+          url: url,
+        });
+      } else {
+        await navigator.clipboard.writeText(url);
+        alert('Link copied to clipboard!');
+      }
+    } catch (error) {
+      if (error.name !== 'AbortError') {
+        console.error('Error sharing:', error);
+      }
     }
   };
 
@@ -137,17 +210,37 @@ const PostCard = ({ post }) => {
       {/* Actions */}
   <div className="px-3 md:px-4 py-3 border-t border-surface flex items-center justify-between">
         <div className="flex items-center space-x-4 md:space-x-6">
-          <button className="flex items-center space-x-1 text-themed-secondary hover:text-red-500 dark:hover:text-red-400 transition-all duration-300 active:scale-110 md:hover:scale-110 md:active:scale-95">
-            <FavoriteIcon className="text-sm md:text-base" />
-            <span className="text-xs md:text-sm">{post.likes || 100}</span>
+          <button 
+            onClick={handleLike}
+            className={`flex items-center space-x-1 transition-all duration-300 active:scale-110 md:hover:scale-110 md:active:scale-95 ${
+              isLiked 
+                ? 'text-red-500' 
+                : 'text-themed-secondary hover:text-red-500 dark:hover:text-red-400'
+            }`}
+          >
+            {isLiked ? (
+              <FavoriteIcon className="text-sm md:text-base" />
+            ) : (
+              <FavoriteBorderIcon className="text-sm md:text-base" />
+            )}
+            <span className="text-xs md:text-sm font-medium">{likesCount}</span>
           </button>
-          <button className="flex items-center space-x-1 text-themed-secondary hover:text-blue-500 dark:hover:text-blue-400 transition-all duration-300 active:scale-110 md:hover:scale-110 md:active:scale-95">
+          <button 
+            onClick={(e) => {
+              e.stopPropagation();
+              navigateToPost();
+            }}
+            className="flex items-center space-x-1 text-themed-secondary hover:text-blue-500 dark:hover:text-blue-400 transition-all duration-300 active:scale-110 md:hover:scale-110 md:active:scale-95"
+          >
             <ChatBubbleOutlineIcon className="text-sm md:text-base" />
-            <span className="text-xs md:text-sm">{post.comments || 15}</span>
+            <span className="text-xs md:text-sm font-medium">{commentsCount}</span>
           </button>
-          <button className="flex items-center space-x-1 text-themed-secondary hover:text-green-500 dark:hover:text-green-400 transition-all duration-300 active:scale-110 md:hover:scale-110 md:active:scale-95">
+          <button 
+            onClick={handleShare}
+            className="flex items-center space-x-1 text-themed-secondary hover:text-green-500 dark:hover:text-green-400 transition-all duration-300 active:scale-110 md:hover:scale-110 md:active:scale-95"
+          >
             <ShareIcon className="text-sm md:text-base" />
-            <span className="text-xs md:text-sm">{post.shares || 2}</span>
+            <span className="text-xs md:text-sm font-medium">{sharesCount}</span>
           </button>
         </div>
         <Link

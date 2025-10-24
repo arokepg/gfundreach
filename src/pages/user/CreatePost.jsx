@@ -12,8 +12,19 @@ const CreatePost = () => {
   const [formData, setFormData] = useState({
     title: '',
     description: '',
+    shortSummary: '',
     category: 'Medical',
     goalAmount: '',
+    locationCity: '',
+    locationCountry: '',
+    tagsCsv: '',
+    deadline: '',
+    videoUrl: '',
+    beneficiaryName: '',
+    beneficiaryRelation: '',
+    visibility: 'public',
+    minDonation: '',
+    suggestedCsv: '10,25,50',
   });
   const [image, setImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
@@ -78,11 +89,24 @@ const CreatePost = () => {
         imageUrl = await getDownloadURL(imageRef);
       }
 
+      // Prepare derived fields
+      const tags = (formData.tagsCsv || '')
+        .split(',')
+        .map(t => t.trim())
+        .filter(Boolean);
+      const tagsLower = tags.map(t => t.toLowerCase());
+      const suggestedDonations = (formData.suggestedCsv || '')
+        .split(',')
+        .map(v => parseFloat(v.trim()))
+        .filter(n => !isNaN(n) && n > 0);
+      const deadlineISO = formData.deadline ? new Date(formData.deadline).toISOString() : null;
+
       // Create post document
       await addDoc(collection(db, 'posts'), {
         title: formData.title,
         titleLower: (formData.title || '').toLowerCase().trim(),
         description: formData.description,
+        shortSummary: formData.shortSummary?.slice(0, 160) || '',
         category: formData.category,
         goalAmount: parseFloat(formData.goalAmount),
         currentAmount: 0,
@@ -91,6 +115,24 @@ const CreatePost = () => {
         authorName: currentUser.displayName || 'Anonymous',
         authorPhoto: currentUser.photoURL || '',
         supporters: 0,
+        // Campaign meta
+        locationCity: formData.locationCity || '',
+        locationCountry: formData.locationCountry || '',
+        tags,
+        tagsLower,
+        deadline: deadlineISO,
+        videoUrl: formData.videoUrl || '',
+        beneficiary: {
+          name: formData.beneficiaryName || '',
+          relation: formData.beneficiaryRelation || '',
+        },
+        visibility: formData.visibility || 'public',
+        minDonation: formData.minDonation ? parseFloat(formData.minDonation) : null,
+        suggestedDonations,
+        campaignStatus: 'active',
+        updateCount: 0,
+        lastUpdateAt: null,
+        lastUpdatePreview: '',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       });
@@ -141,6 +183,22 @@ const CreatePost = () => {
               />
             </div>
 
+            {/* Short Summary */}
+            <div>
+              <label className="block text-sm font-medium text-themed mb-2">
+                Short Summary (max 160 chars)
+              </label>
+              <input
+                type="text"
+                name="shortSummary"
+                value={formData.shortSummary}
+                onChange={handleChange}
+                className="input-field"
+                placeholder="What is this campaign about?"
+                maxLength={160}
+              />
+            </div>
+
             {/* Category */}
             <div>
               <label className="block text-sm font-medium text-themed mb-2">
@@ -179,6 +237,34 @@ const CreatePost = () => {
               />
             </div>
 
+            {/* Minimum & Suggested Donations */}
+            <div className="grid md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-themed mb-2">Minimum Donation</label>
+                <input
+                  type="number"
+                  name="minDonation"
+                  value={formData.minDonation}
+                  onChange={handleChange}
+                  className="input-field"
+                  placeholder="e.g., 5"
+                  min="0"
+                  step="0.01"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-themed mb-2">Suggested Donations (comma separated)</label>
+                <input
+                  type="text"
+                  name="suggestedCsv"
+                  value={formData.suggestedCsv}
+                  onChange={handleChange}
+                  className="input-field"
+                  placeholder="10,25,50"
+                />
+              </div>
+            </div>
+
             {/* Description */}
             <div>
               <label className="block text-sm font-medium text-themed mb-2">
@@ -193,6 +279,110 @@ const CreatePost = () => {
                 placeholder="Tell people about your campaign..."
                 required
               />
+            </div>
+
+            {/* Location */}
+            <div className="grid md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-themed mb-2">City</label>
+                <input
+                  type="text"
+                  name="locationCity"
+                  value={formData.locationCity}
+                  onChange={handleChange}
+                  className="input-field"
+                  placeholder="e.g., Jakarta"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-themed mb-2">Country</label>
+                <input
+                  type="text"
+                  name="locationCountry"
+                  value={formData.locationCountry}
+                  onChange={handleChange}
+                  className="input-field"
+                  placeholder="e.g., Indonesia"
+                />
+              </div>
+            </div>
+
+            {/* Tags & Deadline */}
+            <div className="grid md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-themed mb-2">Tags (comma separated)</label>
+                <input
+                  type="text"
+                  name="tagsCsv"
+                  value={formData.tagsCsv}
+                  onChange={handleChange}
+                  className="input-field"
+                  placeholder="medical,child,urgent"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-themed mb-2">Deadline</label>
+                <input
+                  type="date"
+                  name="deadline"
+                  value={formData.deadline}
+                  onChange={handleChange}
+                  className="input-field"
+                />
+              </div>
+            </div>
+
+            {/* Video URL */}
+            <div>
+              <label className="block text-sm font-medium text-themed mb-2">Video URL (YouTube)</label>
+              <input
+                type="url"
+                name="videoUrl"
+                value={formData.videoUrl}
+                onChange={handleChange}
+                className="input-field"
+                placeholder="https://youtu.be/... or https://www.youtube.com/watch?v=..."
+              />
+            </div>
+
+            {/* Beneficiary */}
+            <div className="grid md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-themed mb-2">Beneficiary Name</label>
+                <input
+                  type="text"
+                  name="beneficiaryName"
+                  value={formData.beneficiaryName}
+                  onChange={handleChange}
+                  className="input-field"
+                  placeholder="Who receives the funds?"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-themed mb-2">Relation</label>
+                <input
+                  type="text"
+                  name="beneficiaryRelation"
+                  value={formData.beneficiaryRelation}
+                  onChange={handleChange}
+                  className="input-field"
+                  placeholder="e.g., Self, Family, Friend"
+                />
+              </div>
+            </div>
+
+            {/* Visibility */}
+            <div>
+              <label className="block text-sm font-medium text-themed mb-2">Visibility</label>
+              <select
+                name="visibility"
+                value={formData.visibility}
+                onChange={handleChange}
+                className="input-field"
+              >
+                <option value="public">Public</option>
+                <option value="unlisted">Unlisted</option>
+              </select>
             </div>
 
             {/* Image Upload */}

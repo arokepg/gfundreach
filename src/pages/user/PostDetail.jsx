@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { doc, getDoc, collection, addDoc, updateDoc, increment, deleteDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, addDoc, updateDoc, increment, deleteDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import { useAuth } from '../../contexts/AuthContext';
 import Layout from '../../components/Layout';
+import CampaignUpdates from '../../components/CampaignUpdates';
 import PersonIcon from '@mui/icons-material/Person';
 import FavoriteIcon from '@mui/icons-material/Favorite';
+import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
 import ShareIcon from '@mui/icons-material/Share';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import BarChartIcon from '@mui/icons-material/BarChart';
@@ -21,6 +23,10 @@ const PostDetail = () => {
   const [donating, setDonating] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [isLiked, setIsLiked] = useState(false);
+  const [likesCount, setLikesCount] = useState(0);
+  const [sharesCount, setSharesCount] = useState(0);
+  const [commentsCount, setCommentsCount] = useState(0);
   const { currentUser, userProfile } = useAuth();
   const navigate = useNavigate();
 
@@ -38,6 +44,13 @@ const PostDetail = () => {
         const postData = { id: postDoc.id, ...postDoc.data() };
         console.log('Post data:', postData);
         setPost(postData);
+        
+        // Initialize reaction states
+        const likedBy = postData.likedBy || [];
+        setIsLiked(currentUser ? likedBy.includes(currentUser.uid) : false);
+        setLikesCount(postData.likesCount || 0);
+        setSharesCount(postData.sharesCount || 0);
+        setCommentsCount(postData.updateCount || 0); // Use updateCount as comments count
       } else {
         console.log('Post not found');
         setError('Post not found');
@@ -118,6 +131,14 @@ const PostDetail = () => {
     return Math.min((current / goal) * 100, 100);
   };
 
+  const daysLeft = () => {
+    if (!post?.deadline) return null;
+    const end = new Date(post.deadline).getTime();
+    const now = Date.now();
+    const diff = Math.ceil((end - now) / (1000 * 60 * 60 * 24));
+    return diff;
+  };
+
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -125,16 +146,62 @@ const PostDetail = () => {
     }).format(amount);
   };
 
-  const handleShare = () => {
-    if (navigator.share) {
-      navigator.share({
-        title: post.title,
-        text: post.description,
-        url: window.location.href,
+  const handleLike = async () => {
+    if (!currentUser) {
+      alert('Please log in to like this campaign');
+      return;
+    }
+
+    try {
+      const postRef = doc(db, 'posts', id);
+      
+      if (isLiked) {
+        // Unlike
+        await updateDoc(postRef, {
+          likedBy: arrayRemove(currentUser.uid),
+          likesCount: increment(-1),
+        });
+        setIsLiked(false);
+        setLikesCount(prev => prev - 1);
+      } else {
+        // Like
+        await updateDoc(postRef, {
+          likedBy: arrayUnion(currentUser.uid),
+          likesCount: increment(1),
+        });
+        setIsLiked(true);
+        setLikesCount(prev => prev + 1);
+      }
+    } catch (error) {
+      console.error('Error toggling like:', error);
+      alert('Failed to update like. Please try again.');
+    }
+  };
+
+  const handleShare = async () => {
+    try {
+      // Increment share count
+      const postRef = doc(db, 'posts', id);
+      await updateDoc(postRef, {
+        sharesCount: increment(1),
       });
-    } else {
-      navigator.clipboard.writeText(window.location.href);
-      alert('Link copied to clipboard!');
+      setSharesCount(prev => prev + 1);
+
+      // Share via Web Share API or copy link
+      if (navigator.share) {
+        await navigator.share({
+          title: post.title,
+          text: post.description,
+          url: window.location.href,
+        });
+      } else {
+        await navigator.clipboard.writeText(window.location.href);
+        alert('Link copied to clipboard!');
+      }
+    } catch (error) {
+      if (error.name !== 'AbortError') {
+        console.error('Error sharing:', error);
+      }
     }
   };
 
@@ -264,17 +331,36 @@ const PostDetail = () => {
                 )}
               </div>
 
-              {/* Category */}
+              {/* Category, Location */}
               <div className="mb-4">
-                <span className="inline-block bg-primary-50 text-primary px-3 py-1 rounded-full text-sm font-medium">
-                  {post.category}
-                </span>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="inline-block bg-primary-50 text-primary px-3 py-1 rounded-full text-sm font-medium">
+                    {post.category}
+                  </span>
+                  {post.locationCity || post.locationCountry ? (
+                    <span className="inline-block bg-gray-100 dark:bg-gray-800 text-themed-secondary px-3 py-1 rounded-full text-xs">
+                      {post.locationCity}{post.locationCity && post.locationCountry ? ', ' : ''}{post.locationCountry}
+                    </span>
+                  ) : null}
+                  {Array.isArray(post.tags) && post.tags.length > 0 && (
+                    <span className="inline-flex items-center gap-1 text-xs text-themed-muted">
+                      {post.tags.slice(0, 5).map((t, i) => (
+                        <span key={i} className="bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded-full">#{t}</span>
+                      ))}
+                    </span>
+                  )}
+                </div>
               </div>
 
               {/* Title */}
               <h1 className="text-3xl font-bold text-themed mb-4">
                 {post.title}
               </h1>
+
+              {/* Short Summary */}
+              {post.shortSummary && (
+                <p className="text-themed-secondary mb-4">{post.shortSummary}</p>
+              )}
 
               {/* Image */}
               {post.imageUrl && (
@@ -292,16 +378,67 @@ const PostDetail = () => {
                 </p>
               </div>
 
-              {/* Share Button */}
+              {/* Video (YouTube) */}
+              {post.videoUrl && /youtube\.com|youtu\.be/.test(post.videoUrl) && (
+                <div className="mt-6">
+                  <div className="aspect-video w-full rounded-xl overflow-hidden">
+                    <iframe
+                      className="w-full h-full"
+                      src={(() => {
+                        try {
+                          const url = new URL(post.videoUrl);
+                          if (url.hostname.includes('youtu.be')) {
+                            const id = url.pathname.replace('/', '');
+                            return `https://www.youtube.com/embed/${id}`;
+                          }
+                          const id = url.searchParams.get('v');
+                          return id ? `https://www.youtube.com/embed/${id}` : post.videoUrl;
+                        } catch {
+                          return post.videoUrl;
+                        }
+                      })()}
+                      title="Campaign video"
+                      frameBorder="0"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Interaction Buttons */}
               <div className="mt-6 pt-6 border-t border-outline-variant">
-                <button
-                  onClick={handleShare}
-                  className="flex items-center gap-2 text-primary hover:bg-primary-50 px-4 py-2 rounded-lg transition-colors"
-                >
-                  <ShareIcon fontSize="small" />
-                  Share this campaign
-                </button>
+                <div className="flex items-center gap-4">
+                  <button
+                    onClick={handleLike}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all ${
+                      isLiked
+                        ? 'text-red-500 bg-red-50 hover:bg-red-100'
+                        : 'text-themed-secondary hover:bg-gray-100 dark:hover:bg-gray-800'
+                    }`}
+                  >
+                    {isLiked ? <FavoriteIcon fontSize="small" /> : <FavoriteBorderIcon fontSize="small" />}
+                    <span className="text-sm font-medium">{likesCount}</span>
+                  </button>
+                  
+                  <button
+                    onClick={handleShare}
+                    className="flex items-center gap-2 text-themed-secondary hover:bg-gray-100 dark:hover:bg-gray-800 px-4 py-2 rounded-lg transition-colors"
+                  >
+                    <ShareIcon fontSize="small" />
+                    <span className="text-sm font-medium">{sharesCount}</span>
+                  </button>
+                </div>
               </div>
+            </div>
+
+            {/* Community Posts Section */}
+            <div className="mt-6">
+              <CampaignUpdates 
+                campaignId={id} 
+                isOwner={isOwner} 
+                onUpdateCountChange={(count) => setCommentsCount(count)}
+              />
             </div>
           </div>
 
@@ -335,6 +472,11 @@ const PostDetail = () => {
                 <span className="text-themed-secondary">
                   <strong>{post.supporters || 0}</strong> supporters
                 </span>
+                {daysLeft() !== null && (
+                  <span className="ml-auto text-sm text-themed-muted">
+                    {daysLeft() < 0 ? 'Ended' : `${daysLeft()} days left`}
+                  </span>
+                )}
               </div>
 
               {/* Donation Form */}

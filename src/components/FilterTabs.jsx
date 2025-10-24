@@ -2,12 +2,10 @@ const FilterTabs = ({ activeTab, onTabChange }) => {
   const tabs = [
     { id: 'all', label: 'All' },
     { id: 'friends', label: 'Friends' },
-    { id: 'requests', label: 'Requests' },
-    { id: 'offers', label: 'Offers' },
   ];
 
   return (
-    <div className="flex space-x-2 mb-4 md:mb-6 overflow-x-auto scrollbar-hide">
+    <div className="flex space-x-2 overflow-x-auto scrollbar-hide">
       {tabs.map((tab) => (
         <button
           key={tab.id}

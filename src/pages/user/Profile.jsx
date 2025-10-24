@@ -357,105 +357,57 @@ const Profile = () => {
 
         {/* Tabs */}
         <div className="card mb-6">
-          <div className="flex border-b border-gray-200 dark:border-gray-700">
+          <div className="flex border-b border-gray-200 dark:border-gray-700" role="tablist" aria-label="Profile sections">
             <button
               onClick={() => setActiveTab('personal')}
-              className={`px-6 py-3 font-medium transition-all duration-300 relative ${
+              className={`relative px-6 py-3 font-medium rounded-md transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500/40 hover:[background-color:var(--hover-bg)] ${
                 activeTab === 'personal'
-                  ? 'text-green-700 dark:text-green-400'
+                  ? 'text-green-700 dark:text-green-400 after:content-[""] after:absolute after:left-0 after:right-0 after:bottom-0 after:h-0.5 after:bg-green-600 dark:after:bg-green-500'
                   : ''
               }`}
-              style={{ color: activeTab === 'personal' ? undefined : 'var(--text)' }}
-              onMouseEnter={(e) => {
-                if (activeTab !== 'personal') {
-                  e.currentTarget.style.backgroundColor = 'var(--hover-bg)';
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (activeTab !== 'personal') {
-                  e.currentTarget.style.backgroundColor = 'transparent';
-                }
-              }}
+              role="tab"
+              aria-selected={activeTab === 'personal'}
             >
               Personal Info
-              {activeTab === 'personal' && (
-                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-green-600 dark:bg-green-500"></div>
-              )}
             </button>
             <button
               onClick={() => setActiveTab('posts')}
-              className={`px-6 py-3 font-medium transition-all duration-300 relative ${
+              className={`relative px-6 py-3 font-medium rounded-md transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500/40 hover:[background-color:var(--hover-bg)] ${
                 activeTab === 'posts'
-                  ? 'text-green-700 dark:text-green-400'
+                  ? 'text-green-700 dark:text-green-400 after:content-[""] after:absolute after:left-0 after:right-0 after:bottom-0 after:h-0.5 after:bg-green-600 dark:after:bg-green-500'
                   : ''
               }`}
-              style={{ color: activeTab === 'posts' ? undefined : 'var(--text)' }}
-              onMouseEnter={(e) => {
-                if (activeTab !== 'posts') {
-                  e.currentTarget.style.backgroundColor = 'var(--hover-bg)';
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (activeTab !== 'posts') {
-                  e.currentTarget.style.backgroundColor = 'transparent';
-                }
-              }}
+              role="tab"
+              aria-selected={activeTab === 'posts'}
             >
               Posts
-              {activeTab === 'posts' && (
-                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-green-600 dark:bg-green-500"></div>
-              )}
             </button>
             {isOwnProfile && (
               <button
                 onClick={() => setActiveTab('donations')}
-                className={`px-6 py-3 font-medium transition-all duration-300 relative ${
+                className={`relative px-6 py-3 font-medium rounded-md transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500/40 hover:[background-color:var(--hover-bg)] ${
                   activeTab === 'donations'
-                    ? 'text-green-700 dark:text-green-400'
+                    ? 'text-green-700 dark:text-green-400 after:content-[""] after:absolute after:left-0 after:right-0 after:bottom-0 after:h-0.5 after:bg-green-600 dark:after:bg-green-500'
                     : ''
                 }`}
-                style={{ color: activeTab === 'donations' ? undefined : 'var(--text)' }}
-                onMouseEnter={(e) => {
-                  if (activeTab !== 'donations') {
-                    e.currentTarget.style.backgroundColor = 'var(--hover-bg)';
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (activeTab !== 'donations') {
-                    e.currentTarget.style.backgroundColor = 'transparent';
-                  }
-                }}
+                role="tab"
+                aria-selected={activeTab === 'donations'}
               >
                 Donation History
-                {activeTab === 'donations' && (
-                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-green-600 dark:bg-green-500"></div>
-                )}
               </button>
             )}
             {isOwnProfile && (
               <button
                 onClick={() => setActiveTab('received')}
-                className={`px-6 py-3 font-medium transition-all duration-300 relative ${
+                className={`relative px-6 py-3 font-medium rounded-md transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500/40 hover:[background-color:var(--hover-bg)] ${
                   activeTab === 'received'
-                    ? 'text-green-700 dark:text-green-400'
+                    ? 'text-green-700 dark:text-green-400 after:content-[""] after:absolute after:left-0 after:right-0 after:bottom-0 after:h-0.5 after:bg-green-600 dark:after:bg-green-500'
                     : ''
                 }`}
-                style={{ color: activeTab === 'received' ? undefined : 'var(--text)' }}
-                onMouseEnter={(e) => {
-                  if (activeTab !== 'received') {
-                    e.currentTarget.style.backgroundColor = 'var(--hover-bg)';
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (activeTab !== 'received') {
-                    e.currentTarget.style.backgroundColor = 'transparent';
-                  }
-                }}
+                role="tab"
+                aria-selected={activeTab === 'received'}
               >
                 Received History
-                {activeTab === 'received' && (
-                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-green-600 dark:bg-green-500"></div>
-                )}
               </button>
             )}
           </div>
