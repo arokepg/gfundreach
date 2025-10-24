@@ -8,7 +8,7 @@ import Layout from '../../components/Layout';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 
-const CreatePost = () => {
+const CreateCampaign = () => {
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -438,4 +438,4 @@ const CreatePost = () => {
   );
 };
 
-export default CreatePost;
+export default CreateCampaign;

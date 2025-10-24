@@ -98,7 +98,7 @@ const NotificationDropdown = () => {
       case 'comment':
         return <CommentIcon className="text-blue-500" />;
       case 'follow':
-        return <PersonAddIcon className="text-purple-500" />;
+        return <PersonAddIcon className="text-green-500" />;
       default:
         return <NotificationsIcon className="text-gray-500" />;
     }

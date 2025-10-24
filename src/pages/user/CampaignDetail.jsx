@@ -16,7 +16,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { recordCampaignView } from '../../utils/viewTracker';
 
-const PostDetail = () => {
+const CampaignDetail = () => {
   const { id } = useParams();
   const [post, setPost] = useState(null);
   const [donationAmount, setDonationAmount] = useState('');
@@ -334,7 +334,7 @@ const PostDetail = () => {
                     </button>
                     <button
                       onClick={handleEditCampaign}
-                      className="p-2 bg-[#6750A4] hover:bg-[#4F378B] text-white rounded-lg transition-all duration-300 hover:scale-110 active:scale-95 shadow-md flex items-center justify-center"
+                      className="p-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-all duration-300 hover:scale-110 active:scale-95 shadow-md flex items-center justify-center"
                       title="Edit Campaign"
                     >
                       <EditIcon style={{ fontSize: '20px' }} />
@@ -583,4 +583,4 @@ const PostDetail = () => {
   );
 };
 
-export default PostDetail;
+export default CampaignDetail;

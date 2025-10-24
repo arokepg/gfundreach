@@ -14,10 +14,14 @@ import { useTheme } from '../contexts/ThemeContext';
 
 const Sidebar = () => {
   const [isHovered, setIsHovered] = useState(false);
+  // Pin state disabled for hover-only auto-collapse behavior
+  const [isPinned, setIsPinned] = useState(false);
+  const [hoverTimer, setHoverTimer] = useState(null);
   const location = useLocation();
   const { open } = useSearch();
   const { currentUser, userProfile } = useAuth();
   const { isDarkMode } = useTheme();
+  const expanded = isHovered;
 
   const menuItems = [
     { icon: <HomeIcon />, label: 'Home', path: '/' },
@@ -33,44 +37,96 @@ const Sidebar = () => {
   // Keep CSS var in sync so other components (SearchSidebar) can offset correctly
   useEffect(() => {
     if (typeof document !== 'undefined') {
-      document.documentElement.style.setProperty('--sidebar-width', isHovered ? '16rem' : '5rem');
+      document.documentElement.style.setProperty('--sidebar-width', expanded ? '16rem' : '5rem');
     }
-  }, [isHovered]);
+  }, [expanded]);
 
+  // On initial mount, set CSS var to collapsed width
   useEffect(() => {
     if (typeof document !== 'undefined') {
       document.documentElement.style.setProperty('--sidebar-width', '5rem');
     }
   }, []);
 
+  const handleMouseEnter = () => {
+    // Clear any existing timer
+    if (hoverTimer) {
+      clearTimeout(hoverTimer);
+    }
+    // Set a delay of 200ms before expanding
+    const timer = setTimeout(() => {
+      setIsHovered(true);
+      if (typeof document !== 'undefined') {
+        document.documentElement.style.setProperty('--sidebar-width', '16rem');
+      }
+    }, 200);
+    setHoverTimer(timer);
+  };
+
+  const handleMouseLeave = () => {
+    // Clear any pending expansion
+    if (hoverTimer) {
+      clearTimeout(hoverTimer);
+      setHoverTimer(null);
+    }
+    // Auto-collapse when not detecting hover
+    setIsHovered(false);
+    if (typeof document !== 'undefined') {
+      document.documentElement.style.setProperty('--sidebar-width', '5rem');
+    }
+  };
+
+  const handleItemClick = () => {
+    // Keep expanded while interacting; rely on hover to maintain state
+    setIsHovered(true);
+  };
+
+  const handleOutsideClick = () => {
+    // Collapse when clicking outside
+    setIsPinned(false);
+    setIsHovered(false);
+  };
+
+  // Add click listener to detect clicks outside sidebar
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      const sidebar = document.querySelector('[data-sidebar]');
+      if ((isHovered || isPinned) && sidebar && !sidebar.contains(event.target)) {
+        handleOutsideClick();
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [expanded]);
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (hoverTimer) {
+        clearTimeout(hoverTimer);
+      }
+    };
+  }, [hoverTimer]);
+
   return (
     <>
       {/* Desktop Sidebar */}
       <div
-        onMouseEnter={() => {
-          setIsHovered(true);
-          if (typeof document !== 'undefined') {
-            document.documentElement.style.setProperty('--sidebar-width', '16rem');
-          }
-        }}
-        onMouseLeave={() => {
-          setIsHovered(false);
-          if (typeof document !== 'undefined') {
-            document.documentElement.style.setProperty('--sidebar-width', '5rem');
-          }
-        }}
-        className={`hidden md:block fixed left-0 top-0 h-full border-r border-surface transition-all duration-300 ease-smooth z-50 ${
-          isHovered ? 'w-64' : 'w-20'
+        data-sidebar
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+        className={`hidden md:block fixed left-0 top-0 h-full surface border-r border-surface transition-all duration-300 ease-in-out z-50 ${
+          expanded ? 'w-64' : 'w-20'
         }`}
-        style={{
-          backgroundColor: 'var(--bg)',
-          borderColor: 'var(--card-bg)'
-        }}
+        style={{}}
       >
       {/* Header */}
   <div className="flex items-center justify-center h-[73px] border-b border-surface">
         <Link to="/" className="flex items-center space-x-2">
-          {isHovered ? (
+          {expanded ? (
             <span className="text-2xl font-bold whitespace-nowrap">
               <span className="text-green-600 dark:text-green-500">G</span>
               <span className="text-themed">fundreach</span>
@@ -85,7 +141,8 @@ const Sidebar = () => {
       <div className="p-4">
         <Link
           to="/create-post"
-          className={`flex items-center ${isHovered ? 'space-x-3 justify-start' : 'justify-center'} px-4 py-3 rounded-full transition-all duration-300 hover:scale-105 active:scale-95 shadow-md hover:shadow-lg font-medium`}
+          onClick={handleItemClick}
+          className={`flex items-center ${expanded ? 'space-x-3 justify-start' : 'justify-center'} px-4 py-3 rounded-full transition-all duration-300 hover:scale-105 active:scale-95 shadow-md hover:shadow-lg font-medium`}
           style={{
             backgroundColor: isDarkMode ? '#ffffff' : '#111827',
             color: isDarkMode ? '#111827' : '#ffffff'
@@ -96,10 +153,10 @@ const Sidebar = () => {
           onMouseLeave={(e) => {
             e.currentTarget.style.backgroundColor = isDarkMode ? '#ffffff' : '#111827';
           }}
-          title={!isHovered ? 'Create Campaign' : ''}
+          title={!expanded ? 'Create Campaign' : ''}
         >
           <AddCircleIcon className="flex-shrink-0" />
-          {isHovered && (
+          {expanded && (
             <span className="whitespace-nowrap animate-fade-in">
               Create Campaign
             </span>
@@ -115,20 +172,26 @@ const Sidebar = () => {
             <Link
               key={item.path}
               to={item.label === 'Search' ? '#' : item.path}
-              className={`flex items-center ${isHovered ? 'space-x-3' : 'justify-center'} px-4 py-3 rounded-xl transition-all duration-300 hover:scale-105 active:scale-95 ${
+              className={`flex items-center ${expanded ? 'space-x-3' : 'justify-center'} px-4 py-3 rounded-xl transition-all duration-300 hover:scale-105 active:scale-95 ${
                 active
                   ? 'bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400 shadow-sm'
                   : ''
               }`}
-              title={!isHovered ? item.label : ''}
-              onClick={(e)=>{ if(item.label === 'Search'){ e.preventDefault(); open(); } }}
+              title={!expanded ? item.label : ''}
+              onClick={(e)=>{ 
+                if(item.label === 'Search'){ 
+                  e.preventDefault(); 
+                  open(); 
+                } 
+                handleItemClick();
+              }}
               onMouseEnter={(e)=>{ if(!active){ e.currentTarget.style.backgroundColor = 'var(--hover-bg)'; e.currentTarget.style.color = 'var(--text)'; } }}
               onMouseLeave={(e)=>{ if(!active){ e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--text)'; } }}
             >
               <span className={`flex-shrink-0 transition-transform duration-300 ${active ? 'text-green-700 dark:text-green-400' : ''}`}>
                 {item.icon}
               </span>
-              {isHovered && (
+              {expanded && (
                 <span className={`font-medium whitespace-nowrap animate-fade-in ${active ? 'text-green-700 dark:text-green-400' : ''}`}>
                   {item.label}
                 </span>
@@ -143,22 +206,23 @@ const Sidebar = () => {
         <Link
           to="/profile"
           className={
-            isHovered
+            expanded
               ? 'block rounded-2xl p-4 transition-all duration-300 hover:shadow-lg hover:scale-[1.02] active:scale-95 border shadow-sm'
               : 'flex items-center justify-center p-2'
           }
           style={
-            isHovered
+            expanded
               ? {
                   backgroundColor: isDarkMode ? '#111827' : '#ffffff',
                   borderColor: isDarkMode ? '#374151' : '#e5e7eb'
                 }
               : {}
           }
-          title={!isHovered ? 'Profile' : ''}
+          title={!expanded ? 'Profile' : ''}
+          onClick={handleItemClick}
         >
           {/* Profile Header */}
-          <div className={`flex items-center ${isHovered ? 'gap-3 mb-3' : 'justify-center'}`}>
+          <div className={`flex items-center ${expanded ? 'gap-3 mb-3' : 'justify-center'}`}>
             <div className="w-12 h-12 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden">
               {(userProfile?.photoURL || currentUser?.photoURL) ? (
                 <img
@@ -171,7 +235,7 @@ const Sidebar = () => {
                 <PersonIcon className="text-gray-400" sx={{ fontSize: 28 }} />
               )}
             </div>
-            {isHovered && (
+            {expanded && (
               <div className="flex-1 min-w-0 animate-fade-in">
                 <p 
                   className="text-sm font-bold truncate"
@@ -190,7 +254,7 @@ const Sidebar = () => {
           </div>
 
           {/* Stats - Only show when hovered */}
-          {isHovered && (
+          {expanded && (
             <div className="space-y-2 animate-fade-in">
               <div className="flex items-center justify-between">
                 <span 

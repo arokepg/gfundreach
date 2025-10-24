@@ -4,11 +4,14 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../config/firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { createNotification } from '../utils/notifications';
+import { saveItem, unsaveItem, isItemSaved } from '../utils/savedItems';
 import PersonIcon from '@mui/icons-material/Person';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import ImageIcon from '@mui/icons-material/Image';
 import CloseIcon from '@mui/icons-material/Close';
+import BookmarkIcon from '@mui/icons-material/Bookmark';
+import BookmarkBorderIcon from '@mui/icons-material/BookmarkBorder';
 
 const CampaignUpdates = ({ campaignId, onUpdateCountChange }) => {
   const { currentUser, userProfile } = useAuth();
@@ -24,11 +27,28 @@ const CampaignUpdates = ({ campaignId, onUpdateCountChange }) => {
   const [editImage, setEditImage] = useState(null);
   const [editImagePreview, setEditImagePreview] = useState(null);
   const [updating, setUpdating] = useState(false);
+  const [savedPosts, setSavedPosts] = useState({}); // Track saved status for each post
 
   useEffect(() => {
     fetchUpdates();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [campaignId]);
+
+  // Check saved status for all posts
+  useEffect(() => {
+    const checkSavedStatus = async () => {
+      if (!currentUser || updates.length === 0) return;
+      
+      const savedStatus = {};
+      for (const update of updates) {
+        const saved = await isItemSaved(currentUser.uid, update.id);
+        savedStatus[update.id] = saved;
+      }
+      setSavedPosts(savedStatus);
+    };
+    
+    checkSavedStatus();
+  }, [currentUser, updates]);
 
   const fetchUpdates = async () => {
     try {
@@ -215,6 +235,37 @@ const CampaignUpdates = ({ campaignId, onUpdateCountChange }) => {
     }
   };
 
+  const handleSavePost = async (post) => {
+    if (!currentUser) {
+      alert('Please log in to save this post');
+      return;
+    }
+
+    try {
+      const isSaved = savedPosts[post.id];
+      
+      if (isSaved) {
+        // Unsave
+        await unsaveItem(currentUser.uid, post.id);
+        setSavedPosts(prev => ({ ...prev, [post.id]: false }));
+      } else {
+        // Save
+        await saveItem(currentUser.uid, post.id, 'post', {
+          title: post.content?.substring(0, 100) || 'Community post',
+          description: post.content || '',
+          imageUrl: post.imageUrl || '',
+          authorId: post.authorId,
+          authorName: post.authorName,
+          campaignId: campaignId, // Include campaign ID so we can fetch the post later
+        });
+        setSavedPosts(prev => ({ ...prev, [post.id]: true }));
+      }
+    } catch (error) {
+      console.error('Error saving post:', error);
+      alert('Failed to save post. Please try again.');
+    }
+  };
+
   return (
     <div className="card p-6">
       <div className="flex items-center justify-between mb-4">
@@ -277,7 +328,10 @@ const CampaignUpdates = ({ campaignId, onUpdateCountChange }) => {
               />
               <label
                 htmlFor="post-image-upload"
-                className="inline-flex items-center gap-2 px-4 py-2 text-sm text-themed-secondary hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg cursor-pointer transition-colors"
+                className="inline-flex items-center gap-2 px-4 py-2 text-sm text-themed-secondary rounded-lg cursor-pointer transition-colors"
+                style={{ backgroundColor: 'transparent' }}
+                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--hover-bg)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
               >
                 <ImageIcon fontSize="small" />
                 Add Image
@@ -360,7 +414,10 @@ const CampaignUpdates = ({ campaignId, onUpdateCountChange }) => {
                       />
                       <label
                         htmlFor={`edit-image-${upd.id}`}
-                        className="inline-flex items-center gap-2 px-4 py-2 text-sm text-themed-secondary hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg cursor-pointer transition-colors"
+                        className="inline-flex items-center gap-2 px-4 py-2 text-sm text-themed-secondary rounded-lg cursor-pointer transition-colors"
+                        style={{ backgroundColor: 'transparent' }}
+                        onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--hover-bg)'; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
                       >
                         <ImageIcon fontSize="small" />
                         {editImagePreview ? 'Change Image' : 'Add Image'}
@@ -411,25 +468,41 @@ const CampaignUpdates = ({ campaignId, onUpdateCountChange }) => {
                         </p>
                       )}
                     </div>
-                    {/* Edit/Delete buttons for post author */}
-                    {currentUser?.uid === upd.authorId && (
-                      <div className="flex gap-1">
-                        <button
-                          onClick={() => handleEditPost(upd)}
-                          className="p-2 text-themed-secondary hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
-                          title="Edit post"
-                        >
-                          <EditIcon fontSize="small" />
-                        </button>
-                        <button
-                          onClick={() => handleDeletePost(upd.id)}
-                          className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                          title="Delete post"
-                        >
-                          <DeleteIcon fontSize="small" />
-                        </button>
-                      </div>
-                    )}
+                    {/* Action buttons */}
+                    <div className="flex gap-1">
+                      {/* Bookmark button for all users */}
+                      <button
+                        onClick={() => handleSavePost(upd)}
+                        className="p-2 text-themed-secondary hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+                        title={savedPosts[upd.id] ? 'Remove bookmark' : 'Bookmark post'}
+                      >
+                        {savedPosts[upd.id] ? (
+                          <BookmarkIcon fontSize="small" className="text-yellow-500" />
+                        ) : (
+                          <BookmarkBorderIcon fontSize="small" />
+                        )}
+                      </button>
+                      
+                      {/* Edit/Delete buttons for post author */}
+                      {currentUser?.uid === upd.authorId && (
+                        <>
+                          <button
+                            onClick={() => handleEditPost(upd)}
+                            className="p-2 text-themed-secondary hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+                            title="Edit post"
+                          >
+                            <EditIcon fontSize="small" />
+                          </button>
+                          <button
+                            onClick={() => handleDeletePost(upd.id)}
+                            className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                            title="Delete post"
+                          >
+                            <DeleteIcon fontSize="small" />
+                          </button>
+                        </>
+                      )}
+                    </div>
                   </div>
                   
                   {/* Post content */}

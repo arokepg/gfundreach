@@ -423,11 +423,11 @@ const Profile = () => {
               </div>
 
               {/* Helped Stat */}
-              <div className="flex items-center gap-3 p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
-                <HandshakeIcon className="text-purple-600 dark:text-purple-400" />
+              <div className="flex items-center gap-3 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                <HandshakeIcon className="text-green-600 dark:text-green-400" />
                 <div>
                   <p className="text-sm text-gray-600 dark:text-gray-400">Helped</p>
-                  <p className="text-lg font-bold text-purple-600 dark:text-purple-400">
+                  <p className="text-lg font-bold text-green-600 dark:text-green-400">
                     {helpedCount}
                   </p>
                 </div>
@@ -575,7 +575,7 @@ const Profile = () => {
                               e.stopPropagation();
                               handleEditCampaign(e, post.id);
                             }}
-                            className="p-2 bg-[#6750A4] hover:bg-[#4F378B] text-white rounded-lg transition-all duration-300 hover:scale-110 active:scale-95 shadow-md"
+                            className="p-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-all duration-300 hover:scale-110 active:scale-95 shadow-md"
                             title="Edit Campaign"
                           >
                             <EditIcon style={{ fontSize: '20px' }} />

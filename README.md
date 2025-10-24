@@ -166,8 +166,9 @@ gfunreach/
 │   │   ├── Login.jsx
 │   │   ├── Register.jsx
 │   │   ├── Home.jsx
-│   │   ├── CreatePost.jsx
-│   │   ├── PostDetail.jsx
+│   │   ├── CreateCampaign.jsx
+│   │   ├── CampaignDetail.jsx
+│   │   ├── CommunityPostDetail.jsx
 │   │   ├── Profile.jsx
 │   │   └── Wallet.jsx
 │   ├── App.jsx            # Main app component

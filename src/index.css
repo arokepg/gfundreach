@@ -78,7 +78,7 @@ html.dark .card {
 }
 
 .btn-primary {
-  background-color: #6750A4;
+  background-color: #16a34a;
   color: white;
   padding: 0.75rem 1.5rem;
   border-radius: 9999px;
@@ -89,9 +89,9 @@ html.dark .card {
 }
 
 .btn-primary:hover {
-  background-color: #4F378B;
+  background-color: #15803d;
   transform: translateY(-2px);
-  box-shadow: 0 8px 12px -2px rgba(103, 80, 164, 0.3);
+  box-shadow: 0 8px 12px -2px rgba(22, 163, 74, 0.3);
 }
 
 .btn-primary:active {

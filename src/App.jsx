@@ -8,8 +8,9 @@ import Login from './pages/user/Login';
 import Register from './pages/user/Register';
 import ForgotPassword from './pages/user/ForgotPassword';
 import Home from './pages/user/Home';
-import CreatePost from './pages/user/CreatePost';
-import PostDetail from './pages/user/PostDetail';
+import CreateCampaign from './pages/user/CreateCampaign';
+import CampaignDetail from './pages/user/CampaignDetail';
+import CommunityPostDetail from './pages/user/CommunityPostDetail';
 import Profile from './pages/user/Profile';
 import EditProfile from './pages/user/EditProfile';
 import Wallet from './pages/user/Wallet';
@@ -78,7 +79,7 @@ function App() {
             path="/create-post"
             element={
               <ProtectedRoute>
-                <CreatePost />
+                <CreateCampaign />
               </ProtectedRoute>
             }
           />
@@ -86,7 +87,15 @@ function App() {
             path="/post/:id"
             element={
               <ProtectedRoute>
-                <PostDetail />
+                <CampaignDetail />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/community-post/:campaignId/:postId"
+            element={
+              <ProtectedRoute>
+                <CommunityPostDetail />
               </ProtectedRoute>
             }
           />

@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
-import { db } from '../../config/firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { db, storage } from '../../config/firebase';
 import { useAuth } from '../../contexts/AuthContext';
 import Layout from '../../components/Layout';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import CloudUploadIcon from '@mui/icons-material/CloudUpload';
+import CloseIcon from '@mui/icons-material/Close';
 
 const EditCampaign = () => {
 	const { id } = useParams();
@@ -12,11 +15,25 @@ const EditCampaign = () => {
 	const { currentUser } = useAuth();
 	const [loading, setLoading] = useState(true);
 	const [saving, setSaving] = useState(false);
+	const [image, setImage] = useState(null);
+	const [imagePreview, setImagePreview] = useState(null);
+	const [currentImageUrl, setCurrentImageUrl] = useState('');
 	const [formData, setFormData] = useState({
 		title: '',
 		description: '',
+		shortSummary: '',
 		category: '',
 		goalAmount: '',
+		locationCity: '',
+		locationCountry: '',
+		tagsCsv: '',
+		deadline: '',
+		videoUrl: '',
+		beneficiaryName: '',
+		beneficiaryRelation: '',
+		visibility: 'public',
+		minDonation: '',
+		suggestedCsv: '',
 	});
 
 	useEffect(() => {
@@ -42,9 +59,22 @@ const EditCampaign = () => {
 				setFormData({
 					title: data.title || '',
 					description: data.description || '',
+					shortSummary: data.shortSummary || '',
 					category: data.category || '',
 					goalAmount: data.goalAmount || '',
+					locationCity: data.locationCity || '',
+					locationCountry: data.locationCountry || '',
+					tagsCsv: (data.tags || []).join(', '),
+					deadline: data.deadline || '',
+					videoUrl: data.videoUrl || '',
+					beneficiaryName: data.beneficiaryName || '',
+					beneficiaryRelation: data.beneficiaryRelation || '',
+					visibility: data.visibility || 'public',
+					minDonation: data.minDonation || '',
+					suggestedCsv: (data.suggestedAmounts || []).join(', '),
 				});
+				setCurrentImageUrl(data.imageUrl || '');
+				setImagePreview(data.imageUrl || '');
 			} else {
 				alert('Campaign not found');
 				navigate('/profile');
@@ -62,15 +92,38 @@ const EditCampaign = () => {
 		setSaving(true);
 
 		try {
+			let imageUrl = currentImageUrl;
+
+			// Upload new image if selected
+			if (image) {
+				const imageRef = ref(storage, `campaigns/${id}/${Date.now()}_${image.name}`);
+				await uploadBytes(imageRef, image);
+				imageUrl = await getDownloadURL(imageRef);
+			}
+
 			const docRef = doc(db, 'posts', id);
-			await updateDoc(docRef, {
+			const updateData = {
 				title: formData.title,
 				titleLower: (formData.title || '').toLowerCase().trim(),
 				description: formData.description,
+				shortSummary: formData.shortSummary,
 				category: formData.category,
-				goalAmount: parseFloat(formData.goalAmount),
+				goalAmount: parseFloat(formData.goalAmount) || 0,
+				locationCity: formData.locationCity,
+				locationCountry: formData.locationCountry,
+				tags: formData.tagsCsv.split(',').map(tag => tag.trim()).filter(Boolean),
+				deadline: formData.deadline,
+				videoUrl: formData.videoUrl,
+				beneficiaryName: formData.beneficiaryName,
+				beneficiaryRelation: formData.beneficiaryRelation,
+				visibility: formData.visibility,
+				minDonation: parseFloat(formData.minDonation) || 0,
+				suggestedAmounts: formData.suggestedCsv.split(',').map(amt => parseFloat(amt.trim())).filter(Boolean),
+				imageUrl: imageUrl,
 				updatedAt: new Date(),
-			});
+			};
+
+			await updateDoc(docRef, updateData);
 
 			alert('Campaign updated successfully!');
 			navigate('/profile');
@@ -88,6 +141,23 @@ const EditCampaign = () => {
 			...prev,
 			[name]: value
 		}));
+	};
+
+	const handleImageChange = (e) => {
+		const file = e.target.files[0];
+		if (file) {
+			setImage(file);
+			const reader = new FileReader();
+			reader.onloadend = () => {
+				setImagePreview(reader.result);
+			};
+			reader.readAsDataURL(file);
+		}
+	};
+
+	const removeImage = () => {
+		setImage(null);
+		setImagePreview(currentImageUrl || null);
 	};
 
 	if (loading) {
@@ -119,6 +189,43 @@ const EditCampaign = () => {
 					<h1 className="text-3xl font-bold text-themed mb-6">Edit Campaign</h1>
 
 					<form onSubmit={handleSubmit} className="space-y-6">
+						{/* Campaign Image */}
+						<div>
+							<label className="block text-sm font-medium text-themed mb-2">
+								Campaign Image
+							</label>
+							<div className="flex flex-col gap-4">
+								{imagePreview && (
+									<div className="relative w-full h-64 rounded-lg overflow-hidden">
+										<img
+											src={imagePreview}
+											alt="Campaign preview"
+											className="w-full h-full object-cover"
+										/>
+										{image && (
+											<button
+												type="button"
+												onClick={removeImage}
+												className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
+											>
+												<CloseIcon fontSize="small" />
+											</button>
+										)}
+									</div>
+								)}
+								<label className="btn-secondary cursor-pointer inline-flex items-center justify-center gap-2">
+									<CloudUploadIcon />
+									<span>{image ? 'Change Image' : imagePreview ? 'Change Image' : 'Upload Image'}</span>
+									<input
+										type="file"
+										accept="image/*"
+										onChange={handleImageChange}
+										className="hidden"
+									/>
+								</label>
+							</div>
+						</div>
+
 						<div>
 							<label className="block text-sm font-medium text-themed mb-2">
 								Campaign Title *
@@ -131,6 +238,21 @@ const EditCampaign = () => {
 								required
 								className="input-field"
 								placeholder="Enter campaign title"
+							/>
+						</div>
+
+						<div>
+							<label className="block text-sm font-medium text-themed mb-2">
+								Short Summary
+							</label>
+							<input
+								type="text"
+								name="shortSummary"
+								value={formData.shortSummary}
+								onChange={handleChange}
+								className="input-field"
+								placeholder="Brief one-line summary"
+								maxLength="150"
 							/>
 						</div>
 
@@ -150,27 +272,47 @@ const EditCampaign = () => {
 								<option value="Education">Education</option>
 								<option value="Emergency">Emergency</option>
 								<option value="Community">Community</option>
+								<option value="Animal Welfare">Animal Welfare</option>
+								<option value="Environment">Environment</option>
+								<option value="Arts & Culture">Arts & Culture</option>
 								<option value="Business">Business</option>
 								<option value="Creative">Creative</option>
 								<option value="Other">Other</option>
 							</select>
 						</div>
 
-						<div>
-							<label className="block text-sm font-medium text-themed mb-2">
-								Goal Amount (USD) *
-							</label>
-							<input
-								type="number"
-								name="goalAmount"
-								value={formData.goalAmount}
-								onChange={handleChange}
-								required
-								min="1"
-								step="0.01"
-								className="input-field"
-								placeholder="Enter goal amount"
-							/>
+						<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+							<div>
+								<label className="block text-sm font-medium text-themed mb-2">
+									Goal Amount (USD) *
+								</label>
+								<input
+									type="number"
+									name="goalAmount"
+									value={formData.goalAmount}
+									onChange={handleChange}
+									required
+									min="1"
+									step="0.01"
+									className="input-field"
+									placeholder="Enter goal amount"
+								/>
+							</div>
+							<div>
+								<label className="block text-sm font-medium text-themed mb-2">
+									Minimum Donation
+								</label>
+								<input
+									type="number"
+									name="minDonation"
+									value={formData.minDonation}
+									onChange={handleChange}
+									min="0"
+									step="0.01"
+									className="input-field"
+									placeholder="Minimum amount (optional)"
+								/>
+							</div>
 						</div>
 
 						<div>
@@ -188,18 +330,147 @@ const EditCampaign = () => {
 							/>
 						</div>
 
-						<div className="flex gap-4">
+						<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+							<div>
+								<label className="block text-sm font-medium text-themed mb-2">
+									City/Location
+								</label>
+								<input
+									type="text"
+									name="locationCity"
+									value={formData.locationCity}
+									onChange={handleChange}
+									className="input-field"
+									placeholder="City or location"
+								/>
+							</div>
+							<div>
+								<label className="block text-sm font-medium text-themed mb-2">
+									Country
+								</label>
+								<input
+									type="text"
+									name="locationCountry"
+									value={formData.locationCountry}
+									onChange={handleChange}
+									className="input-field"
+									placeholder="Country"
+								/>
+							</div>
+						</div>
+
+						<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+							<div>
+								<label className="block text-sm font-medium text-themed mb-2">
+									Beneficiary Name
+								</label>
+								<input
+									type="text"
+									name="beneficiaryName"
+									value={formData.beneficiaryName}
+									onChange={handleChange}
+									className="input-field"
+									placeholder="Who will benefit from this campaign?"
+								/>
+							</div>
+							<div>
+								<label className="block text-sm font-medium text-themed mb-2">
+									Your Relation to Beneficiary
+								</label>
+								<input
+									type="text"
+									name="beneficiaryRelation"
+									value={formData.beneficiaryRelation}
+									onChange={handleChange}
+									className="input-field"
+									placeholder="e.g., Self, Family, Friend"
+								/>
+							</div>
+						</div>
+
+						<div>
+							<label className="block text-sm font-medium text-themed mb-2">
+								Deadline
+							</label>
+							<input
+								type="date"
+								name="deadline"
+								value={formData.deadline}
+								onChange={handleChange}
+								className="input-field"
+							/>
+						</div>
+
+						<div>
+							<label className="block text-sm font-medium text-themed mb-2">
+								Video URL (Optional)
+							</label>
+							<input
+								type="url"
+								name="videoUrl"
+								value={formData.videoUrl}
+								onChange={handleChange}
+								className="input-field"
+								placeholder="YouTube, Vimeo, or other video link"
+							/>
+						</div>
+
+						<div>
+							<label className="block text-sm font-medium text-themed mb-2">
+								Tags (comma separated)
+							</label>
+							<input
+								type="text"
+								name="tagsCsv"
+								value={formData.tagsCsv}
+								onChange={handleChange}
+								className="input-field"
+								placeholder="e.g., medical, urgent, help"
+							/>
+						</div>
+
+						<div>
+							<label className="block text-sm font-medium text-themed mb-2">
+								Suggested Donation Amounts (comma separated)
+							</label>
+							<input
+								type="text"
+								name="suggestedCsv"
+								value={formData.suggestedCsv}
+								onChange={handleChange}
+								className="input-field"
+								placeholder="e.g., 10, 25, 50, 100"
+							/>
+						</div>
+
+						<div>
+							<label className="block text-sm font-medium text-themed mb-2">
+								Visibility
+							</label>
+							<select
+								name="visibility"
+								value={formData.visibility}
+								onChange={handleChange}
+								className="input-field"
+							>
+								<option value="public">Public - Anyone can see</option>
+								<option value="unlisted">Unlisted - Only with link</option>
+								<option value="private">Private - Only you</option>
+							</select>
+						</div>
+
+						<div className="flex gap-4 pt-4">
 							<button
 								type="submit"
 								disabled={saving}
-								className="btn-primary flex-1"
+								className="flex-1 bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
 							>
 								{saving ? 'Saving...' : 'Save Changes'}
 							</button>
 							<button
 								type="button"
 								onClick={() => navigate('/profile')}
-								className="btn-secondary flex-1"
+								className="flex-1 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 font-semibold py-3 px-6 rounded-lg transition-all duration-300 hover:scale-105 active:scale-95"
 							>
 								Cancel
 							</button>

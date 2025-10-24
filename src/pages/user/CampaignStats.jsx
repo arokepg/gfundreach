@@ -331,8 +331,8 @@ const CampaignStats = () => {
 
             <div className="card p-6">
               <div className="flex items-center gap-3 mb-2">
-                <div className="p-3 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
-                  <TrendingUpIcon className="text-purple-600" />
+                <div className="p-3 bg-green-100 dark:bg-green-900/30 rounded-lg">
+                  <TrendingUpIcon className="text-green-600" />
                 </div>
                 <div>
                   <p className="text-sm text-themed-secondary">Avg Donation</p>
