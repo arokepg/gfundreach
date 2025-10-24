@@ -1,4 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
+import { collection, query, where, orderBy, onSnapshot, doc, updateDoc, deleteDoc, limit } from 'firebase/firestore';
+import { db } from '../config/firebase';
+import { useAuth } from '../contexts/AuthContext';
+import { formatNotificationMessage, getTimeAgo } from '../utils/notifications';
 import NotificationsIcon from '@mui/icons-material/Notifications';
 import CloseIcon from '@mui/icons-material/Close';
 import FavoriteIcon from '@mui/icons-material/Favorite';
@@ -8,42 +12,34 @@ import PersonAddIcon from '@mui/icons-material/PersonAdd';
 
 const NotificationDropdown = () => {
   const [isOpen, setIsOpen] = useState(false);
-  const [notifications, setNotifications] = useState([
-    {
-      id: 1,
-      type: 'donation',
-      message: 'John Doe donated $50 to your post',
-      time: '2 hours ago',
-      read: false,
-      icon: <VolunteerActivismIcon className="text-green-500" />
-    },
-    {
-      id: 2,
-      type: 'like',
-      message: 'Sarah liked your post "Help needed for medical bills"',
-      time: '5 hours ago',
-      read: false,
-      icon: <FavoriteIcon className="text-red-500" />
-    },
-    {
-      id: 3,
-      type: 'comment',
-      message: 'Mike commented on your post',
-      time: '1 day ago',
-      read: true,
-      icon: <CommentIcon className="text-blue-500" />
-    },
-    {
-      id: 4,
-      type: 'follow',
-      message: 'Emma started following you',
-      time: '2 days ago',
-      read: true,
-      icon: <PersonAddIcon className="text-purple-500" />
-    }
-  ]);
+  const [notifications, setNotifications] = useState([]);
+  const { currentUser } = useAuth();
   
   const dropdownRef = useRef(null);
+
+  // Fetch notifications from Firestore
+  useEffect(() => {
+    if (!currentUser?.uid) return;
+
+    const q = query(
+      collection(db, 'notifications'),
+      where('recipientId', '==', currentUser.uid),
+      orderBy('createdAt', 'desc'),
+      limit(20)
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const notifs = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      setNotifications(notifs);
+    }, (error) => {
+      console.warn('Error fetching notifications:', error);
+    });
+
+    return () => unsubscribe();
+  }, [currentUser]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -64,18 +60,48 @@ const NotificationDropdown = () => {
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
-  const markAsRead = (id) => {
-    setNotifications(notifications.map(n => 
-      n.id === id ? { ...n, read: true } : n
-    ));
+  const markAsRead = async (id) => {
+    try {
+      await updateDoc(doc(db, 'notifications', id), {
+        read: true
+      });
+    } catch (error) {
+      console.warn('Failed to mark notification as read:', error);
+    }
   };
 
-  const markAllAsRead = () => {
-    setNotifications(notifications.map(n => ({ ...n, read: true })));
+  const markAllAsRead = async () => {
+    try {
+      const updatePromises = notifications
+        .filter(n => !n.read)
+        .map(n => updateDoc(doc(db, 'notifications', n.id), { read: true }));
+      await Promise.all(updatePromises);
+    } catch (error) {
+      console.warn('Failed to mark all as read:', error);
+    }
   };
 
-  const deleteNotification = (id) => {
-    setNotifications(notifications.filter(n => n.id !== id));
+  const deleteNotification = async (id) => {
+    try {
+      await deleteDoc(doc(db, 'notifications', id));
+    } catch (error) {
+      console.warn('Failed to delete notification:', error);
+    }
+  };
+
+  const getNotificationIcon = (type) => {
+    switch (type) {
+      case 'donation':
+        return <VolunteerActivismIcon className="text-green-500" />;
+      case 'like':
+        return <FavoriteIcon className="text-red-500" />;
+      case 'comment':
+        return <CommentIcon className="text-blue-500" />;
+      case 'follow':
+        return <PersonAddIcon className="text-purple-500" />;
+      default:
+        return <NotificationsIcon className="text-gray-500" />;
+    }
   };
 
   return (
@@ -88,7 +114,7 @@ const NotificationDropdown = () => {
         onMouseEnter={(e)=>{ e.currentTarget.style.backgroundColor = 'var(--hover-bg)'; }}
         onMouseLeave={(e)=>{ e.currentTarget.style.backgroundColor = 'transparent'; }}
       >
-        <NotificationsIcon className="text-themed-secondary" />
+        <NotificationsIcon sx={{ fontSize: 24 }} className="text-themed-secondary" />
         {unreadCount > 0 && (
           <span className="absolute top-1 right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-semibold">
             {unreadCount}
@@ -134,16 +160,16 @@ const NotificationDropdown = () => {
                   <div className="flex items-start space-x-3">
                     {/* Icon */}
                     <div className="flex-shrink-0 mt-1">
-                      {notification.icon}
+                      {getNotificationIcon(notification.type)}
                     </div>
 
                     {/* Content */}
                     <div className="flex-1 min-w-0">
                       <p className="text-sm text-themed">
-                        {notification.message}
+                        {formatNotificationMessage(notification)}
                       </p>
                       <p className="text-xs text-themed-muted mt-1">
-                        {notification.time}
+                        {getTimeAgo(notification.createdAt)}
                       </p>
                     </div>
 

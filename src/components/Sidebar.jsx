@@ -10,13 +10,14 @@ import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import AddCircleIcon from '@mui/icons-material/AddCircle';
 import PersonIcon from '@mui/icons-material/Person';
 import { useAuth } from '../contexts/AuthContext';
+import { useTheme } from '../contexts/ThemeContext';
 
 const Sidebar = () => {
   const [isHovered, setIsHovered] = useState(false);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const location = useLocation();
   const { open } = useSearch();
   const { currentUser, userProfile } = useAuth();
+  const { isDarkMode } = useTheme();
 
   const menuItems = [
     { icon: <HomeIcon />, label: 'Home', path: '/' },
@@ -58,9 +59,13 @@ const Sidebar = () => {
             document.documentElement.style.setProperty('--sidebar-width', '5rem');
           }
         }}
-        className={`hidden md:block fixed left-0 top-0 h-full surface border-r border-surface transition-all duration-300 ease-smooth z-50 ${
+        className={`hidden md:block fixed left-0 top-0 h-full border-r border-surface transition-all duration-300 ease-smooth z-50 ${
           isHovered ? 'w-64' : 'w-20'
         }`}
+        style={{
+          backgroundColor: 'var(--bg)',
+          borderColor: 'var(--card-bg)'
+        }}
       >
       {/* Header */}
   <div className="flex items-center justify-center h-[73px] border-b border-surface">
@@ -82,14 +87,14 @@ const Sidebar = () => {
           to="/create-post"
           className={`flex items-center ${isHovered ? 'space-x-3 justify-start' : 'justify-center'} px-4 py-3 rounded-full transition-all duration-300 hover:scale-105 active:scale-95 shadow-md hover:shadow-lg font-medium`}
           style={{
-            backgroundColor: document.documentElement.classList.contains('dark') ? '#ffffff' : '#111827',
-            color: document.documentElement.classList.contains('dark') ? '#111827' : '#ffffff'
+            backgroundColor: isDarkMode ? '#ffffff' : '#111827',
+            color: isDarkMode ? '#111827' : '#ffffff'
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.backgroundColor = document.documentElement.classList.contains('dark') ? '#f3f4f6' : '#1f2937';
+            e.currentTarget.style.backgroundColor = isDarkMode ? '#f3f4f6' : '#1f2937';
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = document.documentElement.classList.contains('dark') ? '#ffffff' : '#111827';
+            e.currentTarget.style.backgroundColor = isDarkMode ? '#ffffff' : '#111827';
           }}
           title={!isHovered ? 'Create Campaign' : ''}
         >
@@ -145,8 +150,8 @@ const Sidebar = () => {
           style={
             isHovered
               ? {
-                  backgroundColor: document.documentElement.classList.contains('dark') ? '#111827' : '#ffffff',
-                  borderColor: document.documentElement.classList.contains('dark') ? '#374151' : '#e5e7eb'
+                  backgroundColor: isDarkMode ? '#111827' : '#ffffff',
+                  borderColor: isDarkMode ? '#374151' : '#e5e7eb'
                 }
               : {}
           }
@@ -170,13 +175,13 @@ const Sidebar = () => {
               <div className="flex-1 min-w-0 animate-fade-in">
                 <p 
                   className="text-sm font-bold truncate"
-                  style={{ color: document.documentElement.classList.contains('dark') ? '#ffffff' : '#111827' }}
+                  style={{ color: isDarkMode ? '#ffffff' : '#111827' }}
                 >
                   {userProfile?.displayName || currentUser?.displayName || 'User'}
                 </p>
                 <p 
                   className="text-xs truncate mt-0.5"
-                  style={{ color: document.documentElement.classList.contains('dark') ? '#9ca3af' : '#4b5563' }}
+                  style={{ color: isDarkMode ? '#9ca3af' : '#4b5563' }}
                 >
                   {userProfile?.title || userProfile?.bio || ''}
                 </p>
@@ -190,13 +195,13 @@ const Sidebar = () => {
               <div className="flex items-center justify-between">
                 <span 
                   className="text-xs"
-                  style={{ color: document.documentElement.classList.contains('dark') ? '#9ca3af' : '#6b7280' }}
+                  style={{ color: isDarkMode ? '#9ca3af' : '#6b7280' }}
                 >
                   Donated
                 </span>
                 <span 
                   className="text-sm font-semibold"
-                  style={{ color: document.documentElement.classList.contains('dark') ? '#34d399' : '#059669' }}
+                  style={{ color: isDarkMode ? '#34d399' : '#059669' }}
                 >
                   ${userProfile?.totalDonated || 0}
                 </span>
@@ -204,13 +209,13 @@ const Sidebar = () => {
               <div className="flex items-center justify-between">
                 <span 
                   className="text-xs"
-                  style={{ color: document.documentElement.classList.contains('dark') ? '#9ca3af' : '#6b7280' }}
+                  style={{ color: isDarkMode ? '#9ca3af' : '#6b7280' }}
                 >
                   Received
                 </span>
                 <span 
                   className="text-sm font-semibold"
-                  style={{ color: document.documentElement.classList.contains('dark') ? '#60a5fa' : '#2563eb' }}
+                  style={{ color: isDarkMode ? '#60a5fa' : '#2563eb' }}
                 >
                   ${userProfile?.totalReceived || 0}
                 </span>
@@ -218,13 +223,13 @@ const Sidebar = () => {
               <div className="flex items-center justify-between">
                 <span 
                   className="text-xs"
-                  style={{ color: document.documentElement.classList.contains('dark') ? '#9ca3af' : '#6b7280' }}
+                  style={{ color: isDarkMode ? '#9ca3af' : '#6b7280' }}
                 >
                   Helped
                 </span>
                 <span 
                   className="text-sm font-semibold"
-                  style={{ color: document.documentElement.classList.contains('dark') ? '#ffffff' : '#111827' }}
+                  style={{ color: isDarkMode ? '#ffffff' : '#111827' }}
                 >
                   {userProfile?.helpedPeople || 0} people
                 </span>
@@ -236,7 +241,13 @@ const Sidebar = () => {
     </div>
 
     {/* Mobile Bottom Navigation */}
-    <div className="md:hidden fixed bottom-0 left-0 right-0 surface border-t border-surface z-50 safe-area-bottom">
+    <div 
+      className="md:hidden fixed bottom-0 left-0 right-0 border-t border-surface z-50 safe-area-bottom"
+      style={{
+        backgroundColor: 'var(--bg)',
+        borderColor: 'var(--card-bg)'
+      }}
+    >
       <nav className="flex justify-around items-center px-2 py-3">
         {menuItems.slice(0, 5).map((item) => {
           const active = isActive(item.path);

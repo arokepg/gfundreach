@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { collection, getDocs, limit, orderBy, query, where } from 'firebase/firestore';
+import { useEffect, useRef, useState } from 'react';
+import { collection, getDocs, limit, query, where } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import CloseIcon from '@mui/icons-material/Close';
 import SearchIcon from '@mui/icons-material/Search';
@@ -44,11 +44,15 @@ const SearchSidebar = () => {
     try {
       const raw = localStorage.getItem(storeKey);
       if (raw) setRecent(JSON.parse(raw));
-    } catch {}
+    } catch (err) {
+      console.warn('Failed to load recent searches:', err);
+    }
     try {
       const hraw = localStorage.getItem(historyKey);
       if (hraw) setHistory(JSON.parse(hraw));
-    } catch {}
+    } catch (err) {
+      console.warn('Failed to load search history:', err);
+    }
   }, []);
 
   useEffect(() => {
@@ -59,18 +63,30 @@ const SearchSidebar = () => {
     if (!term) return;
     const next = [term, ...recent.filter((r) => r !== term)].slice(0, 8);
     setRecent(next);
-    try { localStorage.setItem(storeKey, JSON.stringify(next)); } catch {}
+    try { 
+      localStorage.setItem(storeKey, JSON.stringify(next)); 
+    } catch (err) {
+      console.warn('Failed to save recent search:', err);
+    }
   };
 
   const deleteRecent = (term) => {
     const next = recent.filter((r) => r !== term);
     setRecent(next);
-    try { localStorage.setItem(storeKey, JSON.stringify(next)); } catch {}
+    try { 
+      localStorage.setItem(storeKey, JSON.stringify(next)); 
+    } catch (err) {
+      console.warn('Failed to delete recent search:', err);
+    }
   };
 
   const clearAllRecent = () => {
     setRecent([]);
-    try { localStorage.removeItem(storeKey); } catch {}
+    try { 
+      localStorage.removeItem(storeKey); 
+    } catch (err) {
+      console.warn('Failed to clear recent searches:', err);
+    }
   };
 
   const saveHistory = (term, peopleCount = 0, campaignsCount = 0) => {
@@ -78,18 +94,30 @@ const SearchSidebar = () => {
     const entry = { term, at: new Date().toISOString(), peopleCount, campaignsCount };
     const next = [entry, ...history.filter((h) => h.term !== term)].slice(0, 20);
     setHistory(next);
-    try { localStorage.setItem(historyKey, JSON.stringify(next)); } catch {}
+    try { 
+      localStorage.setItem(historyKey, JSON.stringify(next)); 
+    } catch (err) {
+      console.warn('Failed to save search history:', err);
+    }
   };
 
   const deleteHistory = (at) => {
     const next = history.filter((h) => h.at !== at);
     setHistory(next);
-    try { localStorage.setItem(historyKey, JSON.stringify(next)); } catch {}
+    try { 
+      localStorage.setItem(historyKey, JSON.stringify(next)); 
+    } catch (err) {
+      console.warn('Failed to delete history item:', err);
+    }
   };
 
   const clearAllHistory = () => {
     setHistory([]);
-    try { localStorage.removeItem(historyKey); } catch {}
+    try { 
+      localStorage.removeItem(historyKey); 
+    } catch (err) {
+      console.warn('Failed to clear search history:', err);
+    }
   };
 
   useEffect(() => {
@@ -191,7 +219,9 @@ const SearchSidebar = () => {
               (u.displayNameLower || u.displayName || '').toLowerCase().includes(term) ||
               (u.emailLower || u.email || '').toLowerCase().includes(term)
             )).slice(0, 5);
-          } catch {}
+          } catch (err) {
+            console.warn('Fallback user search failed:', err);
+          }
         }
 
         if (finalCampaigns.length === 0) {
@@ -210,7 +240,9 @@ const SearchSidebar = () => {
                 tags.some(t => t.includes(term))
               );
             }).slice(0, 8);
-          } catch {}
+          } catch (err) {
+            console.warn('Fallback campaign search failed:', err);
+          }
         }
 
         setPeople(finalPeople);
@@ -222,7 +254,6 @@ const SearchSidebar = () => {
       }
     };
     run();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debounced]);
 
   const handleSubmit = (e) => {
@@ -235,7 +266,9 @@ const SearchSidebar = () => {
 
   const handleClose = () => {
     close();
-    try { document.documentElement.style.setProperty('--sidebar-width', '5rem'); } catch {}
+    try { document.documentElement.style.setProperty('--sidebar-width', '5rem'); } catch (e) {
+      console.warn('Failed to set sidebar width:', e);
+    }
   };
 
   // Use CSS var --sidebar-width (set by Sidebar) on desktop so we sit just to its right

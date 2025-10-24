@@ -29,6 +29,7 @@ const CampaignStats = () => {
 
   useEffect(() => {
     fetchCampaignStats();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   const fetchCampaignStats = async () => {

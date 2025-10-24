@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import SearchIcon from '@mui/icons-material/Search';
 import CloseIcon from '@mui/icons-material/Close';
-import { collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
+import { collection, query, getDocs, orderBy, limit } from 'firebase/firestore';
 import { db } from '../config/firebase';
 
 const ExploreSection = ({ onSearchResults }) => {

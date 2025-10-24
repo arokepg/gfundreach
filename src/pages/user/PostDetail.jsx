@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { doc, getDoc, collection, addDoc, updateDoc, increment, deleteDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import { useAuth } from '../../contexts/AuthContext';
+import { createNotification } from '../../utils/notifications';
 import Layout from '../../components/Layout';
 import CampaignUpdates from '../../components/CampaignUpdates';
 import PersonIcon from '@mui/icons-material/Person';
@@ -27,7 +28,6 @@ const PostDetail = () => {
   const [isLiked, setIsLiked] = useState(false);
   const [likesCount, setLikesCount] = useState(0);
   const [sharesCount, setSharesCount] = useState(0);
-  const [commentsCount, setCommentsCount] = useState(0);
   const { currentUser, userProfile } = useAuth();
   const navigate = useNavigate();
 
@@ -57,7 +57,6 @@ const PostDetail = () => {
         setIsLiked(currentUser ? likedBy.includes(currentUser.uid) : false);
         setLikesCount(postData.likesCount || 0);
         setSharesCount(postData.sharesCount || 0);
-        setCommentsCount(postData.updateCount || 0); // Use updateCount as comments count
       } else {
         console.log('Post not found');
         setError('Post not found');
@@ -120,6 +119,15 @@ const PostDetail = () => {
         totalReceived: increment(amount),
       });
 
+      // Create notification for campaign owner
+      await createNotification(post.authorId, 'donation', {
+        senderId: currentUser.uid,
+        senderName: userProfile?.displayName || currentUser.displayName || 'Someone',
+        postId: id,
+        postTitle: post.title,
+        amount: amount
+      });
+
       setSuccess(`Successfully donated $${amount}! Thank you for your support.`);
       setDonationAmount('');
       setMessage('');
@@ -178,6 +186,14 @@ const PostDetail = () => {
         });
         setIsLiked(true);
         setLikesCount(prev => prev + 1);
+
+        // Create notification for post owner
+        await createNotification(post.authorId, 'like', {
+          senderId: currentUser.uid,
+          senderName: userProfile?.displayName || currentUser.displayName || 'Someone',
+          postId: id,
+          postTitle: post.title
+        });
       }
     } catch (error) {
       console.error('Error toggling like:', error);
@@ -227,10 +243,6 @@ const PostDetail = () => {
 
   const handleEditCampaign = () => {
     navigate(`/edit-campaign/${id}`);
-  };
-
-  const handleViewStats = () => {
-    navigate(`/campaign-stats/${id}`);
   };
 
   const isOwner = currentUser && post && currentUser.uid === post.authorId;
@@ -444,7 +456,6 @@ const PostDetail = () => {
               <CampaignUpdates 
                 campaignId={id} 
                 isOwner={isOwner} 
-                onUpdateCountChange={(count) => setCommentsCount(count)}
               />
             </div>
           </div>

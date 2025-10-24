@@ -8,7 +8,7 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 
 const EditProfile = () => {
   const navigate = useNavigate();
-  const { currentUser, userProfile } = useAuth();
+  const { currentUser } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState({
@@ -23,6 +23,7 @@ const EditProfile = () => {
 
   useEffect(() => {
     fetchProfileData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser]);
 
   const fetchProfileData = async () => {

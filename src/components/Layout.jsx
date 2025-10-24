@@ -52,7 +52,7 @@ const Layout = ({ children }) => {
                 style={{ backgroundColor: 'transparent' }}
                 aria-label="Toggle theme"
               >
-                {isDarkMode ? <LightModeIcon /> : <DarkModeIcon />}
+                {isDarkMode ? <LightModeIcon sx={{ fontSize: 24 }} /> : <DarkModeIcon sx={{ fontSize: 24 }} />}
               </button>
               <button className="p-2 rounded-full transition-all duration-300 hover:scale-110 active:scale-95" style={{ backgroundColor: 'transparent' }}
                 onClick={open}
@@ -60,13 +60,13 @@ const Layout = ({ children }) => {
                 onMouseLeave={(e)=>{ e.currentTarget.style.backgroundColor = 'transparent'; }}
                 aria-label="Open search"
               >
-                <SearchIcon className="text-gray-700 dark:text-gray-300" />
+                <SearchIcon sx={{ fontSize: 24 }} className="text-themed-secondary" />
               </button>
               <NotificationDropdown />
               <button className="p-2 rounded-full transition-all duration-300 hover:scale-110 active:scale-95" style={{ backgroundColor: 'transparent' }}
                 onMouseEnter={(e)=>{ e.currentTarget.style.backgroundColor = 'var(--hover-bg)'; }}
                 onMouseLeave={(e)=>{ e.currentTarget.style.backgroundColor = 'transparent'; }}>
-                <ChatIcon className="text-gray-700 dark:text-gray-300" />
+                <ChatIcon sx={{ fontSize: 24 }} className="text-themed-secondary" />
               </button>
               <Link 
                 to="/profile" 

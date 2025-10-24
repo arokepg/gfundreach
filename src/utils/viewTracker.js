@@ -37,7 +37,10 @@ export const recordCampaignView = async (postId, currentUser) => {
   const localKey = `gfr_viewed:${postId}:${dateKey}`;
   try {
     if (localStorage.getItem(localKey)) return;
-  } catch {}
+  } catch (err) {
+    // Ignore localStorage errors
+    console.warn('localStorage unavailable:', err);
+  }
 
   const viewDocId = `${vid}_${dateKey}`;
   const viewRef = doc(db, 'posts', postId, 'views', viewDocId);
@@ -59,6 +62,11 @@ export const recordCampaignView = async (postId, currentUser) => {
       }, { merge: true })
     ]);
   } finally {
-    try { localStorage.setItem(localKey, '1'); } catch {}
+    try { 
+      localStorage.setItem(localKey, '1'); 
+    } catch (err) {
+      // Ignore localStorage errors
+      console.warn('localStorage unavailable:', err);
+    }
   }
 };

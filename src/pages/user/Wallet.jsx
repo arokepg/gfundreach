@@ -22,6 +22,7 @@ const Wallet = () => {
     if (currentUser) {
       fetchTransactions();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser]);
 
   const fetchTransactions = async () => {

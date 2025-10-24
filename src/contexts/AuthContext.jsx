@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useEffect, useState } from 'react';
 import {
   createUserWithEmailAndPassword,
@@ -62,7 +63,11 @@ export const AuthProvider = ({ children }) => {
     const defaultDisplayName = result.user.displayName || result.user.email || 'User';
     // Ensure auth profile has a displayName so UI can show it
     if (!result.user.displayName && defaultDisplayName) {
-      try { await updateProfile(result.user, { displayName: defaultDisplayName }); } catch {}
+      try { 
+        await updateProfile(result.user, { displayName: defaultDisplayName }); 
+      } catch (err) {
+        console.warn('Failed to update profile displayName:', err);
+      }
     }
     
     // Check if user profile exists, if not create one
@@ -119,7 +124,11 @@ export const AuthProvider = ({ children }) => {
       if (user) {
         // Ensure displayName is at least the email by default
         if (!user.displayName && user.email) {
-          try { await updateProfile(user, { displayName: user.email }); } catch {}
+          try { 
+            await updateProfile(user, { displayName: user.email }); 
+          } catch (err) {
+            console.warn('Failed to update user displayName:', err);
+          }
         }
         await fetchUserProfile(user.uid);
       } else {

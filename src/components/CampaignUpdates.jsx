@@ -1,16 +1,17 @@
 import { useEffect, useState } from 'react';
-import { collection, addDoc, query, orderBy, getDocs, serverTimestamp, updateDoc, doc, increment, deleteDoc } from 'firebase/firestore';
+import { collection, addDoc, query, orderBy, getDocs, serverTimestamp, updateDoc, doc, increment, deleteDoc, getDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../config/firebase';
 import { useAuth } from '../contexts/AuthContext';
+import { createNotification } from '../utils/notifications';
 import PersonIcon from '@mui/icons-material/Person';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import ImageIcon from '@mui/icons-material/Image';
 import CloseIcon from '@mui/icons-material/Close';
 
-const CampaignUpdates = ({ campaignId, isOwner, onUpdateCountChange }) => {
-  const { currentUser } = useAuth();
+const CampaignUpdates = ({ campaignId, onUpdateCountChange }) => {
+  const { currentUser, userProfile } = useAuth();
   const [updates, setUpdates] = useState([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
@@ -106,6 +107,20 @@ const CampaignUpdates = ({ campaignId, isOwner, onUpdateCountChange }) => {
         lastUpdateAt: serverTimestamp(),
         lastUpdatePreview: content.trim().slice(0, 160),
       });
+
+      // Get campaign details to notify the owner
+      const campaignDoc = await getDoc(doc(db, 'posts', campaignId));
+      if (campaignDoc.exists()) {
+        const campaignData = campaignDoc.data();
+        
+        // Create notification for campaign owner (if commenter is not the owner)
+        await createNotification(campaignData.authorId, 'comment', {
+          senderId: currentUser.uid,
+          senderName: userProfile?.displayName || currentUser.displayName || 'Someone',
+          postId: campaignId,
+          postTitle: campaignData.title
+        });
+      }
 
       setContent('');
       setImage(null);
