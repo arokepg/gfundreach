@@ -8,6 +8,7 @@ import SearchIcon from '@mui/icons-material/Search';
 import ImageIcon from '@mui/icons-material/Image';
 import { useAuth } from '../../contexts/AuthContext';
 import { createGroup, listGroups, getMember } from '../../utils/groups';
+import { useQuery } from '@tanstack/react-query';
 
 const Group = () => {
   const { currentUser } = useAuth();
@@ -23,31 +24,33 @@ const Group = () => {
   const [q, setQ] = useState('');
   const [roles, setRoles] = useState({}); // { [groupId]: 'admin'|'moderator'|'member' }
 
+  // Groups query
+  const groupsQuery = useQuery({
+    queryKey: ['groups:list'],
+    queryFn: () => listGroups(),
+  });
+
+  // Derive roles after groups load
   useEffect(() => {
-    (async () => {
-      try {
-        const list = await listGroups();
-        setGroups(list);
-        // Fetch current user's role in each group
-        if (currentUser && list.length) {
-          const pairs = await Promise.all(
-            list.map(async (g) => {
-              try {
-                const m = await getMember(g.id, currentUser.uid);
-                return [g.id, m?.role || null];
-              } catch {
-                return [g.id, null];
-              }
-            })
-          );
-          const map = Object.fromEntries(pairs);
-          setRoles(map);
-        }
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [currentUser]);
+    const list = groupsQuery.data || [];
+    setGroups(list);
+    setLoading(groupsQuery.isLoading);
+    const fetchRoles = async () => {
+      if (!currentUser || !list.length) return setRoles({});
+      const pairs = await Promise.all(
+        list.map(async (g) => {
+          try {
+            const m = await getMember(g.id, currentUser.uid);
+            return [g.id, m?.role || null];
+          } catch {
+            return [g.id, null];
+          }
+        })
+      );
+      setRoles(Object.fromEntries(pairs));
+    };
+    fetchRoles();
+  }, [groupsQuery.data, groupsQuery.isLoading, currentUser]);
 
   const filtered = useMemo(() => {
     if (!q.trim()) return groups;

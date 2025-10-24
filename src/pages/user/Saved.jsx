@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import Layout from '../../components/Layout';
 import { useAuth } from '../../contexts/AuthContext';
@@ -11,47 +11,34 @@ import MoreVertIcon from '@mui/icons-material/MoreVert';
 import FolderIcon from '@mui/icons-material/Folder';
 import ShareIcon from '@mui/icons-material/Share';
 import BookmarkBorderIcon from '@mui/icons-material/BookmarkBorder';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 const Saved = () => {
   const { currentUser } = useAuth();
-  const [savedItems, setSavedItems] = useState([]);
-  const [collections, setCollections] = useState([]);
+  const queryClient = useQueryClient();
+  
   const [selectedCollection, setSelectedCollection] = useState(null);
-  const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showAddToCollectionModal, setShowAddToCollectionModal] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
   const [newCollectionName, setNewCollectionName] = useState('');
   const [newCollectionDesc, setNewCollectionDesc] = useState('');
+  // Queries
+  const savedQuery = useQuery({
+    queryKey: ['savedItems', currentUser?.uid, selectedCollection],
+    queryFn: () => getSavedItems(currentUser.uid, selectedCollection),
+    enabled: !!currentUser,
+  });
 
-  useEffect(() => {
-    if (currentUser) {
-      loadData();
-    } else {
-      setLoading(false);
-      console.log('⚠️ No current user, skipping load');
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentUser, selectedCollection]); // Added selectedCollection as dependency
+  const collectionsQuery = useQuery({
+    queryKey: ['collections', currentUser?.uid],
+    queryFn: () => getUserCollections(currentUser.uid),
+    enabled: !!currentUser,
+  });
 
-  const loadData = async () => {
-    setLoading(true);
-    console.log('🔄 Loading saved items for user:', currentUser?.uid);
-    try {
-      const [items, cols] = await Promise.all([
-        getSavedItems(currentUser.uid, selectedCollection),
-        getUserCollections(currentUser.uid)
-      ]);
-      setSavedItems(items);
-      setCollections(cols);
-      console.log(`✅ Loaded ${items.length} saved items and ${cols.length} collections`);
-    } catch (error) {
-      console.error('❌ Error loading saved data:', error);
-    } finally {
-      setLoading(false);
-      console.log('✅ Saved items loading complete');
-    }
-  };
+  const savedItems = savedQuery.data || [];
+  const collections = collectionsQuery.data || [];
+  const loading = savedQuery.isLoading || collectionsQuery.isLoading;
 
   const handleCreateCollection = async () => {
     if (!newCollectionName.trim()) return;
@@ -62,7 +49,7 @@ const Saved = () => {
         setNewCollectionName('');
         setNewCollectionDesc('');
         setShowCreateModal(false);
-        loadData();
+        queryClient.invalidateQueries({ queryKey: ['collections', currentUser?.uid] });
       }
     } catch (error) {
       console.error('Error creating collection:', error);
@@ -77,7 +64,7 @@ const Saved = () => {
       if (selectedCollection === collectionId) {
         setSelectedCollection(null);
       }
-      loadData();
+      queryClient.invalidateQueries({ queryKey: ['collections', currentUser?.uid] });
     } catch (error) {
       console.error('Error deleting collection:', error);
     }
@@ -86,7 +73,7 @@ const Saved = () => {
   const handleUnsaveItem = async (itemId) => {
     try {
       await unsaveItem(currentUser.uid, itemId.split('_')[1]);
-      loadData();
+      queryClient.invalidateQueries({ queryKey: ['savedItems', currentUser?.uid] });
     } catch (error) {
       console.error('Error unsaving item:', error);
     }
@@ -100,7 +87,7 @@ const Saved = () => {
       await addToCollection(currentUser.uid, itemId, collectionId);
       setShowAddToCollectionModal(false);
       setSelectedItem(null);
-      loadData();
+      queryClient.invalidateQueries({ queryKey: ['savedItems', currentUser?.uid] });
     } catch (error) {
       console.error('Error adding to collection:', error);
     }
@@ -109,7 +96,7 @@ const Saved = () => {
   const handleRemoveFromCollection = async (itemId, collectionId) => {
     try {
       await removeFromCollection(currentUser.uid, itemId, collectionId);
-      loadData();
+      queryClient.invalidateQueries({ queryKey: ['savedItems', currentUser?.uid] });
     } catch (error) {
       console.error('Error removing from collection:', error);
     }
@@ -117,11 +104,6 @@ const Saved = () => {
 
   const handleFilterByCollection = (collectionId) => {
     setSelectedCollection(collectionId);
-    setLoading(true);
-    getSavedItems(currentUser.uid, collectionId).then((items) => {
-      setSavedItems(items);
-      setLoading(false);
-    });
   };
 
   // Removed unused handleShowAll to satisfy linter

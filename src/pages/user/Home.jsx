@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useMemo, useState } from 'react';
 import { collection, query, orderBy, getDocs, limit, collectionGroup } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import { Link, useLocation } from 'react-router-dom';
@@ -8,36 +8,16 @@ import PostCard from '../../components/PostCard';
 import CommunityPostCard from '../../components/CommunityPostCard';
 import GroupItemCard from '../../components/GroupItemCard';
 import Layout from '../../components/Layout';
+import { useQuery } from '@tanstack/react-query';
 
 const Home = () => {
-  const [posts, setPosts] = useState([]); // mixed: campaigns + updates
-  const [filteredPosts, setFilteredPosts] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('all');
   const location = useLocation();
-  const mountedRef = useRef(true);
   // Layout provides header, sidebar, and search sidebar
 
-  useEffect(() => {
-    mountedRef.current = true;
-    // Refetch whenever we navigate to this route (even if React reuses the instance)
-    fetchPosts();
-    return () => { mountedRef.current = false; };
-  }, [location.key]);
-
-  const fetchPosts = async () => {
-    // Reset list and start loading
-    setFilteredPosts([]);
-    setPosts([]);
-    setLoading(true); // Ensure loading state is set
-    // Fail-safe: never let the spinner hang forever
-    const timeout = setTimeout(() => {
-      if (mountedRef.current) {
-        console.warn('⏳ Home feed timed out after 10s; showing whatever we have.');
-        setLoading(false);
-      }
-    }, 10000);
-    try {
+  const { data: merged = [], isLoading: loading } = useQuery({
+    queryKey: ['homeFeed', location.key], // refetch on route changes to keep behavior consistent
+    queryFn: async () => {
       // Each query is isolated so a failure (missing index/permission) doesn't blank the whole feed
       let campaigns = [];
       let updates = [];
@@ -138,24 +118,16 @@ const Home = () => {
         const bDate = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.createdAt || 0);
         return bDate - aDate;
       });
-
-      if (!mountedRef.current) return;
-      setPosts(merged);
-      setFilteredPosts(merged);
       console.log(`📊 Total items in feed: ${merged.length} (${campaigns.length} campaigns, ${updates.length} updates, ${groupItems.length} group items)`);
-    } catch (error) {
-      console.error('Error fetching posts:', error);
-    } finally {
-      clearTimeout(timeout);
-      if (mountedRef.current) setLoading(false);
-      console.log('✅ Loading complete');
-    }
-  };
+      return merged;
+    },
+  });
 
   const handleTabChange = (tab) => {
     setActiveTab(tab);
-    setFilteredPosts(posts);
   };
+
+  const filteredPosts = useMemo(() => merged, [merged]);
 
   return (
     <Layout>

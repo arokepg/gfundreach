@@ -3,6 +3,9 @@ import { AuthProvider } from './contexts/AuthContext';
 import { SearchProvider } from './contexts/SearchContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import ProtectedRoute from './components/ProtectedRoute';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
+import { queryClient } from './lib/queryClient';
 import ErrorBoundary from './components/ErrorBoundary';
 import Welcome from './pages/user/Welcome';
 import Login from './pages/user/Login';
@@ -29,6 +32,7 @@ function App() {
       <ThemeProvider>
         <AuthProvider>
   <SearchProvider>
+  <QueryClientProvider client={queryClient}>
   <ErrorBoundary>
   <Routes>
           {/* Public Routes */}
@@ -171,6 +175,8 @@ function App() {
           <Route path="*" element={<Navigate to="/" />} />
   </Routes>
   </ErrorBoundary>
+  <ReactQueryDevtools initialIsOpen={false} buttonPosition="bottom-right" />
+        </QueryClientProvider>
         </SearchProvider>
       </AuthProvider>
       </ThemeProvider>
