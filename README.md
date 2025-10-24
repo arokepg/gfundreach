@@ -1,276 +1,97 @@
-# Gfundreach - Social Fundraising Platform
+# Gfundreach – Social Fundraising Platform
 
-A modern, interactive social media platform for fundraising that connects people in need with generous donors. Built with React, TailwindCSS, Firebase, and Express.js.
-
-## 🌟 Features
-
-- **User Authentication**: Secure login/signup with email or Google OAuth
-- **Social Feed**: Browse fundraising campaigns like a social media feed
-- **Create Campaigns**: Share your story and start raising funds
-- **Secure Donations**: Built-in wallet system for safe transactions
-- **User Profiles**: Track your donations and campaigns
-- **Real-time Updates**: Powered by Firebase Firestore
-- **Material Design 3**: Beautiful, modern UI with Google's Material Design color scheme
-
-## 🎨 Design
-
-The UI is designed following Material Design 3 principles with a custom color scheme:
-- Primary: Purple (`#6750A4`)
-- Secondary: Gray-Purple (`#625B71`)
-- Tertiary: Rose (`#7D5260`)
-
-Design prototype: [Figma Design](https://www.figma.com/design/K9Ev8RXEEskoVsBBo3saBx/Gfundreach)
+A modern social platform for fundraising that connects people in need with donors. It blends a familiar social feed with campaigns, community posts, and groups, and is optimized for a smooth, stable UX.
 
 ## 🚀 Tech Stack
 
-### Frontend
-- **React** - UI library
-- **Vite** - Build tool and dev server
-- **TailwindCSS** - Utility-first CSS framework
-- **Material-UI** - Component library and icons
-- **React Router** - Client-side routing
-- **Firebase SDK** - Authentication, Firestore, Storage
+- React 19 + Vite 7
+- React Router 7
+- Tailwind CSS 4
+- Material UI 7 (icons + components)
+- Firebase 12 (Auth, Firestore, Storage)
+- React Query (@tanstack/react-query) for server-state, caching, retries
+- Axios (HTTP utilities)
+- Recharts (charts)
+- Node 20 (runtime for tooling and optional server)
+- ESLint 9
 
-### Backend
-- **Node.js** - JavaScript runtime
-- **Express.js** - Web framework
-- **Firebase Admin** - Server-side Firebase operations
-- **CORS** - Cross-origin resource sharing
+CI/CD and Hosting
+- GitHub Actions: lint → test (if present) → build → artifact
+- Vercel (production deploy from CI)
+- Optional: Firebase Hosting, GHCR (container), Fly.io (app deploy)
 
-## 📦 Installation
+## ✨ Key Features
 
-### Prerequisites
-- Node.js (v16 or higher)
-- npm or yarn
-- Firebase account
+- Authentication: email/password (Google optional), protected routes
+- Home feed: campaigns, campaign updates (community posts), and group items merged and sorted by recency
+- Groups: create/join/leave, roles (Admin/Moderator/Member), approve/reject posts, edit name/description/banner, soft delete; members show displayName/photo
+- Saved items: collections, horizontal card layout, header count aligned
+- Error resilience: global ErrorBoundary; resilient Firestore fetching that avoids white screens and reduces long-lived listeners
+- React Query: automatic loading states, error handling, and caching for Home, Saved, and Groups
 
-### Setup
-
-1. **Clone the repository**
-   ```bash
-   git clone <repository-url>
-   cd gfundreach
-   ```
-
-2. **Install dependencies**
-   ```bash
-   npm install
-   ```
-
-3. **Configure Firebase**
-   
-   a. Create a Firebase project at [Firebase Console](https://console.firebase.google.com/)
-   
-   b. Enable Authentication (Email/Password and Google)
-   
-   c. Create a Firestore database
-   
-   d. Enable Storage
-   
-   e. Get your Firebase configuration from Project Settings
-   
-   f. Update `src/config/firebase.js` with your config:
-   ```javascript
-   const firebaseConfig = {
-     apiKey: "YOUR_API_KEY",
-     authDomain: "YOUR_AUTH_DOMAIN",
-     projectId: "YOUR_PROJECT_ID",
-     storageBucket: "YOUR_STORAGE_BUCKET",
-     messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-     appId: "YOUR_APP_ID"
-   };
-   ```
-
-4. **Configure Firestore Security Rules**
-   ```javascript
-   rules_version = '2';
-   service cloud.firestore {
-     match /databases/{database}/documents {
-       match /users/{userId} {
-         allow read: if true;
-         allow write: if request.auth != null && request.auth.uid == userId;
-       }
-       
-       match /posts/{postId} {
-         allow read: if true;
-         allow create: if request.auth != null;
-         allow update: if request.auth != null;
-         allow delete: if request.auth != null && request.auth.uid == resource.data.authorId;
-       }
-       
-       match /transactions/{transactionId} {
-         allow read: if request.auth != null && 
-           (request.auth.uid == resource.data.donorId || 
-            request.auth.uid == resource.data.recipientId);
-         allow create: if request.auth != null;
-       }
-     }
-   }
-   ```
-
-5. **Configure Storage Rules**
-   ```javascript
-   rules_version = '2';
-   service firebase.storage {
-     match /b/{bucket}/o {
-       match /posts/{allPaths=**} {
-         allow read: if true;
-         allow write: if request.auth != null;
-       }
-     }
-   }
-   ```
-
-## 🏃‍♂️ Running the Application
-
-### Development Mode
-
-1. **Start the frontend**
-   ```bash
-   npm run dev
-   ```
-   The app will be available at `http://localhost:5173`
-
-2. **Start the backend server** (optional)
-   ```bash
-   npm run server
-   ```
-   The API will be available at `http://localhost:5000`
-
-### Production Build
-
-```bash
-npm run build
-npm run preview
-```
-
-## 📁 Project Structure
+## 📁 Project Structure (selected)
 
 ```
-gfunreach/
-├── public/                 # Static files
-├── server/                 # Backend server
-│   ├── index.js           # Express server
-│   ├── .env.example       # Environment variables template
-│   └── .gitignore         # Server gitignore
-├── src/
-│   ├── assets/            # Images, fonts, etc.
-│   ├── components/        # Reusable components
-│   │   ├── Navbar.jsx
-│   │   └── ProtectedRoute.jsx
-│   ├── config/            # Configuration files
-│   │   └── firebase.js    # Firebase configuration
-│   ├── contexts/          # React contexts
-│   │   └── AuthContext.jsx
-│   ├── pages/             # Page components
-│   │   ├── Login.jsx
-│   │   ├── Register.jsx
-│   │   ├── Home.jsx
-│   │   ├── CreateCampaign.jsx
-│   │   ├── CampaignDetail.jsx
-│   │   ├── CommunityPostDetail.jsx
-│   │   ├── Profile.jsx
-│   │   └── Wallet.jsx
-│   ├── App.jsx            # Main app component
-│   ├── main.jsx           # Entry point
-│   └── index.css          # Global styles
-├── .gitignore
-├── package.json
-├── tailwind.config.js     # TailwindCSS configuration
-├── vite.config.js         # Vite configuration
-└── README.md
+src/
+  components/
+    ErrorBoundary.jsx
+    PostCard.jsx
+    CommunityPostCard.jsx
+    GroupItemCard.jsx
+    Layout.jsx
+  contexts/
+    AuthContext.jsx
+    SearchContext.jsx
+    ThemeContext.jsx
+  lib/
+    queryClient.js
+  pages/
+    user/
+      Home.jsx
+      Saved.jsx
+      Group.jsx
+      GroupDetail.jsx
+      CreateCampaign.jsx
+      CampaignDetail.jsx
+      CommunityPostDetail.jsx
+      Profile.jsx
+    admin/
+      AdminBackfill.jsx
+  utils/
+    groups.js
+    savedItems.js
+    notifications.js
 ```
 
-## 🔐 Environment Variables
+## ⚙️ React Query
 
-Create a `.env` file in the root directory (for backend):
+- Central client at `src/lib/queryClient.js` with sensible defaults (staleTime 1m, retry 1)
+- Pages migrated: `Home.jsx`, `Saved.jsx`, `Group.jsx`
+- Mutations invalidate targeted queries to keep UI in sync
 
-```env
-PORT=5000
-FIREBASE_PROJECT_ID=your_project_id
-FIREBASE_CLIENT_EMAIL=your_client_email
-FIREBASE_PRIVATE_KEY=your_private_key
-```
+## 🧱 CI/CD (GitHub Actions)
 
-## 📱 Features Overview
+Workflow: `.github/workflows/main.yml`
+- Triggers on pushes/PRs to `master`
+- Steps: Install → Lint → Test (`npm test --if-present`) → Build → Upload artifact
+- Production deploy to Vercel when secrets are present
+- Optional deploys: Firebase Hosting, GHCR image, Fly.io
 
-### 1. Authentication
-- Email/password registration and login
-- Google OAuth integration
-- Protected routes
-- Persistent sessions
+## 🧭 Notable UX & Stability Improvements
 
-### 2. Home Feed
-- Browse all fundraising campaigns
-- See campaign progress bars
-- Filter by category
-- Real-time updates
+- ErrorBoundary wraps routes to prevent white screens
+- Notifications only subscribe when dropdown is open; falls back to one-time fetch on error
+- Home feed refetches on navigation (route key) while leveraging cache
 
-### 3. Create Campaign
-- Upload campaign images
-- Set fundraising goals
-- Choose categories
-- Rich text descriptions
+## 🧪 Testing
 
-### 4. Campaign Details
-- View full campaign information
-- Make donations
-- See campaign progress
-- Share campaigns
+No tests are bundled yet. The CI workflow runs `npm test --if-present`, so you can add Jest/RTL later and it will execute automatically.
 
-### 5. User Profile
-- View personal campaigns
-- Track donation history
-- See statistics (donated, received)
-- Edit profile information
+## 📝 License
 
-### 6. Wallet
-- Top up wallet balance
-- View transaction history
-- Track donations sent and received
-- Secure fund management
-
-## 🛠️ Future Enhancements
-
-- [ ] Payment gateway integration (Stripe, PayPal)
-- [ ] Email notifications
-- [ ] Campaign comments and updates
-- [ ] Social sharing features
-- [ ] Campaign verification system
-- [ ] Advanced search and filters
-- [ ] Mobile app (React Native)
-- [ ] Admin dashboard
-- [ ] Analytics and reporting
-- [ ] Multiple currency support
-
-## 🤝 Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-## 📄 License
-
-This project is licensed under the MIT License.
-
-## 👥 Team
-
-Built with ❤️ for connecting people in need with generous donors.
-
-## 🙏 Acknowledgments
-
-- Material Design 3 by Google
-- Firebase by Google
-- React community
-- TailwindCSS team
+MIT
 
 ---
 
-For questions or support, please open an issue on GitHub.
-
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+Questions or ideas? Open an issue or start a discussion. Let's make fundraising accessible, transparent, and fast. 
+│   ├── index.js           # Express server
