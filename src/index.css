@@ -203,19 +203,19 @@ html.dark .card {
   box-shadow: 0 2px 6px -1px rgba(0, 0, 0, 0.08);
 }
 
-/* Active pill uses brand accent so it looks correct in both themes */
+/* Active pill uses green theme color to match website branding */
 .pill-active {
-  background-color: #6750A4; /* primary */
+  background-color: #10b981; /* green-500 */
   color: #ffffff;
   border-color: transparent;
   transform: scale(1);
-  box-shadow: 0 2px 6px -1px rgba(103, 80, 164, 0.25);
+  box-shadow: 0 2px 6px -1px rgba(16, 185, 129, 0.25);
 }
 
 html.dark .pill-active {
-  background-color: #4F378B; /* darker primary for dark theme */
+  background-color: #059669; /* green-600 for dark theme */
   color: #ffffff;
-  box-shadow: 0 2px 6px -1px rgba(79, 55, 139, 0.35);
+  box-shadow: 0 2px 6px -1px rgba(5, 150, 105, 0.35);
 }
 
 /* Text utility classes */

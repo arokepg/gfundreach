@@ -112,7 +112,7 @@ const CreatePost = () => {
         currentAmount: 0,
         imageUrl,
         authorId: currentUser.uid,
-        authorName: currentUser.displayName || 'Anonymous',
+  authorName: currentUser.displayName || currentUser.email || 'Anonymous',
         authorPhoto: currentUser.photoURL || '',
         supporters: 0,
         // Campaign meta

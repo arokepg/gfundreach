@@ -7,12 +7,16 @@ import BookmarkIcon from '@mui/icons-material/Bookmark';
 import GroupIcon from '@mui/icons-material/Group';
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
+import AddCircleIcon from '@mui/icons-material/AddCircle';
+import PersonIcon from '@mui/icons-material/Person';
+import { useAuth } from '../contexts/AuthContext';
 
 const Sidebar = () => {
   const [isHovered, setIsHovered] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const location = useLocation();
   const { open } = useSearch();
+  const { currentUser, userProfile } = useAuth();
 
   const menuItems = [
     { icon: <HomeIcon />, label: 'Home', path: '/' },
@@ -72,8 +76,34 @@ const Sidebar = () => {
         </Link>
       </div>
 
+      {/* Create Campaign Button */}
+      <div className="p-4">
+        <Link
+          to="/create-post"
+          className={`flex items-center ${isHovered ? 'space-x-3 justify-start' : 'justify-center'} px-4 py-3 rounded-full transition-all duration-300 hover:scale-105 active:scale-95 shadow-md hover:shadow-lg font-medium`}
+          style={{
+            backgroundColor: document.documentElement.classList.contains('dark') ? '#ffffff' : '#111827',
+            color: document.documentElement.classList.contains('dark') ? '#111827' : '#ffffff'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.backgroundColor = document.documentElement.classList.contains('dark') ? '#f3f4f6' : '#1f2937';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.backgroundColor = document.documentElement.classList.contains('dark') ? '#ffffff' : '#111827';
+          }}
+          title={!isHovered ? 'Create Campaign' : ''}
+        >
+          <AddCircleIcon className="flex-shrink-0" />
+          {isHovered && (
+            <span className="whitespace-nowrap animate-fade-in">
+              Create Campaign
+            </span>
+          )}
+        </Link>
+      </div>
+
       {/* Menu Items */}
-      <nav className="flex-1 p-4 space-y-2">
+      <nav className="flex-1 p-4 pt-0 space-y-2">
         {menuItems.map((item) => {
           const active = isActive(item.path);
           return (
@@ -102,6 +132,107 @@ const Sidebar = () => {
           );
         })}
       </nav>
+
+      {/* Profile Section at Bottom */}
+      <div className="p-4 border-t border-surface">
+        <Link
+          to="/profile"
+          className={
+            isHovered
+              ? 'block rounded-2xl p-4 transition-all duration-300 hover:shadow-lg hover:scale-[1.02] active:scale-95 border shadow-sm'
+              : 'flex items-center justify-center p-2'
+          }
+          style={
+            isHovered
+              ? {
+                  backgroundColor: document.documentElement.classList.contains('dark') ? '#111827' : '#ffffff',
+                  borderColor: document.documentElement.classList.contains('dark') ? '#374151' : '#e5e7eb'
+                }
+              : {}
+          }
+          title={!isHovered ? 'Profile' : ''}
+        >
+          {/* Profile Header */}
+          <div className={`flex items-center ${isHovered ? 'gap-3 mb-3' : 'justify-center'}`}>
+            <div className="w-12 h-12 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden">
+              {(userProfile?.photoURL || currentUser?.photoURL) ? (
+                <img
+                  src={userProfile?.photoURL || currentUser?.photoURL}
+                  alt="Profile"
+                  className="w-full h-full object-cover"
+                  referrerPolicy="no-referrer"
+                />
+              ) : (
+                <PersonIcon className="text-gray-400" sx={{ fontSize: 28 }} />
+              )}
+            </div>
+            {isHovered && (
+              <div className="flex-1 min-w-0 animate-fade-in">
+                <p 
+                  className="text-sm font-bold truncate"
+                  style={{ color: document.documentElement.classList.contains('dark') ? '#ffffff' : '#111827' }}
+                >
+                  {userProfile?.displayName || currentUser?.displayName || 'User'}
+                </p>
+                <p 
+                  className="text-xs truncate mt-0.5"
+                  style={{ color: document.documentElement.classList.contains('dark') ? '#9ca3af' : '#4b5563' }}
+                >
+                  {userProfile?.title || userProfile?.bio || ''}
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Stats - Only show when hovered */}
+          {isHovered && (
+            <div className="space-y-2 animate-fade-in">
+              <div className="flex items-center justify-between">
+                <span 
+                  className="text-xs"
+                  style={{ color: document.documentElement.classList.contains('dark') ? '#9ca3af' : '#6b7280' }}
+                >
+                  Donated
+                </span>
+                <span 
+                  className="text-sm font-semibold"
+                  style={{ color: document.documentElement.classList.contains('dark') ? '#34d399' : '#059669' }}
+                >
+                  ${userProfile?.totalDonated || 0}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span 
+                  className="text-xs"
+                  style={{ color: document.documentElement.classList.contains('dark') ? '#9ca3af' : '#6b7280' }}
+                >
+                  Received
+                </span>
+                <span 
+                  className="text-sm font-semibold"
+                  style={{ color: document.documentElement.classList.contains('dark') ? '#60a5fa' : '#2563eb' }}
+                >
+                  ${userProfile?.totalReceived || 0}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span 
+                  className="text-xs"
+                  style={{ color: document.documentElement.classList.contains('dark') ? '#9ca3af' : '#6b7280' }}
+                >
+                  Helped
+                </span>
+                <span 
+                  className="text-sm font-semibold"
+                  style={{ color: document.documentElement.classList.contains('dark') ? '#ffffff' : '#111827' }}
+                >
+                  {userProfile?.helpedPeople || 0} people
+                </span>
+              </div>
+            </div>
+          )}
+        </Link>
+      </div>
     </div>
 
     {/* Mobile Bottom Navigation */}

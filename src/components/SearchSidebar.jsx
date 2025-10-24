@@ -3,12 +3,15 @@ import { collection, getDocs, limit, orderBy, query, where } from 'firebase/fire
 import { db } from '../config/firebase';
 import CloseIcon from '@mui/icons-material/Close';
 import SearchIcon from '@mui/icons-material/Search';
+import HistoryIcon from '@mui/icons-material/History';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import PersonAddAltIcon from '@mui/icons-material/PersonAddAlt';
 import ArticleIcon from '@mui/icons-material/Article';
 import { Link } from 'react-router-dom';
 import { useSearch } from '../contexts/SearchContext';
 
 const storeKey = 'gfr_recent_searches';
+const historyKey = 'gfr_search_history';
 
 const useDebounced = (value, delay = 300) => {
   const [v, setV] = useState(value);
@@ -32,6 +35,7 @@ const SearchSidebar = () => {
   const [campaigns, setCampaigns] = useState([]);
   const [loading, setLoading] = useState(false);
   const [recent, setRecent] = useState([]);
+  const [history, setHistory] = useState([]);
   const debounced = useDebounced(q, 300);
   const inputRef = useRef(null);
 
@@ -40,6 +44,10 @@ const SearchSidebar = () => {
     try {
       const raw = localStorage.getItem(storeKey);
       if (raw) setRecent(JSON.parse(raw));
+    } catch {}
+    try {
+      const hraw = localStorage.getItem(historyKey);
+      if (hraw) setHistory(JSON.parse(hraw));
     } catch {}
   }, []);
 
@@ -52,6 +60,36 @@ const SearchSidebar = () => {
     const next = [term, ...recent.filter((r) => r !== term)].slice(0, 8);
     setRecent(next);
     try { localStorage.setItem(storeKey, JSON.stringify(next)); } catch {}
+  };
+
+  const deleteRecent = (term) => {
+    const next = recent.filter((r) => r !== term);
+    setRecent(next);
+    try { localStorage.setItem(storeKey, JSON.stringify(next)); } catch {}
+  };
+
+  const clearAllRecent = () => {
+    setRecent([]);
+    try { localStorage.removeItem(storeKey); } catch {}
+  };
+
+  const saveHistory = (term, peopleCount = 0, campaignsCount = 0) => {
+    if (!term) return;
+    const entry = { term, at: new Date().toISOString(), peopleCount, campaignsCount };
+    const next = [entry, ...history.filter((h) => h.term !== term)].slice(0, 20);
+    setHistory(next);
+    try { localStorage.setItem(historyKey, JSON.stringify(next)); } catch {}
+  };
+
+  const deleteHistory = (at) => {
+    const next = history.filter((h) => h.at !== at);
+    setHistory(next);
+    try { localStorage.setItem(historyKey, JSON.stringify(next)); } catch {}
+  };
+
+  const clearAllHistory = () => {
+    setHistory([]);
+    try { localStorage.removeItem(historyKey); } catch {}
   };
 
   useEffect(() => {
@@ -189,7 +227,10 @@ const SearchSidebar = () => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    saveRecent(q.trim());
+    const term = q.trim();
+    saveRecent(term);
+    // Record a history item with the current result counts
+    saveHistory(term, people.length, campaigns.length);
   };
 
   const handleClose = () => {
@@ -222,7 +263,8 @@ const SearchSidebar = () => {
                 value={q}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search people, posts, keywords..."
-                className="w-full pl-12 pr-3 py-2 rounded-lg input-field"
+                className="w-full pr-3 py-2 rounded-lg input-field"
+                style={{ paddingLeft: '3rem' }}
               />
             </div>
             <button type="button" onClick={handleClose} className="p-2 rounded-full transition-all hover:scale-110 active:scale-95 text-themed" aria-label="Close">
@@ -232,17 +274,51 @@ const SearchSidebar = () => {
         </div>
 
         <div className="overflow-y-auto h-[calc(100%-73px)] p-3">
-          {!q && recent.length > 0 && (
+          {!q && (recent.length > 0 || history.length > 0) && (
             <div>
-              <SectionHeader icon={<SearchIcon fontSize="small" />} title="Recent" />
-              <div className="flex flex-wrap gap-2 px-2">
-                {recent.map((r) => (
-                  <button key={r} className="px-3 py-1 rounded-full pill text-sm hover:scale-105 transition text-themed"
-                    onClick={() => setQuery(r)}>
-                    {r}
-                  </button>
-                ))}
-              </div>
+              {recent.length > 0 && (
+                <div className="mb-2">
+                  <div className="flex items-center justify-between px-2">
+                    <SectionHeader icon={<SearchIcon fontSize="small" />} title="Recent" />
+                    <button onClick={clearAllRecent} className="text-xs text-themed-muted hover:text-error transition-colors" aria-label="Clear all recent">Clear all</button>
+                  </div>
+                  <div className="flex flex-wrap gap-2 px-2">
+                    {recent.map((r) => (
+                      <div key={r} className="flex items-center gap-1 px-3 py-1 rounded-full pill text-sm">
+                        <button className="text-themed truncate max-w-[180px]" title={r} onClick={() => setQuery(r)}>{r}</button>
+                        <button className="ml-1 text-themed-muted hover:text-error transition" aria-label={`Delete ${r}`} onClick={() => deleteRecent(r)}>
+                          <CloseIcon sx={{ fontSize: 16 }} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {history.length > 0 && (
+                <div className="mt-4">
+                  <div className="flex items-center justify-between px-2">
+                    <SectionHeader icon={<HistoryIcon fontSize="small" />} title="History" />
+                    <button onClick={clearAllHistory} className="text-xs text-themed-muted hover:text-error transition-colors" aria-label="Clear all history">Clear all</button>
+                  </div>
+                  <div className="space-y-1">
+                    {history.map((h) => (
+                      <div key={h.at} className="flex items-center justify-between px-2 py-2 rounded-lg hover:[background-color:var(--hover-bg)] transition">
+                        <button className="flex items-center gap-2 flex-1 text-left" onClick={() => setQuery(h.term)} title={new Date(h.at).toLocaleString()}>
+                          <SearchIcon className="text-themed-muted" sx={{ fontSize: 18 }} />
+                          <div className="min-w-0">
+                            <div className="font-medium truncate text-themed">{h.term}</div>
+                            <div className="text-xs text-themed-muted truncate">{h.peopleCount || 0} people • {h.campaignsCount || 0} campaigns</div>
+                          </div>
+                        </button>
+                        <button className="p-2 rounded-lg text-themed-muted hover:text-error transition-colors" aria-label={`Delete ${h.term}`} onClick={() => deleteHistory(h.at)}>
+                          <DeleteOutlineIcon sx={{ fontSize: 18 }} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -257,7 +333,7 @@ const SearchSidebar = () => {
                 key={u.uid || u.id} 
                 to={`/profile/${u.uid || u.id}`} 
                 className="flex items-center gap-3 px-2 py-2 rounded-lg hover:[background-color:var(--hover-bg)] transition"
-                onClick={() => saveRecent(q.trim())}
+                onClick={() => { const term = q.trim(); saveRecent(term); saveHistory(term, people.length, campaigns.length); }}
               >
                 <img src={u.photoURL || ''} alt="" className="w-8 h-8 rounded-full object-cover bg-gray-200 dark:bg-gray-700" referrerPolicy="no-referrer" />
                 <div className="min-w-0 flex-1">
@@ -278,7 +354,7 @@ const SearchSidebar = () => {
                 key={c.id} 
                 to={`/post/${c.id}`} 
                 className="block px-2 py-2 rounded-lg hover:[background-color:var(--hover-bg)] transition"
-                onClick={() => saveRecent(q.trim())}
+                onClick={() => { const term = q.trim(); saveRecent(term); saveHistory(term, people.length, campaigns.length); }}
               >
                 <div className="flex items-start gap-2">
                   {c.imageUrl && (

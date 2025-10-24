@@ -29,16 +29,17 @@ export const AuthProvider = ({ children }) => {
   // Signup with email and password
   const signup = async (email, password, displayName) => {
     const result = await createUserWithEmailAndPassword(auth, email, password);
-    await updateProfile(result.user, { displayName });
+    const defaultDisplayName = displayName || email || 'User';
+    await updateProfile(result.user, { displayName: defaultDisplayName });
     
     // Create user profile in Firestore
     await setDoc(doc(db, 'users', result.user.uid), {
       uid: result.user.uid,
       email,
-      displayName,
+      displayName: defaultDisplayName,
       photoURL: result.user.photoURL || '',
       emailLower: (email || '').toLowerCase(),
-      displayNameLower: (displayName || '').toLowerCase(),
+      displayNameLower: (defaultDisplayName || '').toLowerCase(),
       bio: '',
       walletBalance: 0,
       totalDonated: 0,
@@ -58,6 +59,11 @@ export const AuthProvider = ({ children }) => {
   const loginWithGoogle = async () => {
     const provider = new GoogleAuthProvider();
     const result = await signInWithPopup(auth, provider);
+    const defaultDisplayName = result.user.displayName || result.user.email || 'User';
+    // Ensure auth profile has a displayName so UI can show it
+    if (!result.user.displayName && defaultDisplayName) {
+      try { await updateProfile(result.user, { displayName: defaultDisplayName }); } catch {}
+    }
     
     // Check if user profile exists, if not create one
     const userDoc = await getDoc(doc(db, 'users', result.user.uid));
@@ -65,10 +71,10 @@ export const AuthProvider = ({ children }) => {
       await setDoc(doc(db, 'users', result.user.uid), {
         uid: result.user.uid,
         email: result.user.email,
-        displayName: result.user.displayName,
+        displayName: defaultDisplayName,
         photoURL: result.user.photoURL || '',
         emailLower: (result.user.email || '').toLowerCase(),
-        displayNameLower: (result.user.displayName || '').toLowerCase(),
+        displayNameLower: (defaultDisplayName || '').toLowerCase(),
         bio: '',
         walletBalance: 0,
         totalDonated: 0,
@@ -78,13 +84,16 @@ export const AuthProvider = ({ children }) => {
     } else {
       // Update photoURL if it exists in Google account but not in Firestore
       const userData = userDoc.data();
+      const updates = { ...userData };
       if (result.user.photoURL && userData.photoURL !== result.user.photoURL) {
-        await setDoc(doc(db, 'users', result.user.uid), {
-          ...userData,
-          photoURL: result.user.photoURL,
-          displayName: result.user.displayName, // Also update display name
-          displayNameLower: (result.user.displayName || '').toLowerCase(),
-        }, { merge: true });
+        updates.photoURL = result.user.photoURL;
+      }
+      if (!userData.displayName) {
+        updates.displayName = defaultDisplayName;
+        updates.displayNameLower = (defaultDisplayName || '').toLowerCase();
+      }
+      if (Object.keys(updates).length > 0) {
+        await setDoc(doc(db, 'users', result.user.uid), updates, { merge: true });
       }
     }
     
@@ -108,6 +117,10 @@ export const AuthProvider = ({ children }) => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setCurrentUser(user);
       if (user) {
+        // Ensure displayName is at least the email by default
+        if (!user.displayName && user.email) {
+          try { await updateProfile(user, { displayName: user.email }); } catch {}
+        }
         await fetchUserProfile(user.uid);
       } else {
         setUserProfile(null);

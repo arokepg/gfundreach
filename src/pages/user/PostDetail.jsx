@@ -13,6 +13,7 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import BarChartIcon from '@mui/icons-material/BarChart';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
+import { recordCampaignView } from '../../utils/viewTracker';
 
 const PostDetail = () => {
   const { id } = useParams();
@@ -34,6 +35,12 @@ const PostDetail = () => {
     fetchPost();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  // Record a view once per visitor per day
+  useEffect(() => {
+    if (!id) return;
+    recordCampaignView(id, currentUser).catch(() => {});
+  }, [id, currentUser]);
 
   const fetchPost = async () => {
     try {

@@ -290,7 +290,7 @@ const Profile = () => {
               <div className="flex items-center gap-3">
                 <h1 className="text-3xl font-bold mb-1" style={{ color: 'var(--text)' }}>
                   {isOwnProfile 
-                    ? (currentUser?.displayName || 'Anonymous User')
+                    ? (userProfile?.displayName || currentUser?.displayName || currentUser?.email || 'Anonymous User')
                     : (userProfile?.displayName || userProfile?.email || 'Anonymous User')
                   }
                 </h1>
@@ -339,13 +339,13 @@ const Profile = () => {
 
         {/* Tabs */}
         <div className="card mb-6">
-          <div className="flex border-b border-gray-200 dark:border-gray-700" role="tablist" aria-label="Profile sections">
+          <div className="flex flex-wrap border-b border-gray-200 dark:border-gray-700 overflow-x-auto" role="tablist" aria-label="Profile sections">
             <button
               onClick={() => setActiveTab('personal')}
-              className={`relative px-6 py-3 font-medium rounded-md transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500/40 hover:[background-color:var(--hover-bg)] ${
+              className={`relative px-4 sm:px-6 py-3 font-medium whitespace-nowrap transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500/40 hover:[background-color:var(--hover-bg)] ${
                 activeTab === 'personal'
                   ? 'text-green-700 dark:text-green-400 after:content-[""] after:absolute after:left-0 after:right-0 after:bottom-0 after:h-0.5 after:bg-green-600 dark:after:bg-green-500'
-                  : ''
+                  : 'text-themed-secondary'
               }`}
               role="tab"
               aria-selected={activeTab === 'personal'}
@@ -354,10 +354,10 @@ const Profile = () => {
             </button>
             <button
               onClick={() => setActiveTab('posts')}
-              className={`relative px-6 py-3 font-medium rounded-md transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500/40 hover:[background-color:var(--hover-bg)] ${
+              className={`relative px-4 sm:px-6 py-3 font-medium whitespace-nowrap transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500/40 hover:[background-color:var(--hover-bg)] ${
                 activeTab === 'posts'
                   ? 'text-green-700 dark:text-green-400 after:content-[""] after:absolute after:left-0 after:right-0 after:bottom-0 after:h-0.5 after:bg-green-600 dark:after:bg-green-500'
-                  : ''
+                  : 'text-themed-secondary'
               }`}
               role="tab"
               aria-selected={activeTab === 'posts'}
@@ -367,10 +367,10 @@ const Profile = () => {
             {isOwnProfile && (
               <button
                 onClick={() => setActiveTab('donations')}
-                className={`relative px-6 py-3 font-medium rounded-md transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500/40 hover:[background-color:var(--hover-bg)] ${
+                className={`relative px-4 sm:px-6 py-3 font-medium whitespace-nowrap transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500/40 hover:[background-color:var(--hover-bg)] ${
                   activeTab === 'donations'
                     ? 'text-green-700 dark:text-green-400 after:content-[""] after:absolute after:left-0 after:right-0 after:bottom-0 after:h-0.5 after:bg-green-600 dark:after:bg-green-500'
-                    : ''
+                    : 'text-themed-secondary'
                 }`}
                 role="tab"
                 aria-selected={activeTab === 'donations'}
@@ -381,10 +381,10 @@ const Profile = () => {
             {isOwnProfile && (
               <button
                 onClick={() => setActiveTab('received')}
-                className={`relative px-6 py-3 font-medium rounded-md transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500/40 hover:[background-color:var(--hover-bg)] ${
+                className={`relative px-4 sm:px-6 py-3 font-medium whitespace-nowrap transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500/40 hover:[background-color:var(--hover-bg)] ${
                   activeTab === 'received'
                     ? 'text-green-700 dark:text-green-400 after:content-[""] after:absolute after:left-0 after:right-0 after:bottom-0 after:h-0.5 after:bg-green-600 dark:after:bg-green-500'
-                    : ''
+                    : 'text-themed-secondary'
                 }`}
                 role="tab"
                 aria-selected={activeTab === 'received'}
