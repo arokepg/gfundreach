@@ -192,21 +192,30 @@ html.dark .card {
 .pill {
   background-color: var(--hover-bg);
   color: var(--text);
+  border: 1px solid var(--card-border);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   transform: scale(1);
 }
 
 .pill:hover {
-  filter: brightness(0.95);
+  filter: brightness(0.98);
   transform: scale(1.05);
-  box-shadow: 0 2px 6px -1px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 6px -1px rgba(0, 0, 0, 0.08);
 }
 
+/* Active pill uses brand accent so it looks correct in both themes */
 .pill-active {
-  background-color: var(--text);
-  color: var(--bg);
+  background-color: #6750A4; /* primary */
+  color: #ffffff;
+  border-color: transparent;
   transform: scale(1);
-  box-shadow: 0 2px 6px -1px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 2px 6px -1px rgba(103, 80, 164, 0.25);
+}
+
+html.dark .pill-active {
+  background-color: #4F378B; /* darker primary for dark theme */
+  color: #ffffff;
+  box-shadow: 0 2px 6px -1px rgba(79, 55, 139, 0.35);
 }
 
 /* Text utility classes */

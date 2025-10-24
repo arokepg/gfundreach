@@ -1,14 +1,18 @@
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useTheme } from '../contexts/ThemeContext';
 import HomeIcon from '@mui/icons-material/Home';
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 import PersonIcon from '@mui/icons-material/Person';
 import AddCircleIcon from '@mui/icons-material/AddCircle';
 import LogoutIcon from '@mui/icons-material/Logout';
 import VolunteerActivismIcon from '@mui/icons-material/VolunteerActivism';
+import LightModeIcon from '@mui/icons-material/LightMode';
+import DarkModeIcon from '@mui/icons-material/DarkMode';
 
 const Navbar = () => {
   const { currentUser, logout } = useAuth();
+  const { isDarkMode, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -24,7 +28,7 @@ const Navbar = () => {
   const isActive = (path) => location.pathname === path;
 
   return (
-    <nav className="bg-white shadow-md sticky top-0 z-50 transition-all duration-300">
+    <nav className="surface shadow-md sticky top-0 z-50 transition-all duration-300 border-b border-outline-variant">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
@@ -64,11 +68,21 @@ const Navbar = () => {
           <div className="flex items-center gap-3">
             <Link to="/create-post" className="btn-primary flex items-center gap-2">
               <AddCircleIcon fontSize="small" />
-              <span className="hidden sm:inline">Create Post</span>
+              <span className="hidden sm:inline">Create Campaign</span>
             </Link>
+            
+            {/* Dark Mode Toggle */}
+            <button
+              onClick={toggleTheme}
+              className="p-2 rounded-lg transition-all duration-300 hover:scale-110 active:scale-95 text-themed hover:[background-color:var(--hover-bg)]"
+              title={isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+            >
+              {isDarkMode ? <LightModeIcon fontSize="small" /> : <DarkModeIcon fontSize="small" />}
+            </button>
+            
             <button
               onClick={handleLogout}
-              className="text-gray-600 hover:text-error hover:bg-error-50 p-2 rounded-lg transition-all duration-300 hover:scale-110 active:scale-95"
+              className="p-2 rounded-lg transition-all duration-300 hover:scale-110 active:scale-95 text-themed hover:text-error hover:bg-error-50 dark:hover:bg-red-900/20"
               title="Logout"
             >
               <LogoutIcon />
@@ -105,6 +119,15 @@ const Navbar = () => {
             <PersonIcon />
             <span className="text-xs">Profile</span>
           </Link>
+          {/* Dark Mode Toggle (Mobile) */}
+          <button
+            onClick={toggleTheme}
+            className="flex flex-col items-center text-themed transition-all duration-300 hover:scale-110 active:scale-95"
+            title={isDarkMode ? 'Light mode' : 'Dark mode'}
+          >
+            {isDarkMode ? <LightModeIcon /> : <DarkModeIcon />}
+            <span className="text-xs">{isDarkMode ? 'Light' : 'Dark'}</span>
+          </button>
         </div>
       </div>
     </nav>

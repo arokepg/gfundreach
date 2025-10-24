@@ -338,14 +338,14 @@ const PostDetail = () => {
                     {post.category}
                   </span>
                   {post.locationCity || post.locationCountry ? (
-                    <span className="inline-block bg-gray-100 dark:bg-gray-800 text-themed-secondary px-3 py-1 rounded-full text-xs">
+                    <span className="inline-block pill text-xs px-3 py-1 rounded-full text-themed-secondary">
                       {post.locationCity}{post.locationCity && post.locationCountry ? ', ' : ''}{post.locationCountry}
                     </span>
                   ) : null}
                   {Array.isArray(post.tags) && post.tags.length > 0 && (
                     <span className="inline-flex items-center gap-1 text-xs text-themed-muted">
                       {post.tags.slice(0, 5).map((t, i) => (
-                        <span key={i} className="bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded-full">#{t}</span>
+                        <span key={i} className="pill px-2 py-0.5 rounded-full">#{t}</span>
                       ))}
                     </span>
                   )}

@@ -2,14 +2,18 @@ import Sidebar from './Sidebar';
 import NotificationDropdown from './NotificationDropdown';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useTheme } from '../contexts/ThemeContext';
 import ChatIcon from '@mui/icons-material/Chat';
 import PersonIcon from '@mui/icons-material/Person';
 import SearchIcon from '@mui/icons-material/Search';
+import LightModeIcon from '@mui/icons-material/LightMode';
+import DarkModeIcon from '@mui/icons-material/DarkMode';
 import SearchSidebar from './SearchSidebar';
 import { useSearch } from '../contexts/SearchContext';
 
 const Layout = ({ children }) => {
   const { currentUser, userProfile } = useAuth();
+  const { isDarkMode, toggleTheme } = useTheme();
   const { open } = useSearch();
   const avatarUrl = userProfile?.photoURL || currentUser?.photoURL || null;
 
@@ -38,6 +42,18 @@ const Layout = ({ children }) => {
 
             {/* Right Icons */}
             <div className="flex items-center gap-2 md:gap-4">
+              {/* Dark Mode Toggle */}
+              <button
+                className="p-2 rounded-full transition-all duration-300 hover:scale-110 active:scale-95 text-themed"
+                onClick={toggleTheme}
+                title={isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+                onMouseEnter={(e)=>{ e.currentTarget.style.backgroundColor = 'var(--hover-bg)'; }}
+                onMouseLeave={(e)=>{ e.currentTarget.style.backgroundColor = 'transparent'; }}
+                style={{ backgroundColor: 'transparent' }}
+                aria-label="Toggle theme"
+              >
+                {isDarkMode ? <LightModeIcon /> : <DarkModeIcon />}
+              </button>
               <button className="p-2 rounded-full transition-all duration-300 hover:scale-110 active:scale-95" style={{ backgroundColor: 'transparent' }}
                 onClick={open}
                 onMouseEnter={(e)=>{ e.currentTarget.style.backgroundColor = 'var(--hover-bg)'; }}

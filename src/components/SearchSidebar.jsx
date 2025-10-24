@@ -68,7 +68,7 @@ const SearchSidebar = () => {
           query(
             collection(db, 'users'),
             where('displayNameLower', '>=', term),
-            where('displayNameLower', '<=', term + '\\uf8ff'),
+            where('displayNameLower', '<=', term + '\uf8ff'),
             limit(5)
           )
         );
@@ -77,7 +77,7 @@ const SearchSidebar = () => {
           query(
             collection(db, 'users'),
             where('emailLower', '>=', term),
-            where('emailLower', '<=', term + '\\uf8ff'),
+            where('emailLower', '<=', term + '\uf8ff'),
             limit(5)
           )
         );
@@ -94,7 +94,7 @@ const SearchSidebar = () => {
           query(
             collection(db, 'posts'),
             where('titleLower', '>=', term),
-            where('titleLower', '<=', term + '\\uf8ff'),
+            where('titleLower', '<=', term + '\uf8ff'),
             limit(10)
           )
         );
@@ -141,8 +141,42 @@ const SearchSidebar = () => {
         
         const campaignsRes = Array.from(campaignsMap.values()).slice(0, 8);
 
-        setPeople(peopleRes);
-        setCampaigns(campaignsRes);
+        // If nothing found, apply lightweight client-side fallback contains search
+        let finalPeople = peopleRes;
+        let finalCampaigns = campaignsRes;
+
+        if (finalPeople.length === 0) {
+          try {
+            const fallbackUsersSnap = await getDocs(query(collection(db, 'users'), limit(50)));
+            const list = fallbackUsersSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+            finalPeople = list.filter(u => (
+              (u.displayNameLower || u.displayName || '').toLowerCase().includes(term) ||
+              (u.emailLower || u.email || '').toLowerCase().includes(term)
+            )).slice(0, 5);
+          } catch {}
+        }
+
+        if (finalCampaigns.length === 0) {
+          try {
+            const fallbackPostsSnap = await getDocs(query(collection(db, 'posts'), limit(50)));
+            const list = fallbackPostsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+            finalCampaigns = list.filter(c => {
+              const title = (c.titleLower || c.title || '').toLowerCase();
+              const desc = (c.description || '').toLowerCase();
+              const cat = (c.category || '').toLowerCase();
+              const tags = Array.isArray(c.tagsLower) ? c.tagsLower : (Array.isArray(c.tags) ? c.tags.map(t=>String(t).toLowerCase()) : []);
+              return (
+                title.includes(term) ||
+                desc.includes(term) ||
+                cat.includes(term) ||
+                tags.some(t => t.includes(term))
+              );
+            }).slice(0, 8);
+          } catch {}
+        }
+
+        setPeople(finalPeople);
+        setCampaigns(finalCampaigns);
       } catch (e) {
         console.error('Search error', e);
       } finally {

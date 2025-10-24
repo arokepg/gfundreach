@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { collection, query, where, getDocs, orderBy, deleteDoc, doc, getDoc } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import { useAuth } from '../../contexts/AuthContext';
-import { useTheme } from '../../contexts/ThemeContext';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import Layout from '../../components/Layout';
 import PersonIcon from '@mui/icons-material/Person';
@@ -19,13 +18,10 @@ import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import LanguageIcon from '@mui/icons-material/Language';
 import WcIcon from '@mui/icons-material/Wc';
 import LogoutIcon from '@mui/icons-material/Logout';
-import LightModeIcon from '@mui/icons-material/LightMode';
-import DarkModeIcon from '@mui/icons-material/DarkMode';
 import AddIcon from '@mui/icons-material/Add';
 
 const Profile = () => {
   const { currentUser, userProfile: currentUserProfile, logout } = useAuth();
-  const { isDarkMode, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const { userId } = useParams(); // Get userId from URL if viewing another user's profile
   const [viewedUserProfile, setViewedUserProfile] = useState(null);
@@ -317,7 +313,7 @@ const Profile = () => {
           {/* Action Buttons - Only show for own profile */}
           {isOwnProfile && (
             <div className="mt-6 flex flex-wrap gap-3 md:gap-4 justify-center md:justify-start">
-              {/* Create Post Button */}
+              {/* Create Campaign Button */}
               <Link
                 to="/create-post"
                 className="flex items-center gap-2 px-4 md:px-6 py-2 md:py-3 rounded-full transition-all duration-300 active:scale-95"
@@ -326,22 +322,8 @@ const Profile = () => {
                 onMouseLeave={(e)=>{ e.currentTarget.style.backgroundColor = 'var(--hover-bg)'; }}
               >
                 <AddIcon />
-                <span className="font-medium">Create Post</span>
+                <span className="font-medium">Create Campaign</span>
               </Link>
-
-              {/* Theme Toggle Button */}
-              <button
-                onClick={toggleTheme}
-                className="flex items-center gap-2 px-4 md:px-6 py-2 md:py-3 rounded-full transition-all duration-300 active:scale-95"
-                style={{ backgroundColor: 'var(--hover-bg)', color: 'var(--text)' }}
-                onMouseEnter={(e)=>{ e.currentTarget.style.backgroundColor = 'rgba(103,80,164,0.15)'; }}
-                onMouseLeave={(e)=>{ e.currentTarget.style.backgroundColor = 'var(--hover-bg)'; }}
-              >
-                {isDarkMode ? <LightModeIcon /> : <DarkModeIcon />}
-                <span className="font-medium">
-                  {isDarkMode ? 'Light Mode' : 'Dark Mode'}
-                </span>
-              </button>
 
               {/* Logout Button */}
               <button
@@ -666,30 +648,24 @@ const Profile = () => {
                 <div className="flex gap-2 mb-6">
                   <button
                     onClick={() => setDonationFilter('all')}
-                    className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                      donationFilter === 'all'
-                        ? 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white'
-                        : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
+                    className={`px-4 py-2 rounded-full font-medium transition-all ${
+                      donationFilter === 'all' ? 'pill-active' : 'pill'
                     }`}
                   >
                     All
                   </button>
                   <button
                     onClick={() => setDonationFilter('7days')}
-                    className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                      donationFilter === '7days'
-                        ? 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white'
-                        : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
+                    className={`px-4 py-2 rounded-full font-medium transition-all ${
+                      donationFilter === '7days' ? 'pill-active' : 'pill'
                     }`}
                   >
                     Last 7 days
                   </button>
                   <button
                     onClick={() => setDonationFilter('30days')}
-                    className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                      donationFilter === '30days'
-                        ? 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white'
-                        : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
+                    className={`px-4 py-2 rounded-full font-medium transition-all ${
+                      donationFilter === '30days' ? 'pill-active' : 'pill'
                     }`}
                   >
                     Last 30 days
@@ -803,30 +779,24 @@ const Profile = () => {
                 <div className="flex gap-2 mb-6">
                   <button
                     onClick={() => setReceivedFilter('all')}
-                    className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                      receivedFilter === 'all'
-                        ? 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white'
-                        : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
+                    className={`px-4 py-2 rounded-full font-medium transition-all ${
+                      receivedFilter === 'all' ? 'pill-active' : 'pill'
                     }`}
                   >
                     All
                   </button>
                   <button
                     onClick={() => setReceivedFilter('7days')}
-                    className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                      receivedFilter === '7days'
-                        ? 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white'
-                        : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
+                    className={`px-4 py-2 rounded-full font-medium transition-all ${
+                      receivedFilter === '7days' ? 'pill-active' : 'pill'
                     }`}
                   >
                     Last 7 days
                   </button>
                   <button
                     onClick={() => setReceivedFilter('30days')}
-                    className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                      receivedFilter === '30days'
-                        ? 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white'
-                        : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
+                    className={`px-4 py-2 rounded-full font-medium transition-all ${
+                      receivedFilter === '30days' ? 'pill-active' : 'pill'
                     }`}
                   >
                     Last 30 days
