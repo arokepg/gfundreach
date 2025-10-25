@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { collection, addDoc, query, orderBy, getDocs, serverTimestamp, updateDoc, doc, increment, deleteDoc, getDoc } from 'firebase/firestore';
+import { collection, addDoc, query, orderBy, getDocs, serverTimestamp, updateDoc, doc, increment, deleteDoc, getDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../config/firebase';
 import { useAuth } from '../contexts/AuthContext';
@@ -12,6 +12,9 @@ import ImageIcon from '@mui/icons-material/Image';
 import CloseIcon from '@mui/icons-material/Close';
 import BookmarkIcon from '@mui/icons-material/Bookmark';
 import BookmarkBorderIcon from '@mui/icons-material/BookmarkBorder';
+import FavoriteIcon from '@mui/icons-material/Favorite';
+import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
+import ShareIcon from '@mui/icons-material/Share';
 
 const CampaignUpdates = ({ campaignId, onUpdateCountChange }) => {
   const { currentUser, userProfile } = useAuth();
@@ -28,6 +31,9 @@ const CampaignUpdates = ({ campaignId, onUpdateCountChange }) => {
   const [editImagePreview, setEditImagePreview] = useState(null);
   const [updating, setUpdating] = useState(false);
   const [savedPosts, setSavedPosts] = useState({}); // Track saved status for each post
+  const [likedPosts, setLikedPosts] = useState({}); // Track like status per post
+  const [likesCounts, setLikesCounts] = useState({}); // Track like counts per post
+  const [sharesCounts, setSharesCounts] = useState({}); // Track share counts per post
 
   useEffect(() => {
     fetchUpdates();
@@ -61,6 +67,20 @@ const CampaignUpdates = ({ campaignId, onUpdateCountChange }) => {
       const snap = await getDocs(q);
       const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       setUpdates(list);
+
+      // Initialize reaction state maps
+      const initialLiked = {};
+      const initialLikes = {};
+      const initialShares = {};
+      for (const u of list) {
+        const likedBy = Array.isArray(u.likedBy) ? u.likedBy : [];
+        initialLiked[u.id] = currentUser ? likedBy.includes(currentUser.uid) : false;
+        initialLikes[u.id] = typeof u.likesCount === 'number' ? u.likesCount : (likedBy.length || 0);
+        initialShares[u.id] = typeof u.sharesCount === 'number' ? u.sharesCount : 0;
+      }
+      setLikedPosts(initialLiked);
+      setLikesCounts(initialLikes);
+      setSharesCounts(initialShares);
     } catch (e) {
       console.error('Failed to load posts', e);
       // Don't show error to user - just log it and show empty state
@@ -122,7 +142,7 @@ const CampaignUpdates = ({ campaignId, onUpdateCountChange }) => {
         imageUrl = await getDownloadURL(imageRef);
       }
 
-      await addDoc(collection(db, 'posts', campaignId, 'updates'), {
+      const newDocRef = await addDoc(collection(db, 'posts', campaignId, 'updates'), {
         content: content.trim(),
         imageUrl,
         authorId: currentUser.uid,
@@ -131,26 +151,32 @@ const CampaignUpdates = ({ campaignId, onUpdateCountChange }) => {
         campaignTitle: parentTitle,
         createdAt: serverTimestamp(),
       });
-
-      // Update campaign aggregate fields
-      await updateDoc(doc(db, 'posts', campaignId), {
-        updateCount: increment(1),
-        lastUpdateAt: serverTimestamp(),
-        lastUpdatePreview: content.trim().slice(0, 160),
-      });
-
-      // Get campaign details to notify the owner
-  const campaignDoc = await getDoc(doc(db, 'posts', campaignId));
-      if (campaignDoc.exists()) {
-        const campaignData = campaignDoc.data();
-        
-        // Create notification for campaign owner (if commenter is not the owner)
-        await createNotification(campaignData.authorId, 'comment', {
-          senderId: currentUser.uid,
-          senderName: userProfile?.displayName || currentUser.displayName || 'Someone',
-          postId: campaignId,
-          postTitle: campaignData.title
+      
+      // Best-effort: update campaign aggregate fields
+      try {
+        await updateDoc(doc(db, 'posts', campaignId), {
+          updateCount: increment(1),
+          lastUpdateAt: serverTimestamp(),
+          lastUpdatePreview: content.trim().slice(0, 160),
         });
+      } catch (aggErr) {
+        console.warn('Aggregate update failed (non-fatal):', aggErr);
+      }
+
+      // Best-effort: campaign owner notification
+      try {
+        const campaignDoc = await getDoc(doc(db, 'posts', campaignId));
+        if (campaignDoc.exists()) {
+          const campaignData = campaignDoc.data();
+          await createNotification(campaignData.authorId, 'comment', {
+            senderId: currentUser.uid,
+            senderName: userProfile?.displayName || currentUser.displayName || 'Someone',
+            postId: campaignId,
+            postTitle: campaignData.title
+          });
+        }
+      } catch (notifErr) {
+        console.warn('Notification failed (non-fatal):', notifErr);
       }
 
       setContent('');
@@ -164,6 +190,7 @@ const CampaignUpdates = ({ campaignId, onUpdateCountChange }) => {
       }
     } catch (e) {
       console.error('Failed to create post', e);
+      // Only surface errors from the create operation; aggregates/notifications are non-fatal above
       if (e.code === 'permission-denied') {
         setError('Permission denied. Please check Firestore security rules.');
       } else if (e.message) {
@@ -274,6 +301,56 @@ const CampaignUpdates = ({ campaignId, onUpdateCountChange }) => {
     } catch (error) {
       console.error('Error saving post:', error);
       alert('Failed to save post. Please try again.');
+    }
+  };
+
+  const handleLikePost = async (post) => {
+    if (!currentUser) {
+      alert('Please log in to like this post');
+      return;
+    }
+    try {
+      const postRef = doc(db, 'posts', campaignId, 'updates', post.id);
+      const isLiked = !!likedPosts[post.id];
+      if (isLiked) {
+        await updateDoc(postRef, {
+          likedBy: arrayRemove(currentUser.uid),
+          likesCount: increment(-1),
+        });
+        setLikedPosts(prev => ({ ...prev, [post.id]: false }));
+        setLikesCounts(prev => ({ ...prev, [post.id]: Math.max(0, (prev[post.id] || 1) - 1) }));
+      } else {
+        await updateDoc(postRef, {
+          likedBy: arrayUnion(currentUser.uid),
+          likesCount: increment(1),
+        });
+        setLikedPosts(prev => ({ ...prev, [post.id]: true }));
+        setLikesCounts(prev => ({ ...prev, [post.id]: (prev[post.id] || 0) + 1 }));
+      }
+    } catch (err) {
+      console.error('Failed to toggle like', err);
+    }
+  };
+
+  const handleSharePost = async (post) => {
+    try {
+      const postRef = doc(db, 'posts', campaignId, 'updates', post.id);
+      // Best-effort: increment share count (may fail due to auth rules)
+      try {
+        await updateDoc(postRef, { sharesCount: increment(1) });
+        setSharesCounts(prev => ({ ...prev, [post.id]: (prev[post.id] || 0) + 1 }));
+      } catch (shareErr) {
+        console.warn('Share count increment failed (non-fatal):', shareErr);
+      }
+      const url = `${window.location.origin}/community-post/${campaignId}/${post.id}`;
+      if (navigator.share) {
+        await navigator.share({ title: post.campaignTitle || 'Community post', text: post.content, url });
+      } else {
+        await navigator.clipboard.writeText(url);
+        alert('Link copied to clipboard');
+      }
+    } catch (err) {
+      if (err?.name !== 'AbortError') console.error('Share failed', err);
     }
   };
 
@@ -527,6 +604,30 @@ const CampaignUpdates = ({ campaignId, onUpdateCountChange }) => {
                       className="mt-3 rounded-lg max-w-full h-auto"
                     />
                   )}
+
+                  {/* Reactions */}
+                  <div className="mt-3 pt-3 border-t border-outline-variant flex items-center gap-4">
+                    <button
+                      onClick={() => handleLikePost(upd)}
+                      className={`flex items-center gap-1 transition-all duration-300 ${
+                        likedPosts[upd.id] ? 'text-red-500' : 'text-themed-secondary hover:text-red-500 dark:hover:text-red-400'
+                      }`}
+                    >
+                      {likedPosts[upd.id] ? (
+                        <FavoriteIcon fontSize="small" />
+                      ) : (
+                        <FavoriteBorderIcon fontSize="small" />
+                      )}
+                      <span className="text-xs font-medium">{likesCounts[upd.id] || 0}</span>
+                    </button>
+                    <button
+                      onClick={() => handleSharePost(upd)}
+                      className="flex items-center gap-1 text-themed-secondary hover:text-green-600 dark:hover:text-green-400 transition-all duration-300"
+                    >
+                      <ShareIcon fontSize="small" />
+                      <span className="text-xs font-medium">{sharesCounts[upd.id] || 0}</span>
+                    </button>
+                  </div>
                 </>
               )}
             </div>

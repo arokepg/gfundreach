@@ -26,9 +26,16 @@ class ErrorBoundary extends Component {
             <p className="text-sm mb-4" style={{ color: 'var(--muted)' }}>
               The page crashed while rendering. Try going back or reloading.
             </p>
-            <pre className="text-xs overflow-auto p-3 rounded" style={{ backgroundColor: 'var(--hover-bg)', color: 'var(--text)' }}>
-              {String(this.state.error)}
-            </pre>
+            <details className="text-left">
+              <summary className="cursor-pointer text-sm mb-2" style={{ color: 'var(--text)' }}>
+                Error details
+              </summary>
+              <pre className="text-xs overflow-auto p-3 rounded" style={{ backgroundColor: 'var(--hover-bg)', color: 'var(--text)' }}>
+                {String(this.state.error)}
+                {"\n\n"}
+                {this.state.error?.stack || ''}
+              </pre>
+            </details>
             <button
               onClick={() => this.setState({ hasError: false, error: null })}
               className="mt-4 px-4 py-2 rounded bg-green-600 text-white"

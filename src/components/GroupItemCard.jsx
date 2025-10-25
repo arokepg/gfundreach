@@ -35,14 +35,18 @@ const GroupItemCard = ({ item }) => {
     let mounted = true;
     const fetchData = async () => {
       try {
-        const promises = [getDoc(doc(db, 'groups', item.groupId))];
-        if (isCampaignShare && item.campaignId) {
-          promises.push(getDoc(doc(db, 'posts', item.campaignId)));
+        // Fetch group and campaign separately and only if IDs are present
+        let groupSnap = null;
+        let campaignSnap = null;
+        if (item?.groupId) {
+          groupSnap = await getDoc(doc(db, 'groups', String(item.groupId)));
         }
-        const [groupSnap, campaignSnap] = await Promise.all(promises);
+        if (isCampaignShare && item?.campaignId) {
+          campaignSnap = await getDoc(doc(db, 'posts', String(item.campaignId)));
+        }
         
         if (!mounted) return;
-        if (groupSnap.exists()) setGroupName(groupSnap.data().name || 'Group');
+        if (groupSnap?.exists()) setGroupName(groupSnap.data().name || 'Group');
         if (campaignSnap?.exists()) {
           const data = { id: campaignSnap.id, ...campaignSnap.data() };
           setCampaign(data);
@@ -86,13 +90,18 @@ const GroupItemCard = ({ item }) => {
   };
 
   const targetRef = useMemo(() => {
-    if (isCampaignShare && campaign) return doc(db, 'posts', campaign.id);
-    return doc(collection(doc(db, 'groups', item.groupId), 'posts'), item.id);
-  }, [isCampaignShare, campaign, item.groupId, item.id]);
+    if (isCampaignShare) {
+      if (campaign?.id) return doc(db, 'posts', String(campaign.id));
+      return null;
+    }
+    if (item?.groupId && item?.id) return doc(db, 'groups', String(item.groupId), 'posts', String(item.id));
+    return null;
+  }, [isCampaignShare, campaign?.id, item.groupId, item.id]);
 
   const handleLike = async () => {
     if (!currentUser) { alert('Please log in to like'); return; }
     try {
+      if (!targetRef) throw new Error('Invalid document reference');
       if (isLiked) {
         await updateDoc(targetRef, { likedBy: arrayRemove(currentUser.uid), likesCount: increment(-1) });
         setIsLiked(false);
@@ -107,6 +116,7 @@ const GroupItemCard = ({ item }) => {
 
   const handleShare = async () => {
     try {
+      if (!targetRef) throw new Error('Invalid document reference');
       await updateDoc(targetRef, { sharesCount: increment(1) });
       setSharesCount((c) => c + 1);
       const url = isCampaignShare && campaign

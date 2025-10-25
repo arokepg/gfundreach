@@ -398,22 +398,25 @@ const CampaignDetail = () => {
               </div>
 
               {/* Video (YouTube) */}
-              {post.videoUrl && /youtube\.com|youtu\.be/.test(post.videoUrl) && (
+              {typeof post.videoUrl === 'string' && /youtube\.com|youtu\.be/.test(post.videoUrl) && (
                 <div className="mt-6">
                   <div className="aspect-video w-full rounded-xl overflow-hidden">
                     <iframe
                       className="w-full h-full"
                       src={(() => {
+                        const raw = post.videoUrl;
+                        if (typeof raw !== 'string' || raw.trim() === '') return '';
                         try {
-                          const url = new URL(post.videoUrl);
-                          if (url.hostname.includes('youtu.be')) {
-                            const id = url.pathname.replace('/', '');
-                            return `https://www.youtube.com/embed/${id}`;
+                          const url = new URL(raw, window.location.origin);
+                          const host = (url.hostname || '').toLowerCase();
+                          if (host.includes('youtu.be')) {
+                            const id = (url.pathname || '/').replace('/', '');
+                            return id ? `https://www.youtube.com/embed/${id}` : '';
                           }
                           const id = url.searchParams.get('v');
-                          return id ? `https://www.youtube.com/embed/${id}` : post.videoUrl;
-                        } catch {
-                          return post.videoUrl;
+                          return id ? `https://www.youtube.com/embed/${id}` : raw;
+                        } catch (e) {
+                          return '';
                         }
                       })()}
                       title="Campaign video"

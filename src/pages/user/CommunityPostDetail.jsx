@@ -1,12 +1,15 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, arrayUnion, arrayRemove, increment } from 'firebase/firestore';
 import { db } from '../../config/firebase';
-// import { useAuth } from '../../contexts/AuthContext';
+import { useAuth } from '../../contexts/AuthContext';
 import Layout from '../../components/Layout';
 import PersonIcon from '@mui/icons-material/Person';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CampaignIcon from '@mui/icons-material/Campaign';
+import FavoriteIcon from '@mui/icons-material/Favorite';
+import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
+import ShareIcon from '@mui/icons-material/Share';
 
 const CommunityPostDetail = () => {
   const { campaignId, postId } = useParams();
@@ -14,7 +17,10 @@ const CommunityPostDetail = () => {
   const [campaign, setCampaign] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  // const { currentUser } = useAuth();
+  const { currentUser } = useAuth();
+  const [isLiked, setIsLiked] = useState(false);
+  const [likesCount, setLikesCount] = useState(0);
+  const [sharesCount, setSharesCount] = useState(0);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -34,8 +40,13 @@ const CommunityPostDetail = () => {
         return;
       }
 
-      const postData = { id: postDoc.id, ...postDoc.data() };
+  const postData = { id: postDoc.id, ...postDoc.data() };
       setPost(postData);
+  // Initialize reactions
+  const likedBy = Array.isArray(postData.likedBy) ? postData.likedBy : [];
+  setIsLiked(currentUser ? likedBy.includes(currentUser.uid) : false);
+  setLikesCount(typeof postData.likesCount === 'number' ? postData.likesCount : likedBy.length || 0);
+  setSharesCount(typeof postData.sharesCount === 'number' ? postData.sharesCount : 0);
 
       // Fetch the parent campaign
       const campaignDoc = await getDoc(doc(db, 'posts', campaignId));
@@ -47,6 +58,50 @@ const CommunityPostDetail = () => {
       setError('Failed to load post');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const toggleLike = async () => {
+    if (!post) return;
+    if (!currentUser) {
+      alert('Please log in to like this post');
+      return;
+    }
+    try {
+      const ref = doc(db, 'posts', campaignId, 'updates', postId);
+      if (isLiked) {
+        await updateDoc(ref, { likedBy: arrayRemove(currentUser.uid), likesCount: increment(-1) });
+        setIsLiked(false);
+        setLikesCount((c) => Math.max(0, c - 1));
+      } else {
+        await updateDoc(ref, { likedBy: arrayUnion(currentUser.uid), likesCount: increment(1) });
+        setIsLiked(true);
+        setLikesCount((c) => c + 1);
+      }
+    } catch (err) {
+      console.error('Toggle like failed', err);
+    }
+  };
+
+  const sharePost = async () => {
+    if (!post) return;
+    const ref = doc(db, 'posts', campaignId, 'updates', postId);
+    try {
+      try {
+        await updateDoc(ref, { sharesCount: increment(1) });
+        setSharesCount((c) => c + 1);
+      } catch (e) {
+        console.warn('Share increment failed (non-fatal):', e);
+      }
+      const url = `${window.location.origin}/community-post/${campaignId}/${postId}`;
+      if (navigator.share) {
+        await navigator.share({ title: campaign?.title || 'Community post', text: post.content, url });
+      } else {
+        await navigator.clipboard.writeText(url);
+        alert('Link copied to clipboard');
+      }
+    } catch (err) {
+      if (err?.name !== 'AbortError') console.error('Share failed', err);
     }
   };
 
@@ -149,8 +204,26 @@ const CommunityPostDetail = () => {
             </div>
           )}
 
-          {/* Post Metadata */}
+          {/* Reactions */}
           <div className="pt-6 border-t border-outline-variant">
+            <div className="flex items-center gap-6 mb-4">
+              <button
+                onClick={toggleLike}
+                className={`flex items-center gap-2 transition-colors ${
+                  isLiked ? 'text-red-500' : 'text-themed-secondary hover:text-red-500 dark:hover:text-red-400'
+                }`}
+              >
+                {isLiked ? <FavoriteIcon /> : <FavoriteBorderIcon />}
+                <span className="text-sm font-medium">{likesCount}</span>
+              </button>
+              <button
+                onClick={sharePost}
+                className="flex items-center gap-2 text-themed-secondary hover:text-green-600 dark:hover:text-green-400 transition-colors"
+              >
+                <ShareIcon />
+                <span className="text-sm font-medium">{sharesCount}</span>
+              </button>
+            </div>
             <div className="flex items-center justify-between text-sm text-themed-muted">
               <span>Community Post</span>
               {post.createdAt && (
