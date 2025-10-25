@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
-import { collection, addDoc, query, orderBy, getDocs, serverTimestamp, updateDoc, doc, increment, deleteDoc, getDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
+import { collection, addDoc, query, orderBy, getDocs, serverTimestamp, updateDoc, doc, increment, deleteDoc, getDoc, arrayUnion, arrayRemove, where } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../config/firebase';
 import { useAuth } from '../contexts/AuthContext';
+import { useQueryClient } from '@tanstack/react-query';
 import { createNotification } from '../utils/notifications';
 import { saveItem, unsaveItem, isItemSaved } from '../utils/savedItems';
 import PersonIcon from '@mui/icons-material/Person';
@@ -34,6 +35,7 @@ const CampaignUpdates = ({ campaignId, onUpdateCountChange }) => {
   const [likedPosts, setLikedPosts] = useState({}); // Track like status per post
   const [likesCounts, setLikesCounts] = useState({}); // Track like counts per post
   const [sharesCounts, setSharesCounts] = useState({}); // Track share counts per post
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     fetchUpdates();
@@ -142,7 +144,7 @@ const CampaignUpdates = ({ campaignId, onUpdateCountChange }) => {
         imageUrl = await getDownloadURL(imageRef);
       }
 
-      const newDocRef = await addDoc(collection(db, 'posts', campaignId, 'updates'), {
+      await addDoc(collection(db, 'posts', campaignId, 'updates'), {
         content: content.trim(),
         imageUrl,
         authorId: currentUser.uid,
@@ -174,6 +176,27 @@ const CampaignUpdates = ({ campaignId, onUpdateCountChange }) => {
             postId: campaignId,
             postTitle: campaignData.title
           });
+          // Also notify followers of the campaign about the new community post (best-effort)
+          try {
+            const followersQ = query(
+              collection(db, 'savedItems'),
+              where('itemType', '==', 'campaign'),
+              where('itemId', '==', campaignId)
+            );
+            const followersSnap = await getDocs(followersQ);
+            const notifyPromises = followersSnap.docs
+              .map(d => d.data())
+              .filter(s => s.userId && s.userId !== currentUser.uid)
+              .map(s => createNotification(s.userId, 'community_post', {
+                senderId: currentUser.uid,
+                senderName: userProfile?.displayName || currentUser.displayName || 'Someone',
+                postId: campaignId,
+                postTitle: campaignData.title
+              }));
+            await Promise.allSettled(notifyPromises);
+          } catch (e) {
+            console.warn('Notify followers failed (non-fatal):', e);
+          }
         }
       } catch (notifErr) {
         console.warn('Notification failed (non-fatal):', notifErr);
@@ -286,6 +309,8 @@ const CampaignUpdates = ({ campaignId, onUpdateCountChange }) => {
         // Unsave
         await unsaveItem(currentUser.uid, post.id);
         setSavedPosts(prev => ({ ...prev, [post.id]: false }));
+        queryClient.invalidateQueries({ queryKey: ['savedItems'] });
+        queryClient.invalidateQueries({ queryKey: ['savedItems', currentUser.uid] });
       } else {
         // Save
         await saveItem(currentUser.uid, post.id, 'post', {
@@ -297,6 +322,8 @@ const CampaignUpdates = ({ campaignId, onUpdateCountChange }) => {
           campaignId: campaignId, // Include campaign ID so we can fetch the post later
         });
         setSavedPosts(prev => ({ ...prev, [post.id]: true }));
+        queryClient.invalidateQueries({ queryKey: ['savedItems'] });
+        queryClient.invalidateQueries({ queryKey: ['savedItems', currentUser.uid] });
       }
     } catch (error) {
       console.error('Error saving post:', error);
@@ -326,6 +353,19 @@ const CampaignUpdates = ({ campaignId, onUpdateCountChange }) => {
         });
         setLikedPosts(prev => ({ ...prev, [post.id]: true }));
         setLikesCounts(prev => ({ ...prev, [post.id]: (prev[post.id] || 0) + 1 }));
+        // Best-effort: notify post author about like
+        try {
+          if (post.authorId && currentUser.uid !== post.authorId) {
+            await createNotification(post.authorId, 'like', {
+              senderId: currentUser.uid,
+              senderName: userProfile?.displayName || currentUser.displayName || 'Someone',
+              postId: post.id,
+              postTitle: post.campaignTitle || ''
+            });
+          }
+        } catch (e) {
+          console.warn('Like notification failed (non-fatal):', e);
+        }
       }
     } catch (err) {
       console.error('Failed to toggle like', err);
@@ -348,6 +388,19 @@ const CampaignUpdates = ({ campaignId, onUpdateCountChange }) => {
       } else {
         await navigator.clipboard.writeText(url);
         alert('Link copied to clipboard');
+      }
+      // Best-effort: notify post author about share
+      try {
+        if (post.authorId && currentUser?.uid !== post.authorId) {
+          await createNotification(post.authorId, 'share', {
+            senderId: currentUser?.uid,
+            senderName: userProfile?.displayName || currentUser?.displayName || 'Someone',
+            postId: post.id,
+            postTitle: post.campaignTitle || ''
+          });
+        }
+      } catch (e) {
+        console.warn('Share notification failed (non-fatal):', e);
       }
     } catch (err) {
       if (err?.name !== 'AbortError') console.error('Share failed', err);

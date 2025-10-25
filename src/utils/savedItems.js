@@ -1,4 +1,4 @@
-import { doc, setDoc, deleteDoc, updateDoc, arrayUnion, arrayRemove, serverTimestamp, getDoc, collection, query, where, getDocs, addDoc } from 'firebase/firestore';
+import { doc, setDoc, deleteDoc, updateDoc, arrayUnion, arrayRemove, serverTimestamp, getDoc, collection, query, where, getDocs, addDoc, orderBy } from 'firebase/firestore';
 import { db } from '../config/firebase';
 
 /**
@@ -78,12 +78,14 @@ export const getSavedItems = async (userId, collectionId = null) => {
       q = query(
         collection(db, 'savedItems'),
         where('userId', '==', userId),
-        where('collections', 'array-contains', collectionId)
+        where('collections', 'array-contains', collectionId),
+        orderBy('savedAt', 'desc')
       );
     } else {
       q = query(
         collection(db, 'savedItems'),
-        where('userId', '==', userId)
+        where('userId', '==', userId),
+        orderBy('savedAt', 'desc')
       );
     }
 

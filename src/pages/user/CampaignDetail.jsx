@@ -88,6 +88,7 @@ const CampaignDetail = () => {
       setSuccess('');
       setDonating(true);
 
+      // 1) Core writes — if these succeed, donation is considered successful
       // Create donation transaction
       await addDoc(collection(db, 'transactions'), {
         type: 'donation',
@@ -101,41 +102,56 @@ const CampaignDetail = () => {
         recipientName: post.authorName,
         createdAt: new Date().toISOString(),
       });
-
       // Update post current amount and supporters
       await updateDoc(doc(db, 'posts', id), {
         currentAmount: increment(amount),
         supporters: increment(1),
       });
-
       // Update donor wallet balance and total donated
       await updateDoc(doc(db, 'users', currentUser.uid), {
         walletBalance: increment(-amount),
         totalDonated: increment(amount),
       });
-
-      // Update recipient total received
-      await updateDoc(doc(db, 'users', post.authorId), {
-        totalReceived: increment(amount),
-      });
-
-      // Create notification for campaign owner
-      await createNotification(post.authorId, 'donation', {
-        senderId: currentUser.uid,
-        senderName: userProfile?.displayName || currentUser.displayName || 'Someone',
-        postId: id,
-        postTitle: post.title,
-        amount: amount
-      });
+      // 2) Best-effort secondary writes — do not block success banner
+      // Recipient total received and notifications
+      const bestEfforts = [];
+      bestEfforts.push(
+        updateDoc(doc(db, 'users', post.authorId), { totalReceived: increment(amount) })
+      );
+      // Notify campaign owner
+      bestEfforts.push(
+        createNotification(post.authorId, 'donation', {
+          senderId: currentUser.uid,
+          senderName: userProfile?.displayName || currentUser.displayName || 'Someone',
+          postId: id,
+          postTitle: post.title,
+          amount: amount
+        })
+      );
+      // Donor receipt notification (self)
+      bestEfforts.push(
+        createNotification(currentUser.uid, 'donation_receipt', {
+          postId: id,
+          postTitle: post.title,
+          amount: amount
+        })
+      );
+      Promise.allSettled(bestEfforts).catch(() => {});
 
       setSuccess(`Successfully donated $${amount}! Thank you for your support.`);
       setDonationAmount('');
       setMessage('');
       
-      // Refresh post data
-      await fetchPost();
+      // Refresh post data (non-fatal)
+      try {
+        await fetchPost();
+      } catch (refreshErr) {
+        // Do not surface as donation failure; log and proceed
+        console.warn('Post refresh after donation failed (non-fatal):', refreshErr);
+      }
       
     } catch (err) {
+      // If any of the core writes failed, surface an error
       setError('Failed to process donation: ' + err.message);
     } finally {
       setDonating(false);
@@ -415,7 +431,7 @@ const CampaignDetail = () => {
                           }
                           const id = url.searchParams.get('v');
                           return id ? `https://www.youtube.com/embed/${id}` : raw;
-                        } catch (e) {
+                        } catch {
                           return '';
                         }
                       })()}

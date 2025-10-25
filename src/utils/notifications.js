@@ -4,7 +4,7 @@ import { db } from '../config/firebase';
 /**
  * Create a notification in Firestore
  * @param {string} recipientId - User ID who will receive the notification
- * @param {string} type - Type of notification: 'like', 'donation', 'comment', 'follow'
+ * @param {string} type - Type of notification: 'like', 'share', 'donation', 'donation_receipt', 'comment', 'community_post', 'follow'
  * @param {object} data - Additional data for the notification
  * @returns {Promise<void>}
  */
@@ -40,10 +40,16 @@ export const formatNotificationMessage = (notification) => {
   switch (type) {
     case 'donation':
       return `${senderName} donated $${amount} to your post${postTitle ? ` "${postTitle}"` : ''}`;
+    case 'donation_receipt':
+      return `Thank you for donating$${amount ? ` $${amount}` : ''}${postTitle ? ` to "${postTitle}"` : ''}`;
     case 'like':
       return `${senderName} liked your post${postTitle ? ` "${postTitle}"` : ''}`;
+    case 'share':
+      return `${senderName} shared your post${postTitle ? ` "${postTitle}"` : ''}`;
     case 'comment':
       return `${senderName} commented on your post${postTitle ? ` "${postTitle}"` : ''}`;
+    case 'community_post':
+      return `${senderName} posted a new community update${postTitle ? ` on "${postTitle}"` : ''}`;
     case 'follow':
       return `${senderName} started following you`;
     default:

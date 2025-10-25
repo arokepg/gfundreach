@@ -9,6 +9,9 @@ import FavoriteIcon from '@mui/icons-material/Favorite';
 import CommentIcon from '@mui/icons-material/Comment';
 import VolunteerActivismIcon from '@mui/icons-material/VolunteerActivism';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
+import ShareIcon from '@mui/icons-material/Share';
+import ArticleIcon from '@mui/icons-material/Article';
+import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 
 const NotificationDropdown = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -114,10 +117,16 @@ const NotificationDropdown = () => {
     switch (type) {
       case 'donation':
         return <VolunteerActivismIcon className="text-green-500" />;
+      case 'donation_receipt':
+        return <ReceiptLongIcon className="text-green-500" />;
       case 'like':
         return <FavoriteIcon className="text-red-500" />;
+      case 'share':
+        return <ShareIcon className="text-green-500" />;
       case 'comment':
         return <CommentIcon className="text-blue-500" />;
+      case 'community_post':
+        return <ArticleIcon className="text-blue-500" />;
       case 'follow':
         return <PersonAddIcon className="text-green-500" />;
       default:

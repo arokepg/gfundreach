@@ -1,8 +1,11 @@
 import { useState, useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { doc, getDoc, updateDoc, arrayUnion, arrayRemove, increment } from 'firebase/firestore';
+import { saveItem, unsaveItem, isItemSaved } from '../../utils/savedItems';
 import { db } from '../../config/firebase';
 import { useAuth } from '../../contexts/AuthContext';
+import { createNotification } from '../../utils/notifications';
 import Layout from '../../components/Layout';
 import PersonIcon from '@mui/icons-material/Person';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
@@ -10,6 +13,8 @@ import CampaignIcon from '@mui/icons-material/Campaign';
 import FavoriteIcon from '@mui/icons-material/Favorite';
 import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
 import ShareIcon from '@mui/icons-material/Share';
+import BookmarkIcon from '@mui/icons-material/Bookmark';
+import BookmarkBorderIcon from '@mui/icons-material/BookmarkBorder';
 
 const CommunityPostDetail = () => {
   const { campaignId, postId } = useParams();
@@ -21,7 +26,9 @@ const CommunityPostDetail = () => {
   const [isLiked, setIsLiked] = useState(false);
   const [likesCount, setLikesCount] = useState(0);
   const [sharesCount, setSharesCount] = useState(0);
+  const [isSaved, setIsSaved] = useState(false);
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     fetchPostAndCampaign();
@@ -47,6 +54,16 @@ const CommunityPostDetail = () => {
   setIsLiked(currentUser ? likedBy.includes(currentUser.uid) : false);
   setLikesCount(typeof postData.likesCount === 'number' ? postData.likesCount : likedBy.length || 0);
   setSharesCount(typeof postData.sharesCount === 'number' ? postData.sharesCount : 0);
+
+      // Saved status
+      try {
+        if (currentUser && postDoc.id) {
+          const saved = await isItemSaved(currentUser.uid, postDoc.id);
+          setIsSaved(saved);
+        }
+      } catch (err) {
+        console.warn('Failed to check saved status', err);
+      }
 
       // Fetch the parent campaign
       const campaignDoc = await getDoc(doc(db, 'posts', campaignId));
@@ -77,6 +94,17 @@ const CommunityPostDetail = () => {
         await updateDoc(ref, { likedBy: arrayUnion(currentUser.uid), likesCount: increment(1) });
         setIsLiked(true);
         setLikesCount((c) => c + 1);
+        // Best-effort: notify post author about like
+        try {
+          if (post?.authorId && currentUser.uid !== post.authorId) {
+            await createNotification(post.authorId, 'like', {
+              senderId: currentUser.uid,
+              senderName: currentUser.displayName || 'Someone',
+              postId: post.id,
+              postTitle: campaign?.title || ''
+            });
+          }
+        } catch {/* non-fatal */}
       }
     } catch (err) {
       console.error('Toggle like failed', err);
@@ -100,8 +128,49 @@ const CommunityPostDetail = () => {
         await navigator.clipboard.writeText(url);
         alert('Link copied to clipboard');
       }
+      // Best-effort: notify post author about share
+      try {
+        if (post?.authorId && currentUser?.uid !== post.authorId) {
+          await createNotification(post.authorId, 'share', {
+            senderId: currentUser.uid,
+            senderName: currentUser.displayName || 'Someone',
+            postId: post.id,
+            postTitle: campaign?.title || ''
+          });
+        }
+      } catch {/* non-fatal */}
     } catch (err) {
       if (err?.name !== 'AbortError') console.error('Share failed', err);
+    }
+  };
+
+  const toggleSave = async () => {
+    if (!post) return;
+    if (!currentUser) {
+      alert('Please log in to save this post');
+      return;
+    }
+    try {
+      if (isSaved) {
+        await unsaveItem(currentUser.uid, post.id);
+        setIsSaved(false);
+        queryClient.invalidateQueries({ queryKey: ['savedItems'] });
+        queryClient.invalidateQueries({ queryKey: ['savedItems', currentUser.uid] });
+      } else {
+        await saveItem(currentUser.uid, post.id, 'post', {
+          title: post.content?.slice(0, 100) || 'Community post',
+          description: post.content || '',
+          imageUrl: post.imageUrl || '',
+          authorId: post.authorId,
+          authorName: post.authorName,
+          campaignId: campaignId,
+        });
+        setIsSaved(true);
+        queryClient.invalidateQueries({ queryKey: ['savedItems'] });
+        queryClient.invalidateQueries({ queryKey: ['savedItems', currentUser.uid] });
+      }
+    } catch (err) {
+      console.error('Toggle save failed', err);
     }
   };
 
@@ -134,7 +203,7 @@ const CommunityPostDetail = () => {
   }
 
   return (
-    <Layout>
+  <Layout>
       <div className="max-w-4xl mx-auto p-4">
         {/* Back Button */}
         <button
@@ -222,6 +291,17 @@ const CommunityPostDetail = () => {
               >
                 <ShareIcon />
                 <span className="text-sm font-medium">{sharesCount}</span>
+              </button>
+              <button
+                onClick={toggleSave}
+                className={`p-2 rounded-lg transition-colors ${
+                  isSaved
+                    ? 'text-yellow-600 dark:text-yellow-400'
+                    : 'text-themed-secondary hover:text-yellow-600 dark:hover:text-yellow-400'
+                }`}
+                title={isSaved ? 'Remove bookmark' : 'Bookmark'}
+              >
+                {isSaved ? <BookmarkIcon /> : <BookmarkBorderIcon />}
               </button>
             </div>
             <div className="flex items-center justify-between text-sm text-themed-muted">

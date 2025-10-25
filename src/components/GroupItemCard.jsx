@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { arrayRemove, arrayUnion, collection, doc, getDoc, increment, updateDoc } from 'firebase/firestore';
+import { arrayRemove, arrayUnion, doc, getDoc, increment, updateDoc } from 'firebase/firestore';
 import FavoriteIcon from '@mui/icons-material/Favorite';
 import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
 import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutline';
@@ -9,8 +9,10 @@ import BookmarkIcon from '@mui/icons-material/Bookmark';
 import BookmarkBorderIcon from '@mui/icons-material/BookmarkBorder';
 import PersonIcon from '@mui/icons-material/Person';
 import { db } from '../config/firebase';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
 import { saveItem, unsaveItem, isItemSaved } from '../utils/savedItems';
+import { createNotification } from '../utils/notifications';
 
 /**
  * Unified card for group posts and group campaign shares
@@ -27,6 +29,7 @@ const GroupItemCard = ({ item }) => {
   const [likesCount, setLikesCount] = useState(0);
   const [sharesCount, setSharesCount] = useState(0);
   const [isSaved, setIsSaved] = useState(false);
+  const queryClient = useQueryClient();
 
   const isCampaignShare = item.type === 'campaign';
 
@@ -110,6 +113,18 @@ const GroupItemCard = ({ item }) => {
         await updateDoc(targetRef, { likedBy: arrayUnion(currentUser.uid), likesCount: increment(1) });
         setIsLiked(true);
         setLikesCount((c) => c + 1);
+        // Notify the content owner (best-effort)
+        try {
+          const ownerId = isCampaignShare && campaign ? campaign.authorId : item.authorId;
+          if (ownerId && ownerId !== currentUser.uid) {
+            await createNotification(ownerId, 'like', {
+              senderId: currentUser.uid,
+              senderName: currentUser.displayName || 'Someone',
+              postId: isCampaignShare && campaign ? campaign.id : item.id,
+              postTitle: isCampaignShare && campaign ? campaign.title : ''
+            });
+          }
+        } catch {/* non-fatal */}
       }
     } catch (e) { console.error(e); }
   };
@@ -126,6 +141,18 @@ const GroupItemCard = ({ item }) => {
       const text = isCampaignShare && campaign ? campaign.description : item.content;
       if (navigator.share) await navigator.share({ title, text, url });
       else { await navigator.clipboard.writeText(url); alert('Link copied to clipboard'); }
+      // Notify the content owner (best-effort)
+      try {
+        const ownerId = isCampaignShare && campaign ? campaign.authorId : item.authorId;
+        if (ownerId && ownerId !== currentUser.uid) {
+          await createNotification(ownerId, 'share', {
+            senderId: currentUser.uid,
+            senderName: currentUser.displayName || 'Someone',
+            postId: isCampaignShare && campaign ? campaign.id : item.id,
+            postTitle: isCampaignShare && campaign ? campaign.title : ''
+          });
+        }
+      } catch {/* non-fatal */}
     } catch (e) { if (e.name !== 'AbortError') console.error(e); }
   };
 
@@ -136,6 +163,8 @@ const GroupItemCard = ({ item }) => {
         const itemId = isCampaignShare && campaign ? campaign.id : item.id;
         await unsaveItem(currentUser.uid, itemId);
         setIsSaved(false);
+        queryClient.invalidateQueries({ queryKey: ['savedItems'] });
+        queryClient.invalidateQueries({ queryKey: ['savedItems', currentUser.uid] });
       } else {
         if (isCampaignShare && campaign) {
           await saveItem(currentUser.uid, campaign.id, 'post', {
@@ -156,6 +185,8 @@ const GroupItemCard = ({ item }) => {
           });
         }
         setIsSaved(true);
+        queryClient.invalidateQueries({ queryKey: ['savedItems'] });
+        queryClient.invalidateQueries({ queryKey: ['savedItems', currentUser.uid] });
       }
     } catch (e) { console.error(e); }
   };

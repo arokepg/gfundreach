@@ -44,22 +44,50 @@ const GroupDetail = () => {
   const isMember = useMemo(() => !!member, [member]);
 
   useEffect(() => {
+    let cancelled = false;
     (async () => {
       setLoading(true);
-      const g = await getGroup(id);
-      setGroup(g);
-      if (currentUser) {
-        const m = await getMember(id, currentUser.uid);
-        setMember(m);
+      try {
+        const g = await getGroup(id);
+        if (!cancelled) setGroup(g);
+
+        if (currentUser) {
+          try {
+            const m = await getMember(id, currentUser.uid);
+            if (!cancelled) setMember(m);
+          } catch (err) {
+            console.warn('Failed to fetch member role (non-fatal):', err);
+          }
+        }
+
+        try {
+          const lst = await listGroupPosts(id);
+          if (!cancelled) setPosts(lst);
+        } catch (err) {
+          console.warn('Failed to list group posts (non-fatal):', err);
+          if (!cancelled) setPosts([]);
+        }
+
+        try {
+          const pend = await listPendingGroupPosts(id);
+          if (!cancelled) setPendingPosts(pend);
+        } catch (err) {
+          console.warn('Failed to list pending posts (non-fatal):', err);
+          if (!cancelled) setPendingPosts([]);
+        }
+
+        try {
+          const mem = await listMembers(id);
+          if (!cancelled) setMembers(mem);
+        } catch (err) {
+          console.warn('Failed to list members (non-fatal):', err);
+          if (!cancelled) setMembers([]);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-      const lst = await listGroupPosts(id);
-      setPosts(lst);
-      const pend = await listPendingGroupPosts(id);
-      setPendingPosts(pend);
-      const mem = await listMembers(id);
-      setMembers(mem);
-      setLoading(false);
     })();
+    return () => { cancelled = true; };
   }, [id, currentUser]);
 
   const handleJoin = async () => {

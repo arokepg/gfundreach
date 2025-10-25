@@ -28,6 +28,10 @@ const Saved = () => {
     queryKey: ['savedItems', currentUser?.uid, selectedCollection],
     queryFn: () => getSavedItems(currentUser.uid, selectedCollection),
     enabled: !!currentUser,
+    staleTime: 0,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
   });
 
   const collectionsQuery = useQuery({
