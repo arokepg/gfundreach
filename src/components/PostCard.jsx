@@ -247,8 +247,16 @@ const PostCard = ({ post }) => {
           </span>
         )}
         {post.groupId && (
-          <span className="ml-2 inline-flex items-center gap-1 text-[11px] md:text-xs px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 align-middle">
-            Group: <Link to={`/group/${post.groupId}`} onClick={(e)=> e.stopPropagation()} className="hover:underline font-medium">{groupName || 'Group'}</Link>
+          <span className="ml-2 inline-flex items-center gap-1 text-[11px] md:text-xs px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 align-middle whitespace-nowrap max-w-[60%] overflow-hidden text-ellipsis">
+            <span className="flex-shrink-0">Group:</span>
+            <Link
+              to={`/group/${post.groupId}`}
+              onClick={(e)=> e.stopPropagation()}
+              className="hover:underline font-medium truncate inline-block max-w-[140px]"
+              title={groupName || 'Group'}
+            >
+              {groupName || 'Group'}
+            </Link>
           </span>
         )}
       </Link>

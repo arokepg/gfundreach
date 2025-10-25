@@ -152,11 +152,14 @@ const Home = () => {
             </div>
           ) : (
             <div className="space-y-4 md:space-y-6">
-              {filteredPosts.map((item) => {
-                if (item.type === 'update') return <CommunityPostCard key={`upd-${item.id}`} post={item} />;
-                if (item.type === 'campaign') return <PostCard key={`camp-${item.id}`} post={item} />;
+              {filteredPosts.map((item, index) => {
+                const animationDelay = `${index * 0.05}s`;
+                const cardStyle = { animationDelay };
+                
+                if (item.type === 'update') return <CommunityPostCard key={`upd-${item.id}`} post={item} style={cardStyle} />;
+                if (item.type === 'campaign') return <PostCard key={`camp-${item.id}`} post={item} style={cardStyle} />;
                 if (item.type === 'group-post' || item.type === 'group-campaign') {
-                  return <GroupItemCard key={`grp-${item.id}`} item={item} />;
+                  return <GroupItemCard key={`grp-${item.id}`} item={item} style={cardStyle} />;
                 }
                 return null;
               })}

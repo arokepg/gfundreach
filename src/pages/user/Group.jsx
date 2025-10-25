@@ -89,9 +89,9 @@ const Group = () => {
 
   return (
     <Layout>
-      <div className="max-w-6xl mx-auto p-4 flex gap-6">
+      <div className="max-w-6xl mx-auto p-4 flex flex-col lg:flex-row gap-6">
         {/* Actions sidebar (move to right on large screens) */}
-        <div className="w-64 flex-shrink-0 lg:order-2">
+  <div className="w-full lg:w-64 flex-shrink-0 lg:order-2">
           <div className="card p-4">
             <button
               onClick={() => setShowCreate(true)}
@@ -146,7 +146,7 @@ const Group = () => {
                   ? 'bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400'
                   : 'hidden';
                 return (
-                  <div key={g.id} className="card overflow-hidden p-0">
+                  <Link key={g.id} to={`/group/${g.id}`} className="card overflow-hidden p-0 block hover:shadow-lg transition-shadow">
                     {/* Banner on top */}
                     <div className="w-full h-40" style={{ backgroundColor: 'var(--card-bg)' }}>
                       {g.bannerUrl ? (
@@ -166,11 +166,9 @@ const Group = () => {
                           <p className="text-sm text-themed-muted mt-1 line-clamp-2">{g.description}</p>
                         )}
                       </div>
-                      <div className="flex-shrink-0">
-                        <Link to={`/group/${g.id}`} className="px-4 py-2 rounded-full bg-green-600 hover:bg-green-700 text-white text-sm whitespace-nowrap">Visit</Link>
-                      </div>
+                      <div className="flex-shrink-0 text-green-700 dark:text-green-400 text-sm font-medium">View →</div>
                     </div>
-                  </div>
+                  </Link>
                 );
               })}
             </div>

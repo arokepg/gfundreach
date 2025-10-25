@@ -1,6 +1,14 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    // ------------------------------------------------------------------
+    // Group Admin/Moderator Moderation Permissions
+    // Added: Allow group admins/moderators to manage (update/delete)
+    // - Campaign posts in top-level /posts when post has a groupId
+    // - Group feed posts in /groups/{groupId}/posts
+    // These permissions enable admins to moderate content created by others
+    // inside their group while preserving owners' rights and public reactions.
+    // ------------------------------------------------------------------
     // Group role helper: checks if the caller is an admin or moderator of the group
     function isGroupAdminOrMod(groupId) {
       return isSignedIn() &&

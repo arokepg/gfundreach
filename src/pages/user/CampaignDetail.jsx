@@ -15,6 +15,7 @@ import BarChartIcon from '@mui/icons-material/BarChart';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { recordCampaignView } from '../../utils/viewTracker';
+import { getMember } from '../../utils/groups';
 
 const CampaignDetail = () => {
   const { id } = useParams();
@@ -29,6 +30,7 @@ const CampaignDetail = () => {
   const [likesCount, setLikesCount] = useState(0);
   const [sharesCount, setSharesCount] = useState(0);
   const [groupName, setGroupName] = useState('');
+  const [canGroupModerate, setCanGroupModerate] = useState(false);
   const { currentUser, userProfile } = useAuth();
   const navigate = useNavigate();
 
@@ -57,8 +59,19 @@ const CampaignDetail = () => {
           if (postData.groupId) {
             const gSnap = await getDoc(doc(db, 'groups', String(postData.groupId)));
             if (gSnap.exists()) setGroupName(gSnap.data().name || 'Group');
+            // Determine if current user is admin/moderator of the group (enables moderation)
+            if (currentUser) {
+              try {
+                const member = await getMember(String(postData.groupId), currentUser.uid);
+                const role = member?.role;
+                setCanGroupModerate(role === 'admin' || role === 'moderator');
+              } catch { setCanGroupModerate(false); }
+            } else {
+              setCanGroupModerate(false);
+            }
           } else {
             setGroupName('');
+            setCanGroupModerate(false);
           }
         } catch {/* non-fatal */}
         
@@ -272,6 +285,7 @@ const CampaignDetail = () => {
   };
 
   const isOwner = currentUser && post && currentUser.uid === post.authorId;
+  const canManage = !!(isOwner || canGroupModerate);
 
   if (loading) {
     return (
@@ -348,8 +362,8 @@ const CampaignDetail = () => {
                   </div>
                 </div>
 
-                {/* Campaign Management Buttons - Only visible to owner */}
-                {isOwner && (
+                {/* Campaign Management Buttons - Visible to owner or group admin/moderator */}
+                {canManage && (
                   <div className="flex gap-2">
                     <button
                       onClick={() => navigate(`/campaign-stats/${id}`)}

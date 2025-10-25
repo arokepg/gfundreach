@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { collection, addDoc, query, orderBy, getDocs, serverTimestamp, updateDoc, doc, increment, deleteDoc, getDoc, arrayUnion, arrayRemove, where } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../config/firebase';
@@ -150,7 +151,7 @@ const CampaignUpdates = ({ campaignId, onUpdateCountChange }) => {
         content: content.trim(),
         imageUrl,
         authorId: currentUser.uid,
-        authorName: currentUser.displayName || 'Anonymous',
+        authorName: (userProfile?.displayName || currentUser.displayName || currentUser.email || 'Anonymous'),
         authorPhoto: currentUser.photoURL || '',
         campaignTitle: parentTitle,
         locationCity: updateCity || '',
@@ -621,20 +622,20 @@ const CampaignUpdates = ({ campaignId, onUpdateCountChange }) => {
                 <>
                   {/* Author info */}
                   <div className="flex items-center gap-3 mb-3">
-                    <div className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center flex-shrink-0">
+                    <Link to={`/profile/${upd.authorId}`} className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center flex-shrink-0 overflow-hidden hover:opacity-90">
                       {upd.authorPhoto ? (
                         <img
                           src={upd.authorPhoto}
                           alt={upd.authorName}
-                          className="w-10 h-10 rounded-full object-cover"
+                          className="w-10 h-10 object-cover"
                           referrerPolicy="no-referrer"
                         />
                       ) : (
                         <PersonIcon className="text-gray-600 dark:text-gray-300" />
                       )}
-                    </div>
+                    </Link>
                     <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-themed text-sm">{upd.authorName || 'Anonymous'}</p>
+                      <Link to={`/profile/${upd.authorId}`} className="font-semibold text-themed text-sm hover:underline">{upd.authorName || 'Anonymous'}</Link>
                       {upd.createdAt && (
                         <p className="text-xs text-themed-muted">
                           {upd.createdAt.toDate ? upd.createdAt.toDate().toLocaleString() : new Date(upd.createdAt).toLocaleString()}

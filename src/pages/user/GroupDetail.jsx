@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import Layout from '../../components/Layout';
+import PostCard from '../../components/PostCard';
+import GroupItemCard from '../../components/GroupItemCard';
 import { useAuth } from '../../contexts/AuthContext';
 import { createGroupPost, getGroup, getMember, joinGroup, leaveGroup, listGroupPosts, listPendingGroupPosts, listMembers, setMemberRole, approveGroupPost, rejectGroupPost, updateGroup, softDeleteGroup, removeMember } from '../../utils/groups';
 import { collection, getDocs, orderBy, query, where, deleteDoc, doc as fsDoc } from 'firebase/firestore';
@@ -14,7 +16,7 @@ const RoleSelect = ({ value, onChange, disabled }) => (
     value={value}
     onChange={(e)=> onChange(e.target.value)}
     disabled={disabled}
-    className="text-sm px-2 py-1 rounded-lg border border-outline-variant bg-transparent text-themed"
+    className="text-sm px-2 py-1 rounded-lg border border-outline-variant bg-white text-gray-900 dark:bg-gray-900 dark:text-gray-100 dark:border-gray-700"
   >
     <option value="admin">Admin</option>
     <option value="moderator">Moderator</option>
@@ -37,6 +39,7 @@ const GroupDetail = () => {
   const [editDesc, setEditDesc] = useState('');
   const [editBanner, setEditBanner] = useState(null);
   const [savingGroup, setSavingGroup] = useState(false);
+  const [activeTab, setActiveTab] = useState('feed'); // Mobile tab state
 
   const isAdmin = useMemo(() => member?.role === 'admin', [member]);
   const isModerator = useMemo(() => member?.role === 'moderator', [member]);
@@ -85,9 +88,16 @@ const GroupDetail = () => {
 
         // Fetch group campaigns (posts with groupId == id)
         try {
-          const q = query(collection(db, 'posts'), where('groupId', '==', id), orderBy('createdAt', 'desc'));
+          // Avoid composite index requirement: query by equality then sort client-side
+          const q = query(collection(db, 'posts'), where('groupId', '==', id));
           const snap = await getDocs(q);
-          if (!cancelled) setGroupCampaigns(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+          const items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+          items.sort((a, b) => {
+            const ta = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : new Date(a.createdAt || 0).getTime();
+            const tb = b.createdAt?.toDate ? b.createdAt.toDate().getTime() : new Date(b.createdAt || 0).getTime();
+            return tb - ta;
+          });
+          if (!cancelled) setGroupCampaigns(items);
         } catch (err) {
           console.warn('Failed to list group campaigns (non-fatal):', err);
           if (!cancelled) setGroupCampaigns([]);
@@ -155,9 +165,15 @@ const GroupDetail = () => {
     if (!window.confirm('Delete this campaign from the group? This cannot be undone.')) return;
     try {
       await deleteDoc(fsDoc(db, 'posts', String(campaignId)));
-      const q = query(collection(db, 'posts'), where('groupId', '==', id), orderBy('createdAt', 'desc'));
+      const q = query(collection(db, 'posts'), where('groupId', '==', id));
       const snap = await getDocs(q);
-      setGroupCampaigns(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      const items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      items.sort((a, b) => {
+        const ta = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : new Date(a.createdAt || 0).getTime();
+        const tb = b.createdAt?.toDate ? b.createdAt.toDate().getTime() : new Date(b.createdAt || 0).getTime();
+        return tb - ta;
+      });
+      setGroupCampaigns(items);
     } catch (e) {
       console.error('Failed to delete campaign:', e);
       alert('Failed to delete campaign.');
@@ -212,18 +228,18 @@ const GroupDetail = () => {
     <Layout>
       <div className="max-w-6xl mx-auto">
         {/* Banner */}
-        <div className="h-48 w-full relative" style={{ backgroundColor: 'var(--card-bg)' }}>
+        <div className="h-32 sm:h-48 w-full relative" style={{ backgroundColor: 'var(--card-bg)' }}>
           {group.bannerUrl ? (
             <img src={group.bannerUrl} alt={group.name} className="w-full h-full object-cover" />
           ) : (
-            <div className="w-full h-full flex items-center justify-center text-themed-secondary">No banner</div>
+            <div className="w-full h-full flex items-center justify-center text-themed-secondary text-sm sm:text-base">No banner</div>
           )}
         </div>
 
-        {/* Header (below banner) */}
-        <div className="p-4">
-          <div className="flex items-center gap-3 flex-wrap">
-            <h1 className="text-2xl font-bold text-themed">{group.name}</h1>
+        {/* Header (below banner) - Mobile optimized */}
+        <div className="p-3 sm:p-4">
+          <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+            <h1 className="text-xl sm:text-2xl font-bold text-themed">{group.name}</h1>
             {/* Role pill */}
             <span
               className={`px-2 py-1 text-xs font-medium rounded-full ${
@@ -240,18 +256,18 @@ const GroupDetail = () => {
             </span>
           </div>
           {group.description && (
-            <p className="text-themed-muted mt-1">{group.description}</p>
+            <p className="text-themed-muted mt-1 text-sm sm:text-base">{group.description}</p>
           )}
           <div className="mt-3 flex items-center gap-2 flex-wrap">
             {!isMember ? (
-              <button onClick={handleJoin} className="px-4 py-2 rounded-full bg-green-600 hover:bg-green-700 text-white">Join</button>
+              <button onClick={handleJoin} className="px-3 sm:px-4 py-2 rounded-full bg-green-600 hover:bg-green-700 text-white text-sm sm:text-base transition-all duration-300 hover:shadow-lg active:scale-95">Join</button>
             ) : (
-              <button onClick={handleLeave} className="px-4 py-2 rounded-full bg-red-600 hover:bg-red-700 text-white">Leave Group</button>
+              <button onClick={handleLeave} className="px-3 sm:px-4 py-2 rounded-full bg-red-600 hover:bg-red-700 text-white text-sm sm:text-base transition-all duration-300 hover:shadow-lg active:scale-95">Leave Group</button>
             )}
             {isAdmin && (
               <button
                 onClick={()=> { setShowEdit(true); setEditName(group.name || ''); setEditDesc(group.description || ''); }}
-                className="px-4 py-2 rounded-full flex items-center gap-1"
+                className="px-3 sm:px-4 py-2 rounded-full flex items-center gap-1 text-sm sm:text-base transition-all duration-300 hover:shadow-lg active:scale-95"
                 style={{ backgroundColor: 'var(--hover-bg)' }}
               >
                 <EditIcon fontSize="small" /> Edit
@@ -260,159 +276,107 @@ const GroupDetail = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 p-4">
-          {/* Feed */}
-          <div className="lg:col-span-2 space-y-4">
-            {(isAdmin || isModerator) && (
-              <div className="card p-4">
-                <h3 className="font-semibold text-themed mb-2">Group Campaigns</h3>
-                {groupCampaigns.length === 0 ? (
-                  <div className="text-sm text-themed-muted">No group campaigns yet</div>
-                ) : (
-                  <div className="space-y-2">
-                    {groupCampaigns.map(c => (
-                      <div key={c.id} className="flex items-center justify-between p-3 rounded-lg border border-outline-variant">
-                        <div className="min-w-0">
-                          <Link to={`/post/${c.id}`} className="font-medium text-themed hover:underline truncate block">{c.title || 'Untitled'}</Link>
-                          <div className="text-xs text-themed-muted truncate">{c.shortSummary || c.description?.slice(0,100) || ''}</div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Link to={`/edit-campaign/${c.id}`} className="px-3 py-1 rounded bg-green-600 hover:bg-green-700 text-white text-sm">Edit</Link>
-                          <button onClick={()=> deleteCampaign(c.id)} className="px-3 py-1 rounded bg-red-600 hover:bg-red-700 text-white text-sm">Delete</button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+        {/* Mobile Tab Navigation */}
+        <div className="sticky top-[73px] z-30 surface border-b border-surface lg:hidden">
+          <div className="flex overflow-x-auto scrollbar-hide">
+            <button
+              onClick={() => setActiveTab('feed')}
+              className={`flex-1 min-w-[100px] px-4 py-3 text-sm font-medium transition-all ${
+                activeTab === 'feed'
+                  ? 'text-green-600 dark:text-green-400 border-b-2 border-green-600'
+                  : 'text-themed-secondary'
+              }`}
+            >
+              Feed
+            </button>
+            <button
+              onClick={() => setActiveTab('members')}
+              className={`flex-1 min-w-[100px] px-4 py-3 text-sm font-medium transition-all ${
+                activeTab === 'members'
+                  ? 'text-green-600 dark:text-green-400 border-b-2 border-green-600'
+                  : 'text-themed-secondary'
+              }`}
+            >
+              Members ({members.length})
+            </button>
+            {(isAdmin || isModerator) && pendingPosts.length > 0 && (
+              <button
+                onClick={() => setActiveTab('pending')}
+                className={`flex-1 min-w-[100px] px-4 py-3 text-sm font-medium transition-all relative ${
+                  activeTab === 'pending'
+                    ? 'text-green-600 dark:text-green-400 border-b-2 border-green-600'
+                    : 'text-themed-secondary'
+                }`}
+              >
+                Pending
+                <span className="ml-1 inline-flex items-center justify-center w-5 h-5 text-xs font-semibold text-white bg-red-500 rounded-full">
+                  {pendingPosts.length}
+                </span>
+              </button>
             )}
-            {isMember && (
-              <div className="card p-4 flex items-center justify-between">
-                <div>
-                  <h3 className="font-semibold text-themed mb-1">Create a Campaign for this Group</h3>
-                  <p className="text-sm text-themed-secondary">Group campaigns have community posts, likes, shares, and full donation support.</p>
-                </div>
-                <Link to={`/create-post?groupId=${id}`} className="px-4 py-2 rounded-full bg-blue-600 hover:bg-blue-700 text-white">Create Campaign</Link>
-              </div>
-            )}
+          </div>
+        </div>
 
-            {/* Admin/Mod Group Campaigns Management */}
-            <div className="card p-4">
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="font-semibold text-themed">Group Campaigns</h3>
-                {(isAdmin || isModerator) && (
-                  <span className="text-xs text-themed-muted">Admin tools enabled</span>
-                )}
-              </div>
-              {groupCampaigns.length === 0 ? (
-                <div className="text-sm text-themed-muted">No group campaigns yet</div>
-              ) : (
-                <div className="space-y-2">
-                  {groupCampaigns.map(c => (
-                    <div key={c.id} className="flex items-center justify-between p-3 rounded-lg border border-outline-variant">
-                      <div className="min-w-0">
-                        <Link to={`/post/${c.id}`} className="font-medium text-themed hover:underline truncate block">{c.title || 'Untitled'}</Link>
-                        <div className="text-xs text-themed-muted truncate">{c.shortSummary || c.description?.slice(0,100) || ''}</div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {(isAdmin || isModerator) && (
-                          <>
-                            <Link to={`/edit-campaign/${c.id}`} className="px-3 py-1 rounded bg-green-600 hover:bg-green-700 text-white text-sm">Edit</Link>
-                            <button onClick={()=> deleteCampaign(c.id)} className="px-3 py-1 rounded bg-red-600 hover:bg-red-700 text-white text-sm">Delete</button>
-                          </>
-                        )}
-                        {!(isAdmin || isModerator) && (
-                          <Link to={`/post/${c.id}`} className="px-3 py-1 rounded bg-blue-600 hover:bg-blue-700 text-white text-sm">View</Link>
-                        )}
-                      </div>
-                    </div>
-                  ))}
+        {/* Content Grid - Desktop keeps 2-col, Mobile uses tabs */}
+        <div className="lg:grid lg:grid-cols-3 lg:gap-6 p-3 sm:p-4">
+          {/* Feed - Always visible on desktop, tab-controlled on mobile */}
+          <div className={`lg:col-span-2 space-y-4 ${activeTab !== 'feed' ? 'hidden lg:block' : ''}`}>
+            {isMember && (
+              <div className="card p-3 sm:p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div>
+                  <h3 className="font-semibold text-themed mb-1 text-sm sm:text-base">Create a Campaign for this Group</h3>
+                  <p className="text-xs sm:text-sm text-themed-secondary">Group campaigns have community posts, likes, shares, and full donation support.</p>
                 </div>
+                <Link to={`/create-post?groupId=${id}`} className="w-full sm:w-auto text-center px-4 py-2 rounded-full bg-blue-600 hover:bg-blue-700 text-white text-sm whitespace-nowrap transition-all duration-300 hover:shadow-lg active:scale-95">Create Campaign</Link>
+              </div>
+            )}
+            {/* Group Campaigns (as homepage cards) */}
+            <div className="space-y-3">
+              {groupCampaigns.length === 0 ? (
+                <div className="card p-4 sm:p-6 text-themed-muted text-sm sm:text-base">No group campaigns yet</div>
+              ) : (
+                groupCampaigns.map(c => (
+                  <PostCard key={c.id} post={{ ...c, id: c.id }} />
+                ))
               )}
             </div>
 
             {/* Posts */}
             {posts.length === 0 ? (
-              <div className="card p-6 text-themed-muted">No posts yet</div>
+              <div className="card p-4 sm:p-6 text-themed-muted text-sm sm:text-base">No posts yet</div>
             ) : (
               <div className="space-y-3">
                 {posts.map(p => (
-                  <div key={p.id} className="card p-4">
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center overflow-hidden">
-                        {p.authorPhoto ? <img src={p.authorPhoto} alt="" className="w-full h-full object-cover" /> : <PersonIcon className="text-gray-500" />}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-themed text-sm">{p.authorName || 'Member'}</p>
-                        {p.createdAt && (
-                          <p className="text-xs text-themed-muted">{p.createdAt.toDate ? p.createdAt.toDate().toLocaleString() : new Date(p.createdAt).toLocaleString()}</p>
-                        )}
-                      </div>
-                    </div>
-                    {p.type === 'campaign' && p.campaignId ? (
-                      <Link to={`/post/${p.campaignId}`} className="block p-4 rounded-lg border border-outline-variant hover:bg-[var(--hover-bg)]">
-                        <div className="text-themed">Shared a campaign → View details</div>
-                      </Link>
-                    ) : (
-                      <>
-                        <p className="text-sm text-themed mb-2 whitespace-pre-wrap">{p.content}</p>
-                        {p.imageUrl && <img src={p.imageUrl} alt="" className="rounded-lg max-h-[420px] w-full object-contain" style={{ backgroundColor: 'var(--card-bg)' }} />}
-                      </>
-                    )}
-                  </div>
+                  <GroupItemCard key={p.id} item={{ ...p, type: 'post', groupId: id }} />
                 ))}
-              </div>
-            )}
-
-            {(isAdmin || isModerator) && (
-              <div className="card p-4">
-                <h3 className="font-semibold text-themed mb-3">Pending posts ({pendingPosts.length})</h3>
-                {pendingPosts.length === 0 ? (
-                  <div className="text-sm text-themed-muted">No pending posts</div>
-                ) : (
-                  <div className="space-y-3">
-                    {pendingPosts.map(p => (
-                      <div key={p.id} className="p-3 rounded-lg border border-outline-variant">
-                        <div className="flex items-center justify-between">
-                          <div className="text-sm text-themed">{p.authorName || 'Member'}</div>
-                          <div className="flex gap-2">
-                            <button onClick={()=> approvePost(p.id)} className="px-3 py-1 rounded bg-green-600 text-white text-sm">Approve</button>
-                            <button onClick={()=> rejectPost(p.id)} className="px-3 py-1 rounded bg-red-600 text-white text-sm">Reject</button>
-                          </div>
-                        </div>
-                        {p.content && <p className="text-sm text-themed mt-2">{p.content}</p>}
-                      </div>
-                    ))}
-                  </div>
-                )}
               </div>
             )}
           </div>
 
-          {/* Members */}
-          <div className="space-y-4">
-            <div className="card p-4">
-              <h3 className="font-semibold text-themed mb-3">Members</h3>
+          {/* Members Sidebar - Desktop always visible, Mobile tab-controlled */}
+          <div className={`space-y-4 ${activeTab !== 'members' ? 'hidden lg:block' : ''}`}>
+            <div className="card p-3 sm:p-4">
+              <h3 className="font-semibold text-themed mb-3 text-sm sm:text-base">Members</h3>
               <div className="space-y-2 max-h-[420px] overflow-auto pr-1">
                 {members.map(m => (
                   <div key={m.id} className="flex items-center justify-between px-2 py-2 rounded-lg" style={{ backgroundColor: 'var(--hover-bg)' }}>
-                    <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-800 flex items-center justify-center overflow-hidden">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-800 flex items-center justify-center overflow-hidden flex-shrink-0">
                         {m.photoURL ? (
                           <img src={m.photoURL} alt={m.displayName || m.id} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                         ) : (
                           <PersonIcon className="text-gray-500" fontSize="small" />
                         )}
                       </div>
-                      <div>
-                        <p className="text-sm text-themed">{m.displayName || m.id}</p>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs sm:text-sm text-themed truncate">{m.displayName || m.id}</p>
                         <p className="text-xs text-themed-muted">{m.role}</p>
                       </div>
                     </div>
                     {(isAdmin || isModerator) && currentUser?.uid !== m.id && (
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
                         <RoleSelect value={m.role} onChange={(role)=> changeRole(m.id, role)} disabled={!isAdmin && m.role === 'admin'} />
-                        <button onClick={()=> kickMember(m.id)} className="px-2 py-1 rounded bg-red-600 hover:bg-red-700 text-white text-xs">Remove</button>
+                        <button onClick={()=> kickMember(m.id)} className="px-2 py-1 rounded bg-red-600 hover:bg-red-700 text-white text-xs transition-all duration-300 active:scale-95">Remove</button>
                       </div>
                     )}
                   </div>
@@ -420,12 +384,33 @@ const GroupDetail = () => {
               </div>
             </div>
 
-            <div className="card p-4">
-              <h3 className="font-semibold text-themed mb-3">Share a campaign</h3>
-              <p className="text-sm text-themed-muted mb-3">Create campaigns as usual, then paste the campaign link here to share it to the group feed.</p>
+            <div className="card p-3 sm:p-4">
+              <h3 className="font-semibold text-themed mb-3 text-sm sm:text-base">Share a campaign</h3>
+              <p className="text-xs sm:text-sm text-themed-muted mb-3">Create campaigns as usual, then paste the campaign link here to share it to the group feed.</p>
               <ShareCampaign groupId={id} onShared={async ()=> setPosts(await listGroupPosts(id))} />
             </div>
           </div>
+
+          {/* Pending Posts - Desktop shows in feed column, Mobile has dedicated tab */}
+          {(isAdmin || isModerator) && pendingPosts.length > 0 && (
+            <div className={`lg:col-span-2 card p-3 sm:p-4 ${activeTab === 'pending' ? 'block' : 'hidden lg:block'} ${activeTab === 'feed' ? 'lg:block' : 'lg:hidden'}`}>
+              <h3 className="font-semibold text-themed mb-3 text-sm sm:text-base">Pending posts ({pendingPosts.length})</h3>
+              <div className="space-y-3">
+                {pendingPosts.map(p => (
+                  <div key={p.id} className="p-3 rounded-lg border border-outline-variant">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                      <div className="text-xs sm:text-sm text-themed">{p.authorName || 'Member'}</div>
+                      <div className="flex gap-2 w-full sm:w-auto">
+                        <button onClick={()=> approvePost(p.id)} className="flex-1 sm:flex-none px-3 py-1 rounded bg-green-600 text-white text-xs sm:text-sm transition-all duration-300 hover:shadow-lg active:scale-95">Approve</button>
+                        <button onClick={()=> rejectPost(p.id)} className="flex-1 sm:flex-none px-3 py-1 rounded bg-red-600 text-white text-xs sm:text-sm transition-all duration-300 hover:shadow-lg active:scale-95">Reject</button>
+                      </div>
+                    </div>
+                    {p.content && <p className="text-xs sm:text-sm text-themed mt-2">{p.content}</p>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

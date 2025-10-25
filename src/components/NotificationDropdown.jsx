@@ -15,10 +15,20 @@ import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 
 const NotificationDropdown = () => {
   const [isOpen, setIsOpen] = useState(false);
+  const [isClosing, setIsClosing] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const { currentUser } = useAuth();
   
   const dropdownRef = useRef(null);
+
+  // Handle smooth close animation
+  const handleClose = () => {
+    setIsClosing(true);
+    setTimeout(() => {
+      setIsOpen(false);
+      setIsClosing(false);
+    }, 250); // Match animation duration
+  };
 
   // Subscribe to notifications in real-time whenever user is logged in
   useEffect(() => {
@@ -69,7 +79,7 @@ const NotificationDropdown = () => {
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        setIsOpen(false);
+        handleClose();
       }
     };
 
@@ -161,35 +171,51 @@ const NotificationDropdown = () => {
         )}
       </button>
 
-      {/* Dropdown */}
+      {/* Dropdown - Full screen on mobile, dropdown on desktop */}
       {isOpen && (
-  <div className="absolute right-0 mt-2 w-96 surface rounded-2xl shadow-xl border border-surface z-50 overflow-hidden">
-          {/* Header */}
-          <div className="px-4 py-3 border-b border-surface flex items-center justify-between">
-            <h3 className="text-lg font-bold text-themed">
-              Notifications
-            </h3>
-            {unreadCount > 0 && (
-              <button
-                onClick={markAllAsRead}
-                className="text-sm text-green-600 dark:text-green-400 hover:underline"
-              >
-                Mark all as read
-              </button>
-            )}
-          </div>
-
-          {/* Notifications List */}
-          <div className="max-h-96 overflow-y-auto">
-            {notifications.length === 0 ? (
-              <div className="px-4 py-8 text-center text-themed-muted">
-                No notifications yet
+        <>
+          {/* Mobile overlay */}
+          <div 
+            className={`lg:hidden fixed inset-0 bg-black/50 z-50 ${isClosing ? 'overlay-exit' : 'overlay-enter'}`}
+            onClick={handleClose} 
+          />
+          
+          {/* Notification panel */}
+          <div className={`fixed lg:absolute inset-0 lg:inset-auto lg:right-0 lg:top-full lg:mt-2 lg:w-96 surface lg:rounded-2xl shadow-xl border-0 lg:border border-surface z-50 overflow-hidden flex flex-col lg:max-h-[600px] ${isClosing ? 'notif-panel-exit lg:notif-dropdown-exit' : 'notif-panel-enter lg:notif-dropdown-enter'}`}>
+            {/* Header */}
+            <div className="px-4 py-4 lg:py-3 border-b border-surface flex items-center justify-between flex-shrink-0">
+              <h3 className="text-xl lg:text-lg font-bold text-themed">
+                Notifications
+              </h3>
+              <div className="flex items-center gap-2">
+                {unreadCount > 0 && (
+                  <button
+                    onClick={markAllAsRead}
+                    className="text-sm text-green-600 dark:text-green-400 hover:underline"
+                  >
+                    Mark all read
+                  </button>
+                )}
+                <button
+                  onClick={handleClose}
+                  className="lg:hidden p-2 rounded-full transition-colors hover:bg-gray-100 dark:hover:bg-gray-800"
+                >
+                  <CloseIcon />
+                </button>
               </div>
-            ) : (
-              notifications.map((notification) => (
+            </div>
+
+            {/* Notifications List */}
+            <div className="flex-1 overflow-y-auto">
+              {notifications.length === 0 ? (
+                <div className="px-4 py-12 lg:py-8 text-center text-themed-muted">
+                  No notifications yet
+                </div>
+              ) : (
+                notifications.map((notification) => (
                 <div
                   key={notification.id}
-                  className={`px-4 py-3 border-b border-surface transition-colors cursor-pointer ${
+                  className={`px-4 py-4 lg:py-3 border-b border-surface transition-colors cursor-pointer ${
                     !notification.read ? 'bg-green-50/50 dark:bg-green-900/10' : ''
                   }`}
                   onClick={() => markAsRead(notification.id)}
@@ -204,7 +230,7 @@ const NotificationDropdown = () => {
 
                     {/* Content */}
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm text-themed">
+                      <p className="text-sm lg:text-sm text-themed">
                         {formatNotificationMessage(notification)}
                       </p>
                       <p className="text-xs text-themed-muted mt-1">
@@ -218,12 +244,12 @@ const NotificationDropdown = () => {
                         e.stopPropagation();
                         deleteNotification(notification.id);
                       }}
-                      className="flex-shrink-0 p-1 rounded-full transition-colors"
+                      className="flex-shrink-0 p-2 lg:p-1 rounded-full transition-colors"
                       style={{ backgroundColor: 'transparent' }}
                       onMouseEnter={(e)=>{ e.currentTarget.style.backgroundColor = 'var(--hover-bg)'; }}
                       onMouseLeave={(e)=>{ e.currentTarget.style.backgroundColor = 'transparent'; }}
                     >
-                      <CloseIcon className="text-themed-muted text-sm" />
+                      <CloseIcon className="text-themed-muted text-base lg:text-sm" />
                     </button>
 
                     {/* Unread Indicator */}
@@ -238,13 +264,14 @@ const NotificationDropdown = () => {
 
           {/* Footer */}
           {notifications.length > 0 && (
-            <div className="px-4 py-3 border-t border-surface text-center">
+            <div className="px-4 py-4 lg:py-3 border-t border-surface text-center flex-shrink-0">
               <button className="text-sm text-green-600 dark:text-green-400 hover:underline font-medium">
                 View all notifications
               </button>
             </div>
           )}
         </div>
+        </>
       )}
     </div>
   );

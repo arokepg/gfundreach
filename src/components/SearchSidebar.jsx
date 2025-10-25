@@ -7,6 +7,7 @@ import HistoryIcon from '@mui/icons-material/History';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import PersonAddAltIcon from '@mui/icons-material/PersonAddAlt';
 import ArticleIcon from '@mui/icons-material/Article';
+import FilterListIcon from '@mui/icons-material/FilterList';
 import { Link } from 'react-router-dom';
 import { useSearch } from '../contexts/SearchContext';
 
@@ -36,8 +37,19 @@ const SearchSidebar = () => {
   const [loading, setLoading] = useState(false);
   const [recent, setRecent] = useState([]);
   const [history, setHistory] = useState([]);
+  const [showFilters, setShowFilters] = useState(false);
+  
+  // Advanced Filters
+  const [selectedCategory, setSelectedCategory] = useState('');
+  const [location, setLocation] = useState('');
+  const [minGoal, setMinGoal] = useState('');
+  const [maxGoal, setMaxGoal] = useState('');
+  const [selectedStatus, setSelectedStatus] = useState('all');
+  
   const debounced = useDebounced(q, 300);
   const inputRef = useRef(null);
+
+  const categories = ['Education', 'Healthcare', 'Environment', 'Community', 'Technology', 'Arts', 'Emergency', 'Other'];
 
   // Load recent
   useEffect(() => {
@@ -205,7 +217,34 @@ const SearchSidebar = () => {
         // Merge category matches
         categoryMatches.forEach(c => campaignsMap.set(c.id, c));
         
-        const campaignsRes = Array.from(campaignsMap.values()).slice(0, 8);
+        let campaignsRes = Array.from(campaignsMap.values());
+
+        // Apply Advanced Filters
+        if (selectedCategory) {
+          campaignsRes = campaignsRes.filter(c => c.category === selectedCategory);
+        }
+        
+        if (location.trim()) {
+          const loc = location.trim().toLowerCase();
+          campaignsRes = campaignsRes.filter(c => 
+            (c.location || '').toLowerCase().includes(loc)
+          );
+        }
+        
+        if (minGoal || maxGoal) {
+          campaignsRes = campaignsRes.filter(c => {
+            const goal = parseFloat(c.goalAmount) || 0;
+            const min = minGoal ? parseFloat(minGoal) : 0;
+            const max = maxGoal ? parseFloat(maxGoal) : Infinity;
+            return goal >= min && goal <= max;
+          });
+        }
+        
+        if (selectedStatus !== 'all') {
+          campaignsRes = campaignsRes.filter(c => c.campaignStatus === selectedStatus);
+        }
+        
+        campaignsRes = campaignsRes.slice(0, 8);
 
         // If nothing found, apply lightweight client-side fallback contains search
         let finalPeople = peopleRes;
@@ -227,7 +266,28 @@ const SearchSidebar = () => {
         if (finalCampaigns.length === 0) {
           try {
             const fallbackPostsSnap = await getDocs(query(collection(db, 'posts'), limit(50)));
-            const list = fallbackPostsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+            let list = fallbackPostsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+            
+            // Apply filters to fallback results
+            if (selectedCategory) {
+              list = list.filter(c => c.category === selectedCategory);
+            }
+            if (location.trim()) {
+              const loc = location.trim().toLowerCase();
+              list = list.filter(c => (c.location || '').toLowerCase().includes(loc));
+            }
+            if (minGoal || maxGoal) {
+              list = list.filter(c => {
+                const goal = parseFloat(c.goalAmount) || 0;
+                const min = minGoal ? parseFloat(minGoal) : 0;
+                const max = maxGoal ? parseFloat(maxGoal) : Infinity;
+                return goal >= min && goal <= max;
+              });
+            }
+            if (selectedStatus !== 'all') {
+              list = list.filter(c => c.campaignStatus === selectedStatus);
+            }
+            
             finalCampaigns = list.filter(c => {
               const title = (c.titleLower || c.title || '').toLowerCase();
               const desc = (c.description || '').toLowerCase();
@@ -254,7 +314,7 @@ const SearchSidebar = () => {
       }
     };
     run();
-  }, [debounced]);
+  }, [debounced, selectedCategory, location, minGoal, maxGoal, selectedStatus]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -280,14 +340,14 @@ const SearchSidebar = () => {
 
   return (
     <>
-      {/* Overlay */}
+      {/* Overlay - hidden on mobile (full screen), visible on desktop */}
       <div
-        className={`fixed inset-0 left-[var(--sidebar-left)] z-[55] bg-black/20 transition-opacity duration-300 opacity-100`}
+        className={`hidden lg:block fixed inset-0 left-[var(--sidebar-left)] z-[55] bg-black/20 transition-opacity duration-300 opacity-100`}
         onClick={handleClose}
       />
-      {/* Panel */}
-      <aside className={containerCls} aria-hidden={!isOpen}>
-        <div className="h-[73px] border-b border-surface px-3 flex items-center justify-between">
+      {/* Panel - Full screen on mobile, sidebar on desktop */}
+      <aside className={`${containerCls} fixed inset-0 lg:inset-y-0 lg:right-auto lg:left-[var(--sidebar-left)] lg:w-96`} aria-hidden={!isOpen}>
+        <div className="h-[73px] border-b border-surface px-3 lg:px-3 flex items-center justify-between">
           <form onSubmit={handleSubmit} className="flex-1 flex items-center gap-2">
             <div className="relative flex-1">
               <SearchIcon className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-themed-muted opacity-80 w-5 h-5" />
@@ -296,7 +356,7 @@ const SearchSidebar = () => {
                 value={q}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search people, posts, keywords..."
-                className="w-full pr-3 py-2 rounded-lg input-field"
+                className="w-full pr-3 py-2 lg:py-2 rounded-lg input-field text-base lg:text-sm"
                 style={{ paddingLeft: '3rem' }}
               />
             </div>
@@ -306,7 +366,110 @@ const SearchSidebar = () => {
           </form>
         </div>
 
-        <div className="overflow-y-auto h-[calc(100%-73px)] p-3">
+        {/* Advanced Filters Toggle */}
+        <div className="border-b border-surface px-3 py-2">
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className="flex items-center gap-2 text-sm text-themed-secondary hover:text-themed transition-colors"
+          >
+            <FilterListIcon fontSize="small" />
+            <span>{showFilters ? 'Hide Filters' : 'Show Filters'}</span>
+            {(selectedCategory || location || minGoal || maxGoal || selectedStatus !== 'all') && (
+              <span className="ml-auto px-2 py-0.5 text-xs bg-green-600 text-white rounded-full">Active</span>
+            )}
+          </button>
+        </div>
+
+        {/* Advanced Filters Panel */}
+        {showFilters && (
+          <div className="border-b border-surface p-3 space-y-3 surface">
+            {/* Category Filter */}
+            <div>
+              <label className="block text-xs font-medium text-themed-secondary mb-1">Category</label>
+              <select
+                value={selectedCategory}
+                onChange={(e) => setSelectedCategory(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg input-field text-sm"
+              >
+                <option value="">All Categories</option>
+                {categories.map(cat => (
+                  <option key={cat} value={cat}>{cat}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Location Filter */}
+            <div>
+              <label className="block text-xs font-medium text-themed-secondary mb-1">Location</label>
+              <input
+                type="text"
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+                placeholder="City, State, or Country"
+                className="w-full px-3 py-2 rounded-lg input-field text-sm"
+              />
+            </div>
+
+            {/* Goal Amount Range */}
+            <div>
+              <label className="block text-xs font-medium text-themed-secondary mb-1">Goal Amount</label>
+              <div className="flex gap-2">
+                <input
+                  type="number"
+                  value={minGoal}
+                  onChange={(e) => setMinGoal(e.target.value)}
+                  placeholder="Min"
+                  className="w-1/2 px-3 py-2 rounded-lg input-field text-sm"
+                />
+                <input
+                  type="number"
+                  value={maxGoal}
+                  onChange={(e) => setMaxGoal(e.target.value)}
+                  placeholder="Max"
+                  className="w-1/2 px-3 py-2 rounded-lg input-field text-sm"
+                />
+              </div>
+            </div>
+
+            {/* Status Filter */}
+            <div>
+              <label className="block text-xs font-medium text-themed-secondary mb-1">Campaign Status</label>
+              <div className="flex flex-wrap gap-2">
+                {['all', 'active', 'completed', 'paused'].map(status => (
+                  <button
+                    key={status}
+                    onClick={() => setSelectedStatus(status)}
+                    className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+                      selectedStatus === status
+                        ? 'bg-green-600 text-white'
+                        : 'bg-gray-100 dark:bg-gray-800 text-themed-secondary hover:bg-gray-200 dark:hover:bg-gray-700'
+                    }`}
+                  >
+                    {status.charAt(0).toUpperCase() + status.slice(1)}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Clear Filters Button */}
+            {(selectedCategory || location || minGoal || maxGoal || selectedStatus !== 'all') && (
+              <button
+                onClick={() => {
+                  setSelectedCategory('');
+                  setLocation('');
+                  setMinGoal('');
+                  setMaxGoal('');
+                  setSelectedStatus('all');
+                }}
+                className="w-full px-3 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-medium transition-colors"
+              >
+                Clear All Filters
+              </button>
+            )}
+          </div>
+        )}
+
+        <div className={`overflow-y-auto p-3 lg:p-3 ${showFilters ? 'h-[calc(100%-73px-48px-320px)]' : 'h-[calc(100%-73px-48px)]'}`}>
           {!q && (recent.length > 0 || history.length > 0) && (
             <div>
               {recent.length > 0 && (
@@ -317,7 +480,7 @@ const SearchSidebar = () => {
                   </div>
                   <div className="flex flex-wrap gap-2 px-2">
                     {recent.map((r) => (
-                      <div key={r} className="flex items-center gap-1 px-3 py-1 rounded-full pill text-sm">
+                      <div key={r} className="flex items-center gap-1 px-3 py-1.5 lg:py-1 rounded-full pill text-sm">
                         <button className="text-themed truncate max-w-[180px]" title={r} onClick={() => setQuery(r)}>{r}</button>
                         <button className="ml-1 text-themed-muted hover:text-error transition" aria-label={`Delete ${r}`} onClick={() => deleteRecent(r)}>
                           <CloseIcon sx={{ fontSize: 16 }} />
@@ -336,11 +499,11 @@ const SearchSidebar = () => {
                   </div>
                   <div className="space-y-1">
                     {history.map((h) => (
-                      <div key={h.at} className="flex items-center justify-between px-2 py-2 rounded-lg hover:[background-color:var(--hover-bg)] transition">
+                      <div key={h.at} className="flex items-center justify-between px-2 py-2.5 lg:py-2 rounded-lg hover:[background-color:var(--hover-bg)] transition">
                         <button className="flex items-center gap-2 flex-1 text-left" onClick={() => setQuery(h.term)} title={new Date(h.at).toLocaleString()}>
                           <SearchIcon className="text-themed-muted" sx={{ fontSize: 18 }} />
                           <div className="min-w-0">
-                            <div className="font-medium truncate text-themed">{h.term}</div>
+                            <div className="font-medium truncate text-themed text-sm lg:text-sm">{h.term}</div>
                             <div className="text-xs text-themed-muted truncate">{h.peopleCount || 0} people • {h.campaignsCount || 0} campaigns</div>
                           </div>
                         </button>

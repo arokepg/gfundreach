@@ -62,13 +62,13 @@ const Register = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-white p-4">
-      <div className="w-full max-w-5xl">
+    <div className="min-h-screen flex items-center justify-center bg-white p-4 animate-fade-in">
+      <div className="w-full max-w-5xl animate-slide-in-up">
         <div className="bg-gray-200 rounded-3xl overflow-hidden shadow-xl relative">
           {/* Back Button - Positioned on the card itself */}
           <button
             onClick={() => navigate('/welcome')}
-            className="absolute top-6 left-6 w-10 h-10 bg-white rounded-full flex items-center justify-center hover:bg-gray-100 transition-colors shadow-md z-10"
+            className="absolute top-6 left-6 w-10 h-10 bg-white rounded-full flex items-center justify-center hover:bg-gray-100 transition-all duration-300 hover:scale-110 active:scale-95 shadow-md z-10"
           >
             <ArrowBackIcon className="text-gray-700" />
           </button>
@@ -133,49 +133,49 @@ const Register = () => {
                 )}
 
                 <form onSubmit={handleSubmit} className="space-y-4">
-                  <div>
+                  <div className="input-focus-ring rounded-xl transition-all">
                     <input
                       type="text"
                       name="displayName"
                       value={formData.displayName}
                       onChange={handleChange}
-                      className="w-full px-4 py-3 rounded-xl border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-gray-400 text-gray-700 placeholder-gray-400"
+                      className="w-full px-4 py-3 rounded-xl border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-gray-400 text-gray-700 placeholder-gray-400 transition-all duration-300"
                       placeholder="Username"
                       required
                     />
                   </div>
 
-                  <div>
+                  <div className="input-focus-ring rounded-xl transition-all">
                     <input
                       type="email"
                       name="email"
                       value={formData.email}
                       onChange={handleChange}
-                      className="w-full px-4 py-3 rounded-xl border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-gray-400 text-gray-700 placeholder-gray-400"
+                      className="w-full px-4 py-3 rounded-xl border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-gray-400 text-gray-700 placeholder-gray-400 transition-all duration-300"
                       placeholder="Email"
                       required
                     />
                   </div>
 
-                  <div>
+                  <div className="input-focus-ring rounded-xl transition-all">
                     <input
                       type="password"
                       name="password"
                       value={formData.password}
                       onChange={handleChange}
-                      className="w-full px-4 py-3 rounded-xl border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-gray-400 text-gray-700 placeholder-gray-400"
+                      className="w-full px-4 py-3 rounded-xl border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-gray-400 text-gray-700 placeholder-gray-400 transition-all duration-300"
                       placeholder="Password"
                       required
                     />
                   </div>
 
-                  <div>
+                  <div className="input-focus-ring rounded-xl transition-all">
                     <input
                       type="password"
                       name="confirmPassword"
                       value={formData.confirmPassword}
                       onChange={handleChange}
-                      className="w-full px-4 py-3 rounded-xl border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-gray-400 text-gray-700 placeholder-gray-400"
+                      className="w-full px-4 py-3 rounded-xl border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-gray-400 text-gray-700 placeholder-gray-400 transition-all duration-300"
                       placeholder="Confirm password"
                       required
                     />
@@ -184,7 +184,7 @@ const Register = () => {
                   <button
                     type="submit"
                     disabled={loading}
-                    className="w-full bg-gray-800 text-white py-3 rounded-xl font-semibold hover:bg-gray-900 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full bg-gray-800 text-white py-3 rounded-xl font-semibold hover:bg-gray-900 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0"
                   >
                     {loading ? 'Creating Account...' : 'Agree and Register'}
                   </button>

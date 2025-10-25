@@ -92,7 +92,7 @@ const Layout = ({ children }) => {
         <SearchSidebar />
 
         {/* Page Content */}
-        <div className="max-w-[1400px] mx-auto px-4 md:px-6 py-4 md:py-6">
+        <div className="max-w-[1400px] mx-auto px-4 md:px-6 py-4 md:py-6 page-transition">
           {children}
         </div>
       </div>

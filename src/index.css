@@ -242,6 +242,142 @@ html.dark .pill-active {
   animation: spin 1s linear infinite;
 }
 
+/* Fade-in animation for cards */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.4s ease-out;
+}
+
+/* Slide-in animation for forms */
+@keyframes slide-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-slide-in-up {
+  animation: slide-in-up 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Input focus pulse */
+.input-focus-ring:focus-within {
+  animation: pulse-ring 0.4s ease-out;
+}
+
+@keyframes pulse-ring {
+  0% {
+    box-shadow: 0 0 0 0 rgba(107, 114, 128, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(107, 114, 128, 0.1);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(107, 114, 128, 0);
+  }
+}
+
+/* Notification panel animations */
+@keyframes notif-slide-in-mobile {
+  from {
+    opacity: 0;
+    transform: translateY(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes notif-slide-out-mobile {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(100%);
+  }
+}
+
+@keyframes notif-dropdown-in {
+  from {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes notif-dropdown-out {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.95);
+  }
+}
+
+@keyframes overlay-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes overlay-fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+.notif-panel-enter {
+  animation: notif-slide-in-mobile 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.notif-panel-exit {
+  animation: notif-slide-out-mobile 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.notif-dropdown-enter {
+  animation: notif-dropdown-in 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.notif-dropdown-exit {
+  animation: notif-dropdown-out 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.overlay-enter {
+  animation: overlay-fade-in 0.2s ease-out;
+}
+
+.overlay-exit {
+  animation: overlay-fade-out 0.2s ease-out;
+}
+
 /* Ripple effect for buttons */
 button {
   position: relative;
@@ -279,6 +415,21 @@ button:active::after {
   opacity: 1;
   transform: translateY(0);
   transition: all 0.3s ease-out;
+}
+
+.page-transition {
+  animation: page-fade-in 0.4s ease-out;
+}
+
+@keyframes page-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(15px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* Shimmer loading effect */

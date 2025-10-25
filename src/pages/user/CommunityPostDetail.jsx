@@ -254,20 +254,20 @@ const CommunityPostDetail = () => {
 
           {/* Post Header */}
           <div className="flex items-start gap-4 mb-6">
-            <div className="w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center flex-shrink-0">
+            <Link to={`/profile/${post.authorId}`} className="w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center flex-shrink-0 overflow-hidden hover:opacity-90">
               {post.authorPhoto ? (
                 <img
                   src={post.authorPhoto}
                   alt={post.authorName}
-                  className="w-12 h-12 rounded-full object-cover"
+                  className="w-12 h-12 object-cover"
                   referrerPolicy="no-referrer"
                 />
               ) : (
                 <PersonIcon className="text-gray-600 dark:text-gray-300" />
               )}
-            </div>
+            </Link>
             <div className="flex-1 min-w-0">
-              <h3 className="font-semibold text-themed text-lg">{post.authorName || 'Anonymous'}</h3>
+              <Link to={`/profile/${post.authorId}`} className="font-semibold text-themed text-lg hover:underline">{post.authorName || 'Anonymous'}</Link>
               {post.createdAt && (
                 <p className="text-sm text-themed-muted">
                   {post.createdAt.toDate ? post.createdAt.toDate().toLocaleString() : new Date(post.createdAt).toLocaleString()}
