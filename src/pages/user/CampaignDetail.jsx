@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { doc, getDoc, collection, addDoc, updateDoc, increment, deleteDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import { useAuth } from '../../contexts/AuthContext';
-import { createNotification } from '../../utils/notifications';
+import { createNotification, createOrGroupLikeNotification } from '../../utils/notifications';
 import Layout from '../../components/Layout';
 import CampaignUpdates from '../../components/CampaignUpdates';
 import PersonIcon from '@mui/icons-material/Person';
@@ -28,6 +28,7 @@ const CampaignDetail = () => {
   const [isLiked, setIsLiked] = useState(false);
   const [likesCount, setLikesCount] = useState(0);
   const [sharesCount, setSharesCount] = useState(0);
+  const [groupName, setGroupName] = useState('');
   const { currentUser, userProfile } = useAuth();
   const navigate = useNavigate();
 
@@ -51,6 +52,15 @@ const CampaignDetail = () => {
         const postData = { id: postDoc.id, ...postDoc.data() };
         console.log('Post data:', postData);
         setPost(postData);
+        // Fetch group info if applicable (non-fatal)
+        try {
+          if (postData.groupId) {
+            const gSnap = await getDoc(doc(db, 'groups', String(postData.groupId)));
+            if (gSnap.exists()) setGroupName(gSnap.data().name || 'Group');
+          } else {
+            setGroupName('');
+          }
+        } catch {/* non-fatal */}
         
         // Initialize reaction states
         const likedBy = postData.likedBy || [];
@@ -113,10 +123,10 @@ const CampaignDetail = () => {
         totalDonated: increment(amount),
       });
       // 2) Best-effort secondary writes — do not block success banner
-      // Recipient total received and notifications
+      // Recipient totals/balance and notifications
       const bestEfforts = [];
       bestEfforts.push(
-        updateDoc(doc(db, 'users', post.authorId), { totalReceived: increment(amount) })
+        updateDoc(doc(db, 'users', post.authorId), { totalReceived: increment(amount), walletBalance: increment(amount) })
       );
       // Notify campaign owner
       bestEfforts.push(
@@ -203,8 +213,8 @@ const CampaignDetail = () => {
         setIsLiked(true);
         setLikesCount(prev => prev + 1);
 
-        // Create notification for post owner
-        await createNotification(post.authorId, 'like', {
+        // Create grouped like notification for post owner
+        await createOrGroupLikeNotification(post.authorId, {
           senderId: currentUser.uid,
           senderName: userProfile?.displayName || currentUser.displayName || 'Someone',
           postId: id,
@@ -366,7 +376,7 @@ const CampaignDetail = () => {
                 )}
               </div>
 
-              {/* Category, Location */}
+              {/* Category, Location, Group */}
               <div className="mb-4">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="inline-block bg-primary-50 text-primary px-3 py-1 rounded-full text-sm font-medium">
@@ -377,6 +387,11 @@ const CampaignDetail = () => {
                       {post.locationCity}{post.locationCity && post.locationCountry ? ', ' : ''}{post.locationCountry}
                     </span>
                   ) : null}
+                  {post.groupId && (
+                    <Link to={`/group/${post.groupId}`} className="inline-flex items-center gap-1 text-xs px-3 py-1 rounded-full bg-purple-100 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300">
+                      Posted in: <span className="font-medium">{groupName || 'Group'}</span>
+                    </Link>
+                  )}
                   {Array.isArray(post.tags) && post.tags.length > 0 && (
                     <span className="inline-flex items-center gap-1 text-xs text-themed-muted">
                       {post.tags.slice(0, 5).map((t, i) => (
@@ -449,10 +464,10 @@ const CampaignDetail = () => {
                 <div className="flex items-center gap-4">
                   <button
                     onClick={handleLike}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all ${
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg bg-transparent hover:bg-transparent focus:bg-transparent transition-all ${
                       isLiked
-                        ? 'text-red-500 bg-red-50 hover:bg-red-100'
-                        : 'text-themed-secondary hover:bg-gray-100 dark:hover:bg-gray-800'
+                        ? 'text-red-600'
+                        : 'text-themed-secondary hover:text-red-500 dark:hover:text-red-400'
                     }`}
                   >
                     {isLiked ? <FavoriteIcon fontSize="small" /> : <FavoriteBorderIcon fontSize="small" />}
@@ -461,7 +476,7 @@ const CampaignDetail = () => {
                   
                   <button
                     onClick={handleShare}
-                    className="flex items-center gap-2 text-themed-secondary hover:bg-gray-100 dark:hover:bg-gray-800 px-4 py-2 rounded-lg transition-colors"
+                    className="flex items-center gap-2 text-themed-secondary px-4 py-2 rounded-lg bg-transparent hover:bg-transparent focus:bg-transparent transition-colors hover:text-green-600 dark:hover:text-green-400"
                   >
                     <ShareIcon fontSize="small" />
                     <span className="text-sm font-medium">{sharesCount}</span>

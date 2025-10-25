@@ -20,9 +20,9 @@ const NotificationDropdown = () => {
   
   const dropdownRef = useRef(null);
 
-  // Fetch notifications lazily (subscribe only when dropdown is open)
+  // Subscribe to notifications in real-time whenever user is logged in
   useEffect(() => {
-    if (!currentUser?.uid || !isOpen) return;
+    if (!currentUser?.uid) return;
 
     let unsub = () => {};
     const q = query(
@@ -63,7 +63,7 @@ const NotificationDropdown = () => {
     return () => {
       try { unsub(); } catch { /* noop */ }
     };
-  }, [currentUser, isOpen]);
+  }, [currentUser]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -120,6 +120,7 @@ const NotificationDropdown = () => {
       case 'donation_receipt':
         return <ReceiptLongIcon className="text-green-500" />;
       case 'like':
+      case 'like_grouped':
         return <FavoriteIcon className="text-red-500" />;
       case 'share':
         return <ShareIcon className="text-green-500" />;
@@ -127,6 +128,14 @@ const NotificationDropdown = () => {
         return <CommentIcon className="text-blue-500" />;
       case 'community_post':
         return <ArticleIcon className="text-blue-500" />;
+      case 'group_campaign_created':
+      case 'group_post_created':
+        return <ArticleIcon className="text-purple-600" />;
+      case 'group_member_joined':
+      case 'group_join_success':
+      case 'group_leave_success':
+      case 'group_kicked':
+        return <PersonAddIcon className="text-purple-600" />;
       case 'follow':
         return <PersonAddIcon className="text-green-500" />;
       default:

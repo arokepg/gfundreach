@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { collection, addDoc } from 'firebase/firestore';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { collection, addDoc, getDocs, doc, getDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../../config/firebase';
+import { createNotification } from '../../utils/notifications';
 import { useAuth } from '../../contexts/AuthContext';
 import Layout from '../../components/Layout';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
@@ -32,6 +33,9 @@ const CreateCampaign = () => {
   const [error, setError] = useState('');
   const { currentUser } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const params = new URLSearchParams(location.search);
+  const groupId = params.get('groupId');
 
   const categories = [
     'Medical',
@@ -101,8 +105,8 @@ const CreateCampaign = () => {
         .filter(n => !isNaN(n) && n > 0);
       const deadlineISO = formData.deadline ? new Date(formData.deadline).toISOString() : null;
 
-      // Create post document
-      await addDoc(collection(db, 'posts'), {
+  // Create post document
+      const docRef = await addDoc(collection(db, 'posts'), {
         title: formData.title,
         titleLower: (formData.title || '').toLowerCase().trim(),
         description: formData.description,
@@ -135,9 +139,35 @@ const CreateCampaign = () => {
         lastUpdatePreview: '',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
+        // Group campaign support
+        groupId: groupId || null,
       });
 
-      navigate('/');
+      // Best-effort: if created inside a group, notify group members
+      if (groupId) {
+        try {
+          const gSnap = await getDoc(doc(db, 'groups', groupId));
+          const groupName = gSnap.data()?.name || 'Group';
+          const membersSnap = await getDocs(collection(db, 'groups', groupId, 'members'));
+          const recipients = membersSnap.docs
+            .map(d => d.data())
+            .filter(m => m.userId && m.userId !== currentUser.uid);
+          await Promise.allSettled(
+            recipients.map(m => createNotification(m.userId, 'group_campaign_created', {
+              senderId: currentUser.uid,
+              senderName: currentUser.displayName || 'Someone',
+              groupId,
+              groupName,
+              campaignId: docRef.id,
+            }))
+          );
+        } catch (e) {
+          console.warn('Failed to notify group members (non-fatal):', e);
+        }
+      }
+
+      // Redirect: if created inside a group, go to campaign detail; otherwise go home
+      navigate(groupId ? `/post/${docRef.id}` : '/');
     } catch (err) {
       setError('Failed to create post: ' + err.message);
       console.error(err);

@@ -4,7 +4,7 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../config/firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { useQueryClient } from '@tanstack/react-query';
-import { createNotification } from '../utils/notifications';
+import { createNotification, createOrGroupLikeNotification } from '../utils/notifications';
 import { saveItem, unsaveItem, isItemSaved } from '../utils/savedItems';
 import PersonIcon from '@mui/icons-material/Person';
 import EditIcon from '@mui/icons-material/Edit';
@@ -35,6 +35,8 @@ const CampaignUpdates = ({ campaignId, onUpdateCountChange }) => {
   const [likedPosts, setLikedPosts] = useState({}); // Track like status per post
   const [likesCounts, setLikesCounts] = useState({}); // Track like counts per post
   const [sharesCounts, setSharesCounts] = useState({}); // Track share counts per post
+  const [updateCity, setUpdateCity] = useState('');
+  const [updateCountry, setUpdateCountry] = useState('');
   const queryClient = useQueryClient();
 
   useEffect(() => {
@@ -151,6 +153,8 @@ const CampaignUpdates = ({ campaignId, onUpdateCountChange }) => {
         authorName: currentUser.displayName || 'Anonymous',
         authorPhoto: currentUser.photoURL || '',
         campaignTitle: parentTitle,
+        locationCity: updateCity || '',
+        locationCountry: updateCountry || '',
         createdAt: serverTimestamp(),
       });
       
@@ -203,8 +207,10 @@ const CampaignUpdates = ({ campaignId, onUpdateCountChange }) => {
       }
 
       setContent('');
-      setImage(null);
+  setImage(null);
       setImagePreview(null);
+  setUpdateCity('');
+  setUpdateCountry('');
       await fetchUpdates();
       
       // Notify parent component of count change
@@ -313,13 +319,23 @@ const CampaignUpdates = ({ campaignId, onUpdateCountChange }) => {
         queryClient.invalidateQueries({ queryKey: ['savedItems', currentUser.uid] });
       } else {
         // Save
-        await saveItem(currentUser.uid, post.id, 'post', {
+        // Determine parent campaign type (regular vs group) to label saved item
+        let parentGroup = false;
+        try {
+          const parentSnap = await getDoc(doc(db, 'posts', campaignId));
+          parentGroup = !!parentSnap.data()?.groupId;
+        } catch (e) {
+          // Non-fatal: couldn't determine parent group
+          console.warn('Failed to determine parent group (non-fatal):', e);
+        }
+        await saveItem(currentUser.uid, post.id, (parentGroup ? 'group_community_post' : 'community_post'), {
           title: post.content?.substring(0, 100) || 'Community post',
           description: post.content || '',
           imageUrl: post.imageUrl || '',
           authorId: post.authorId,
           authorName: post.authorName,
           campaignId: campaignId, // Include campaign ID so we can fetch the post later
+          groupId: parentGroup ? (await getDoc(doc(db, 'posts', campaignId))).data()?.groupId || null : null,
         });
         setSavedPosts(prev => ({ ...prev, [post.id]: true }));
         queryClient.invalidateQueries({ queryKey: ['savedItems'] });
@@ -356,7 +372,7 @@ const CampaignUpdates = ({ campaignId, onUpdateCountChange }) => {
         // Best-effort: notify post author about like
         try {
           if (post.authorId && currentUser.uid !== post.authorId) {
-            await createNotification(post.authorId, 'like', {
+            await createOrGroupLikeNotification(post.authorId, {
               senderId: currentUser.uid,
               senderName: userProfile?.displayName || currentUser.displayName || 'Someone',
               postId: post.id,
@@ -442,6 +458,22 @@ const CampaignUpdates = ({ campaignId, onUpdateCountChange }) => {
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
               />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                <input
+                  type="text"
+                  placeholder="City (optional)"
+                  value={updateCity}
+                  onChange={(e)=> setUpdateCity(e.target.value)}
+                  className="input-field"
+                />
+                <input
+                  type="text"
+                  placeholder="Country (optional)"
+                  value={updateCountry}
+                  onChange={(e)=> setUpdateCountry(e.target.value)}
+                  className="input-field"
+                />
+              </div>
               
               {/* Image preview */}
               {imagePreview && (
@@ -662,8 +694,8 @@ const CampaignUpdates = ({ campaignId, onUpdateCountChange }) => {
                   <div className="mt-3 pt-3 border-t border-outline-variant flex items-center gap-4">
                     <button
                       onClick={() => handleLikePost(upd)}
-                      className={`flex items-center gap-1 transition-all duration-300 ${
-                        likedPosts[upd.id] ? 'text-red-500' : 'text-themed-secondary hover:text-red-500 dark:hover:text-red-400'
+                      className={`flex items-center gap-1 bg-transparent hover:bg-transparent focus:bg-transparent transition-all duration-300 ${
+                        likedPosts[upd.id] ? 'text-red-600' : 'text-themed-secondary hover:text-red-500 dark:hover:text-red-400'
                       }`}
                     >
                       {likedPosts[upd.id] ? (

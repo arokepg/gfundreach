@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { getMember } from '../../utils/groups';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../../config/firebase';
 import { useAuth } from '../../contexts/AuthContext';
@@ -49,12 +50,19 @@ const EditCampaign = () => {
 			if (docSnap.exists()) {
 				const data = docSnap.data();
         
-				// Check if current user is the campaign owner
-				if (data.authorId !== currentUser.uid) {
-					alert('You do not have permission to edit this campaign');
-					navigate('/profile');
-					return;
-				}
+						// Check if current user is the campaign owner OR a group admin/moderator for this campaign's group
+						let canEdit = data.authorId === currentUser.uid;
+						if (!canEdit && data.groupId) {
+							try {
+								const member = await getMember(String(data.groupId), currentUser.uid);
+								if (member && (member.role === 'admin' || member.role === 'moderator')) canEdit = true;
+							} catch {/* ignore */}
+						}
+						if (!canEdit) {
+							alert('You do not have permission to edit this campaign');
+							navigate('/profile');
+							return;
+						}
         
 				setFormData({
 					title: data.title || '',

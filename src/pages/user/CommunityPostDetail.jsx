@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { doc, getDoc, updateDoc, arrayUnion, arrayRemove, increment } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, arrayUnion, arrayRemove, increment, collectionGroup, where, getDocs, query } from 'firebase/firestore';
 import { saveItem, unsaveItem, isItemSaved } from '../../utils/savedItems';
 import { db } from '../../config/firebase';
 import { useAuth } from '../../contexts/AuthContext';
-import { createNotification } from '../../utils/notifications';
+import { createNotification, createOrGroupLikeNotification } from '../../utils/notifications';
 import Layout from '../../components/Layout';
 import PersonIcon from '@mui/icons-material/Person';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
@@ -40,11 +40,30 @@ const CommunityPostDetail = () => {
       setLoading(true);
       
       // Fetch the community post
-      const postDoc = await getDoc(doc(db, 'posts', campaignId, 'updates', postId));
-      
+      let postDoc = await getDoc(doc(db, 'posts', campaignId, 'updates', postId));
       if (!postDoc.exists()) {
-        setError('Post not found');
-        return;
+        // Fallback: find the update by ID across all campaigns
+        try {
+          const q = query(collectionGroup(db, 'updates'), where('__name__', '==', postId));
+          const snap = await getDocs(q);
+          if (!snap.empty) {
+            const d = snap.docs[0];
+            postDoc = d; // Use this doc
+            // derive campaignId from parent
+            const parentCampaignId = d.ref.parent.parent.id;
+            if (campaignId !== parentCampaignId) {
+              // Navigate to canonical URL for consistency
+              navigate(`/community-post/${parentCampaignId}/${postId}`, { replace: true });
+              return;
+            }
+          } else {
+            setError('Post not found');
+            return;
+          }
+        } catch {
+          setError('Post not found');
+          return;
+        }
       }
 
   const postData = { id: postDoc.id, ...postDoc.data() };
@@ -66,7 +85,7 @@ const CommunityPostDetail = () => {
       }
 
       // Fetch the parent campaign
-      const campaignDoc = await getDoc(doc(db, 'posts', campaignId));
+  const campaignDoc = await getDoc(doc(db, 'posts', campaignId));
       if (campaignDoc.exists()) {
         setCampaign({ id: campaignDoc.id, ...campaignDoc.data() });
       }
@@ -97,7 +116,7 @@ const CommunityPostDetail = () => {
         // Best-effort: notify post author about like
         try {
           if (post?.authorId && currentUser.uid !== post.authorId) {
-            await createNotification(post.authorId, 'like', {
+            await createOrGroupLikeNotification(post.authorId, {
               senderId: currentUser.uid,
               senderName: currentUser.displayName || 'Someone',
               postId: post.id,
@@ -157,13 +176,14 @@ const CommunityPostDetail = () => {
         queryClient.invalidateQueries({ queryKey: ['savedItems'] });
         queryClient.invalidateQueries({ queryKey: ['savedItems', currentUser.uid] });
       } else {
-        await saveItem(currentUser.uid, post.id, 'post', {
+        await saveItem(currentUser.uid, post.id, (campaign?.groupId ? 'group_community_post' : 'community_post'), {
           title: post.content?.slice(0, 100) || 'Community post',
           description: post.content || '',
           imageUrl: post.imageUrl || '',
           authorId: post.authorId,
           authorName: post.authorName,
           campaignId: campaignId,
+          groupId: campaign?.groupId || null,
         });
         setIsSaved(true);
         queryClient.invalidateQueries({ queryKey: ['savedItems'] });
@@ -278,8 +298,8 @@ const CommunityPostDetail = () => {
             <div className="flex items-center gap-6 mb-4">
               <button
                 onClick={toggleLike}
-                className={`flex items-center gap-2 transition-colors ${
-                  isLiked ? 'text-red-500' : 'text-themed-secondary hover:text-red-500 dark:hover:text-red-400'
+                className={`flex items-center gap-2 bg-transparent hover:bg-transparent focus:bg-transparent transition-colors ${
+                  isLiked ? 'text-red-600' : 'text-themed-secondary hover:text-red-500 dark:hover:text-red-400'
                 }`}
               >
                 {isLiked ? <FavoriteIcon /> : <FavoriteBorderIcon />}

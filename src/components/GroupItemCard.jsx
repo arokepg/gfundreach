@@ -12,7 +12,7 @@ import { db } from '../config/firebase';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
 import { saveItem, unsaveItem, isItemSaved } from '../utils/savedItems';
-import { createNotification } from '../utils/notifications';
+import { createNotification, createOrGroupLikeNotification } from '../utils/notifications';
 
 /**
  * Unified card for group posts and group campaign shares
@@ -117,7 +117,7 @@ const GroupItemCard = ({ item }) => {
         try {
           const ownerId = isCampaignShare && campaign ? campaign.authorId : item.authorId;
           if (ownerId && ownerId !== currentUser.uid) {
-            await createNotification(ownerId, 'like', {
+            await createOrGroupLikeNotification(ownerId, {
               senderId: currentUser.uid,
               senderName: currentUser.displayName || 'Someone',
               postId: isCampaignShare && campaign ? campaign.id : item.id,
@@ -167,12 +167,13 @@ const GroupItemCard = ({ item }) => {
         queryClient.invalidateQueries({ queryKey: ['savedItems', currentUser.uid] });
       } else {
         if (isCampaignShare && campaign) {
-          await saveItem(currentUser.uid, campaign.id, 'post', {
+          await saveItem(currentUser.uid, campaign.id, (campaign.groupId ? 'group_campaign' : 'campaign'), {
             title: campaign.title,
             description: campaign.description,
             imageUrl: campaign.imageUrl,
             authorId: campaign.authorId,
             authorName: campaign.authorName,
+            groupId: campaign.groupId || item.groupId || null,
           });
         } else {
           await saveItem(currentUser.uid, item.id, 'post', {
@@ -223,7 +224,7 @@ const GroupItemCard = ({ item }) => {
         </div>
         <div className="px-3 md:px-4 py-3 border-t border-surface flex items-center justify-between">
           <div className="flex items-center space-x-4 md:space-x-6">
-            <button onClick={handleLike} className={`flex items-center space-x-1 ${isLiked ? 'text-red-500' : 'text-themed-secondary hover:text-red-500'}`}>
+            <button onClick={handleLike} className={`flex items-center space-x-1 bg-transparent hover:bg-transparent focus:bg-transparent ${isLiked ? 'text-red-600' : 'text-themed-secondary hover:text-red-500'}`}>
               {isLiked ? <FavoriteIcon className="text-sm md:text-base" /> : <FavoriteBorderIcon className="text-sm md:text-base" />}
               <span className="text-xs md:text-sm font-medium">{likesCount}</span>
             </button>
@@ -278,7 +279,7 @@ const GroupItemCard = ({ item }) => {
       )}
       <div className="px-3 md:px-4 py-3 border-t border-surface flex items-center justify-between">
         <div className="flex items-center space-x-4 md:space-x-6">
-          <button onClick={handleLike} className={`flex items-center space-x-1 ${isLiked ? 'text-red-500' : 'text-themed-secondary hover:text-red-500'}`}>
+          <button onClick={handleLike} className={`flex items-center space-x-1 bg-transparent hover:bg-transparent focus:bg-transparent ${isLiked ? 'text-red-600' : 'text-themed-secondary hover:text-red-500'}`}>
             {isLiked ? <FavoriteIcon className="text-sm md:text-base" /> : <FavoriteBorderIcon className="text-sm md:text-base" />}
             <span className="text-xs md:text-sm font-medium">{likesCount}</span>
           </button>

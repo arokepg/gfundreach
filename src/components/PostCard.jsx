@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { doc, updateDoc, increment, arrayUnion, arrayRemove } from 'firebase/firestore';
+import { doc, updateDoc, increment, arrayUnion, arrayRemove, getDoc } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { useAuth } from '../contexts/AuthContext';
-import { createNotification } from '../utils/notifications';
+import { createOrGroupLikeNotification } from '../utils/notifications';
 import { saveItem, unsaveItem, isItemSaved } from '../utils/savedItems';
 import FavoriteIcon from '@mui/icons-material/Favorite';
 import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
@@ -22,6 +22,22 @@ const PostCard = ({ post }) => {
   const [sharesCount, setSharesCount] = useState(post.sharesCount || 0);
   const [isSaved, setIsSaved] = useState(false);
   const progress = post.goalAmount ? (post.currentAmount / post.goalAmount) * 100 : 0;
+  const [groupName, setGroupName] = useState('');
+
+  // Fetch group name for group campaigns
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        if (!post.groupId) return;
+        const snap = await getDoc(doc(db, 'groups', String(post.groupId)));
+        if (mounted && snap.exists()) setGroupName(snap.data().name || 'Group');
+      } catch {
+        // non-fatal
+      }
+    })();
+    return () => { mounted = false; };
+  }, [post.groupId]);
 
   // Check if post is saved
   useEffect(() => {
@@ -92,8 +108,8 @@ const PostCard = ({ post }) => {
         setIsLiked(true);
         setLikesCount(prev => prev + 1);
 
-        // Create notification for post owner
-        await createNotification(post.authorId, 'like', {
+        // Create grouped like notification for post owner
+        await createOrGroupLikeNotification(post.authorId, {
           senderId: currentUser.uid,
           senderName: userProfile?.displayName || currentUser.displayName || 'Someone',
           postId: post.id,
@@ -150,17 +166,23 @@ const PostCard = ({ post }) => {
         setIsSaved(false);
       } else {
         // Save
-        await saveItem(currentUser.uid, post.id, 'post', {
-          title: post.title,
-          description: post.description,
-          summary: post.summary,
-          imageUrl: post.imageUrl,
-          image: post.image,
-          authorId: post.authorId,
-          authorName: post.authorName,
-          displayName: post.displayName,
-          userId: post.userId,
-        });
+        await saveItem(
+          currentUser.uid,
+          post.id,
+          (post.groupId ? 'group_campaign' : 'campaign'),
+          {
+            title: post.title,
+            description: post.description,
+            summary: post.summary,
+            imageUrl: post.imageUrl,
+            image: post.image,
+            authorId: post.authorId,
+            authorName: post.authorName,
+            displayName: post.displayName,
+            userId: post.userId,
+            groupId: post.groupId || null,
+          }
+        );
         setIsSaved(true);
       }
     } catch (error) {
@@ -187,7 +209,7 @@ const PostCard = ({ post }) => {
           <img
             src={post.authorPhoto || 'https://via.placeholder.com/40'}
             alt={post.authorName}
-            className="w-10 h-10 rounded-full object-cover ring-2 ring-primary-100 transition-transform duration-300 hover:scale-110"
+            className="w-10 h-10 rounded-full object-cover transition-transform duration-300 hover:scale-110"
           />
           <div className="flex-1 min-w-0">
             <div className="flex items-center space-x-1">
@@ -222,6 +244,11 @@ const PostCard = ({ post }) => {
         {post.category && (
           <span className="text-xs md:text-sm text-blue-600 dark:text-blue-400">
             #{post.category}
+          </span>
+        )}
+        {post.groupId && (
+          <span className="ml-2 inline-flex items-center gap-1 text-[11px] md:text-xs px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 align-middle">
+            Group: <Link to={`/group/${post.groupId}`} onClick={(e)=> e.stopPropagation()} className="hover:underline font-medium">{groupName || 'Group'}</Link>
           </span>
         )}
       </Link>
@@ -268,9 +295,9 @@ const PostCard = ({ post }) => {
         <div className="flex items-center space-x-4 md:space-x-6">
           <button 
             onClick={handleLike}
-            className={`flex items-center space-x-1 transition-all duration-300 active:scale-110 md:hover:scale-110 md:active:scale-95 ${
+            className={`flex items-center space-x-1 bg-transparent hover:bg-transparent focus:bg-transparent transition-all duration-300 active:scale-110 md:hover:scale-110 md:active:scale-95 ${
               isLiked 
-                ? 'text-red-500' 
+                ? 'text-red-600' 
                 : 'text-themed-secondary hover:text-red-500 dark:hover:text-red-400'
             }`}
           >
@@ -301,8 +328,8 @@ const PostCard = ({ post }) => {
           <button 
             onClick={handleSave}
             className={`flex items-center space-x-1 transition-all duration-300 active:scale-110 md:hover:scale-110 md:active:scale-95 ${
-              isSaved 
-                ? 'text-yellow-500' 
+              isSaved
+                ? 'text-yellow-500'
                 : 'text-themed-secondary hover:text-yellow-500 dark:hover:text-yellow-400'
             }`}
           >

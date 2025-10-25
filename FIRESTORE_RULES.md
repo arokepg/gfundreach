@@ -1,6 +1,12 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Group role helper: checks if the caller is an admin or moderator of the group
+    function isGroupAdminOrMod(groupId) {
+      return isSignedIn() &&
+        exists(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid)).data.role in ['admin', 'moderator'];
+    }
     function isSignedIn() {
       return request.auth != null;
     }
@@ -48,6 +54,10 @@ service cloud.firestore {
       allow create: if isSignedIn();
       // Owner can update/delete their campaign
       allow update, delete: if isSignedIn() && request.auth.uid == resource.data.authorId;
+
+      // Allow group admins/moderators to manage campaigns that belong to their group
+      // i.e., when the campaign has a groupId field
+      allow update, delete: if isSignedIn() && resource.data.groupId != null && isGroupAdminOrMod(resource.data.groupId);
 
       // Allow specific public increments for donation and reactions
       // Note: permissive reaction updates (likes/shares) are allowed for any signed-in user.
@@ -109,7 +119,8 @@ service cloud.firestore {
       match /posts/{postId} {
         allow read: if true;
         allow create: if isSignedIn();
-        allow update, delete: if isSignedIn() && request.auth.uid == resource.data.authorId;
+        // Author OR admin/mod can update/delete
+        allow update, delete: if isSignedIn() && (request.auth.uid == resource.data.authorId || isGroupAdminOrMod(groupId));
         // Public reactions
         allow update: if isSignedIn() &&
           request.resource.data.diff(resource.data).changedKeys().hasOnly(["likesCount","sharesCount","likedBy"]);
@@ -118,8 +129,12 @@ service cloud.firestore {
       // Optional strict membership gate example:
       match /members/{uid} {
         allow read: if isSignedIn();
+        // Users can join themselves
         allow create: if isSignedIn() && request.auth.uid == uid;
-        allow delete: if isSignedIn() && (request.auth.uid == uid || request.auth.uid == resource.data.addedBy);
+        // Members can remove themselves; admins/mods can remove any member
+        allow delete: if isSignedIn() && (request.auth.uid == uid || isGroupAdminOrMod(groupId));
+        // Admins/mods can update member doc (e.g., change role)
+        allow update: if isSignedIn() && isGroupAdminOrMod(groupId);
       }
     }
   }

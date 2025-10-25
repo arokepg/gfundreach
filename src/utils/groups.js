@@ -1,6 +1,7 @@
 import { db, storage } from '../config/firebase';
 import { collection, doc, addDoc, setDoc, getDoc, getDocs, updateDoc, deleteDoc, serverTimestamp, query, orderBy, increment } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { createNotification } from './notifications';
 
 // Create a group with name, description and optional banner file
 export const createGroup = async (ownerId, { name, description = '', bannerFile = null }) => {
@@ -91,11 +92,50 @@ export const joinGroup = async (groupId, userId) => {
     photoURL,
   });
   await updateDoc(doc(db, 'groups', groupId), { memberCount: increment(1) });
+  // Best-effort notifications: to user and admins/mods
+  try {
+    const gSnap = await getDoc(doc(db, 'groups', groupId));
+    const groupName = gSnap.data()?.name || 'Group';
+    // Notify user
+    await createNotification(userId, 'group_join_success', { senderId: userId, groupId, groupName });
+    // Notify admins/moderators
+    const membersSnap = await getDocs(collection(db, 'groups', groupId, 'members'));
+    const adminIds = membersSnap.docs
+      .map(d => d.data())
+      .filter(m => m.role === 'admin' || m.role === 'moderator')
+      .map(m => m.userId)
+      .filter(id => id && id !== userId);
+    await Promise.allSettled(adminIds.map(adminId => createNotification(adminId, 'group_member_joined', {
+      senderId: userId,
+      senderName: displayName,
+      groupId,
+      groupName,
+    })));
+  } catch {/* non-fatal */}
 };
 
 export const leaveGroup = async (groupId, userId) => {
   await deleteDoc(doc(db, 'groups', groupId, 'members', userId));
   await updateDoc(doc(db, 'groups', groupId), { memberCount: increment(-1) });
+  // Best-effort: notify user about successful leave
+  try {
+    const gSnap = await getDoc(doc(db, 'groups', groupId));
+    const groupName = gSnap.data()?.name || 'Group';
+    await createNotification(userId, 'group_leave_success', { senderId: userId, groupId, groupName });
+  } catch {/* non-fatal */}
+};
+
+export const removeMember = async (groupId, userId) => {
+  // Alias for kicking a member by an admin/moderator
+  await deleteDoc(doc(db, 'groups', groupId, 'members', userId));
+  await updateDoc(doc(db, 'groups', groupId), { memberCount: increment(-1) });
+  // Notify the user that they were removed
+  try {
+    const gSnap = await getDoc(doc(db, 'groups', groupId));
+    const groupName = gSnap.data()?.name || 'Group';
+    await createNotification(userId, 'group_kicked', { senderId: userId, groupId, groupName });
+  } catch {/* non-fatal */}
+  return true;
 };
 
 export const setMemberRole = async (groupId, userId, role) => {
@@ -134,6 +174,32 @@ export const createGroupPost = async (groupId, user, { content, imageFile = null
     const url = await getDownloadURL(imgRef);
     await updateDoc(postRef, { imageUrl: url });
   }
+  // Best-effort notifications:
+  try {
+    const gSnap = await getDoc(doc(db, 'groups', groupId));
+    const groupName = gSnap.data()?.name || 'Group';
+    const membersSnap = await getDocs(collection(db, 'groups', groupId, 'members'));
+    const recipients = membersSnap.docs.map(d => d.data()).filter(m => m.userId && m.userId !== user.uid);
+    if (status === 'approved') {
+      // Notify all members about new content
+      await Promise.allSettled(recipients.map(m => createNotification(m.userId, type === 'campaign' ? 'group_campaign_created' : 'group_post_created', {
+        senderId: user.uid,
+        senderName: user.displayName || 'Someone',
+        groupId,
+        groupName,
+        campaignId: campaignId || null,
+      })));
+    } else {
+      // Pending: notify admins/mods for approval
+      const adminRecipients = recipients.filter(m => m.role === 'admin' || m.role === 'moderator');
+      await Promise.allSettled(adminRecipients.map(m => createNotification(m.userId, 'group_post_created', {
+        senderId: user.uid,
+        senderName: user.displayName || 'Someone',
+        groupId,
+        groupName,
+      })));
+    }
+  } catch {/* non-fatal */}
   return postRef.id;
 };
 

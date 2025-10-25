@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { collection, query, where, getDocs, orderBy, deleteDoc, doc, getDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, orderBy, deleteDoc, doc, getDoc, collectionGroup } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import { useAuth } from '../../contexts/AuthContext';
 import { Link, useNavigate, useParams } from 'react-router-dom';
@@ -26,12 +26,13 @@ const Profile = () => {
   const { userId } = useParams(); // Get userId from URL if viewing another user's profile
   const [viewedUserProfile, setViewedUserProfile] = useState(null);
   const [userPosts, setUserPosts] = useState([]);
+  const [userCommunityPosts, setUserCommunityPosts] = useState([]);
   const [donations, setDonations] = useState([]);
   const [receivedDonations, setReceivedDonations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [donationsLoading, setDonationsLoading] = useState(true);
   const [receivedLoading, setReceivedLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('personal'); // 'personal', 'posts', 'donations', 'received'
+  const [activeTab, setActiveTab] = useState('personal'); // 'personal', 'campaigns', 'community', 'donations', 'received'
   const [donationFilter, setDonationFilter] = useState('all'); // 'all', '7days', '30days'
   const [receivedFilter, setReceivedFilter] = useState('all'); // 'all', '7days', '30days'
 
@@ -45,7 +46,8 @@ const Profile = () => {
       if (!isOwnProfile) {
         fetchViewedUserProfile();
       }
-      fetchUserPosts();
+  fetchUserPosts();
+  fetchUserCommunityPosts();
       fetchDonationHistory();
       fetchReceivedHistory();
     }
@@ -80,6 +82,49 @@ const Profile = () => {
       console.error('Error fetching user posts:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchUserCommunityPosts = async () => {
+    try {
+      const q = query(
+        collectionGroup(db, 'updates'),
+        where('authorId', '==', profileUserId)
+      );
+      const snap = await getDocs(q);
+      const items = snap.docs.map(d => ({ id: d.id, ...d.data(), campaignId: d.ref.parent.parent.id }));
+      // Sort by createdAt desc on client if needed
+      items.sort((a, b) => {
+        const ta = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : new Date(a.createdAt || 0).getTime();
+        const tb = b.createdAt?.toDate ? b.createdAt.toDate().getTime() : new Date(b.createdAt || 0).getTime();
+        return tb - ta;
+      });
+      // Fallback: if collection group is empty, try per-campaign scan (non-fatal best-effort)
+      if (items.length === 0) {
+        try {
+          const postsQ = query(collection(db, 'posts'), where('authorId', '==', profileUserId));
+          const postsSnap = await getDocs(postsQ);
+          const nested = [];
+          for (const p of postsSnap.docs) {
+            const updatesSnap = await getDocs(query(collection(db, 'posts', p.id, 'updates'), orderBy('createdAt', 'desc')));
+            nested.push(
+              ...updatesSnap.docs
+                .map(u => ({ id: u.id, ...u.data(), campaignId: p.id }))
+                .filter(u => u.authorId === profileUserId)
+            );
+          }
+          nested.sort((a, b) => {
+            const ta = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : new Date(a.createdAt || 0).getTime();
+            const tb = b.createdAt?.toDate ? b.createdAt.toDate().getTime() : new Date(b.createdAt || 0).getTime();
+            return tb - ta;
+          });
+          setUserCommunityPosts(nested);
+          return;
+        } catch {/* ignore */}
+      }
+      setUserCommunityPosts(items);
+    } catch (e) {
+      console.error('Error fetching user community posts:', e);
     }
   };
 
@@ -353,16 +398,28 @@ const Profile = () => {
               Personal Info
             </button>
             <button
-              onClick={() => setActiveTab('posts')}
+              onClick={() => setActiveTab('campaigns')}
               className={`relative px-4 sm:px-6 py-3 font-medium whitespace-nowrap transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500/40 hover:[background-color:var(--hover-bg)] ${
-                activeTab === 'posts'
+                activeTab === 'campaigns'
                   ? 'text-green-700 dark:text-green-400 after:content-[""] after:absolute after:left-0 after:right-0 after:bottom-0 after:h-0.5 after:bg-green-600 dark:after:bg-green-500'
                   : 'text-themed-secondary'
               }`}
               role="tab"
-              aria-selected={activeTab === 'posts'}
+              aria-selected={activeTab === 'campaigns'}
             >
-              Posts
+              Campaigns
+            </button>
+            <button
+              onClick={() => setActiveTab('community')}
+              className={`relative px-4 sm:px-6 py-3 font-medium whitespace-nowrap transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500/40 hover:[background-color:var(--hover-bg)] ${
+                activeTab === 'community'
+                  ? 'text-green-700 dark:text-green-400 after:content-[""] after:absolute after:left-0 after:right-0 after:bottom-0 after:h-0.5 after:bg-green-600 dark:after:bg-green-500'
+                  : 'text-themed-secondary'
+              }`}
+              role="tab"
+              aria-selected={activeTab === 'community'}
+            >
+              Community Posts
             </button>
             {isOwnProfile && (
               <button
@@ -525,8 +582,8 @@ const Profile = () => {
               </div>
             )}
 
-            {/* Posts Tab */}
-            {activeTab === 'posts' && (
+            {/* Campaigns Tab */}
+            {activeTab === 'campaigns' && (
               <div>
                 {loading && (
                   <div className="space-y-4">
@@ -638,6 +695,40 @@ const Profile = () => {
                     </div>
                   ))}
                 </div>
+              </div>
+            )}
+
+            {/* Community Posts Tab */}
+            {activeTab === 'community' && (
+              <div className="space-y-4">
+                {userCommunityPosts.length === 0 ? (
+                  <div className="card p-12 text-center text-themed-secondary">No community posts yet</div>
+                ) : (
+                  userCommunityPosts.map((p) => (
+                    <Link key={p.id} to={`/community-post/${p.campaignId}/${p.id}`} className="card p-4 hover:shadow-md transition-shadow block">
+                      <div className="flex items-start gap-3">
+                        <div className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center overflow-hidden">
+                          {p.authorPhoto ? (
+                            <img src={p.authorPhoto} alt={p.authorName} className="w-10 h-10 object-cover" />
+                          ) : (
+                            <PersonIcon className="text-gray-500" />
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm text-themed">{p.authorName || 'You'}</div>
+                          <div className="text-xs text-themed-muted">
+                            {p.createdAt?.toDate ? p.createdAt.toDate().toLocaleString() : (p.createdAt || '')}
+                            {p.locationCity || p.locationCountry ? ` • ${p.locationCity || ''}${p.locationCity && p.locationCountry ? ', ' : ''}${p.locationCountry || ''}` : ''}
+                          </div>
+                          <p className="mt-2 text-themed-secondary line-clamp-3">{p.content}</p>
+                          {p.imageUrl && (
+                            <img src={p.imageUrl} alt="" className="mt-3 rounded-lg max-h-64 object-cover w-full" />
+                          )}
+                        </div>
+                      </div>
+                    </Link>
+                  ))
+                )}
               </div>
             )}
 

@@ -155,11 +155,16 @@ const Saved = () => {
                     <div className="flex flex-col sm:flex-row">
                       {/* Thumbnail */}
                       <Link
-                        to={
-                          item.itemType === 'post' && item.campaignId
-                            ? `/community-post/${item.campaignId}/${item.itemId}`
-                            : `/post/${item.itemId}`
-                        }
+                        to={(() => {
+                          if ((item.itemType === 'community_post' || item.itemType === 'group_community_post') && item.campaignId) {
+                            return `/community-post/${item.campaignId}/${item.itemId}`;
+                          }
+                          if (item.itemType === 'post' && item.campaignId) {
+                            // Legacy saved community post
+                            return `/community-post/${item.campaignId}/${item.itemId}`;
+                          }
+                          return `/post/${item.itemId}`;
+                        })()}
                         className="sm:w-56 h-40 sm:h-36 block flex-shrink-0"
                       >
                         <div className="w-full h-full overflow-hidden" style={{ backgroundColor: 'var(--card-bg)' }}>
@@ -181,20 +186,33 @@ const Saved = () => {
                         <div className="min-w-0">
                           <div className="flex items-center gap-2 mb-1">
                             <Link
-                              to={
-                                item.itemType === 'post' && item.campaignId
-                                  ? `/community-post/${item.campaignId}/${item.itemId}`
-                                  : `/post/${item.itemId}`
-                              }
+                              to={(() => {
+                                switch (item.itemType) {
+                                  case 'community_post':
+                                  case 'group_community_post':
+                                    return `/community-post/${item.campaignId}/${item.itemId}`;
+                                  default:
+                                    return `/post/${item.itemId}`;
+                                }
+                              })()}
                             >
                               <h3 className="font-semibold text-themed text-base sm:text-lg truncate hover:text-green-600 dark:hover:text-green-400 transition-colors">
                                 {item.title}
                               </h3>
                             </Link>
                             <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${
-                              item.itemType === 'campaign' ? 'bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400' : 'bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300'
+                              item.itemType === 'campaign' ? 'bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400'
+                                : item.itemType === 'group_campaign' ? 'bg-purple-100 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300'
+                                : item.itemType === 'group_community_post' || (item.itemType === 'post' && item.campaignId) ? 'bg-orange-100 dark:bg-orange-900/20 text-orange-700 dark:text-orange-300'
+                                : item.itemType === 'community_post' ? 'bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300'
+                                : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300'
                             }`}>
-                              {item.itemType === 'campaign' ? 'Campaign' : 'Post'}
+                              {item.itemType === 'campaign' && 'Campaign'}
+                              {item.itemType === 'group_campaign' && 'Group Campaign'}
+                              {(item.itemType === 'community_post') && 'Community Post'}
+                              {(item.itemType === 'group_community_post') && 'Group Community Post'}
+                              {(item.itemType === 'post' && item.campaignId) && 'Community Post'}
+                              {(!['campaign','group_campaign','community_post','group_community_post','post'].includes(item.itemType)) && 'Saved'}
                             </span>
                           </div>
                           {item.description && (

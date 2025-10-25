@@ -2,7 +2,9 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import Layout from '../../components/Layout';
 import { useAuth } from '../../contexts/AuthContext';
-import { createGroupPost, getGroup, getMember, joinGroup, leaveGroup, listGroupPosts, listPendingGroupPosts, listMembers, setMemberRole, approveGroupPost, rejectGroupPost, updateGroup, softDeleteGroup } from '../../utils/groups';
+import { createGroupPost, getGroup, getMember, joinGroup, leaveGroup, listGroupPosts, listPendingGroupPosts, listMembers, setMemberRole, approveGroupPost, rejectGroupPost, updateGroup, softDeleteGroup, removeMember } from '../../utils/groups';
+import { collection, getDocs, orderBy, query, where, deleteDoc, doc as fsDoc } from 'firebase/firestore';
+import { db } from '../../config/firebase';
 import PersonIcon from '@mui/icons-material/Person';
 import ImageIcon from '@mui/icons-material/Image';
 import EditIcon from '@mui/icons-material/Edit';
@@ -28,11 +30,8 @@ const GroupDetail = () => {
   const [loading, setLoading] = useState(true);
   const [posts, setPosts] = useState([]);
   const [pendingPosts, setPendingPosts] = useState([]);
-  const [content, setContent] = useState('');
-  const [image, setImage] = useState(null);
-  const [imagePreview, setImagePreview] = useState(null);
-  const [posting, setPosting] = useState(false);
   const [members, setMembers] = useState([]);
+  const [groupCampaigns, setGroupCampaigns] = useState([]);
   const [showEdit, setShowEdit] = useState(false);
   const [editName, setEditName] = useState('');
   const [editDesc, setEditDesc] = useState('');
@@ -83,6 +82,16 @@ const GroupDetail = () => {
           console.warn('Failed to list members (non-fatal):', err);
           if (!cancelled) setMembers([]);
         }
+
+        // Fetch group campaigns (posts with groupId == id)
+        try {
+          const q = query(collection(db, 'posts'), where('groupId', '==', id), orderBy('createdAt', 'desc'));
+          const snap = await getDocs(q);
+          if (!cancelled) setGroupCampaigns(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+        } catch (err) {
+          console.warn('Failed to list group campaigns (non-fatal):', err);
+          if (!cancelled) setGroupCampaigns([]);
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -103,31 +112,7 @@ const GroupDetail = () => {
     setMember(null);
   };
 
-  const handlePost = async (e) => {
-    e.preventDefault();
-    if (!currentUser) return alert('Please log in to post');
-    if (!content.trim() && !image) return;
-    setPosting(true);
-    try {
-      await createGroupPost(id, currentUser, { content, imageFile: image });
-      setContent('');
-      setImage(null);
-      setImagePreview(null);
-      const lst = await listGroupPosts(id);
-      setPosts(lst);
-    } finally {
-      setPosting(false);
-    }
-  };
-
-  const onImageChange = (e) => {
-    const f = e.target.files?.[0];
-    if (!f) return;
-    setImage(f);
-    const r = new FileReader();
-    r.onloadend = () => setImagePreview(r.result);
-    r.readAsDataURL(f);
-  };
+  // Note: group feed composer removed in favor of creating campaigns; unused post composer code removed.
 
   const changeRole = async (uid, role) => {
     await setMemberRole(id, uid, role);
@@ -151,6 +136,32 @@ const GroupDetail = () => {
     if (!window.confirm('Reject and remove this post?')) return;
     await rejectGroupPost(id, postId);
     setPendingPosts(await listPendingGroupPosts(id));
+  };
+
+  const kickMember = async (uid) => {
+    if (!isAdmin && !isModerator) return;
+    if (!window.confirm('Remove this member from the group?')) return;
+    try {
+      await removeMember(id, uid);
+      setMembers(await listMembers(id));
+    } catch (e) {
+      console.error('Failed to remove member:', e);
+      alert('Failed to remove member. You might not have permission. Please ensure your Firestore rules allow admins/moderators to manage members.');
+    }
+  };
+
+  const deleteCampaign = async (campaignId) => {
+    if (!isAdmin && !isModerator) return;
+    if (!window.confirm('Delete this campaign from the group? This cannot be undone.')) return;
+    try {
+      await deleteDoc(fsDoc(db, 'posts', String(campaignId)));
+      const q = query(collection(db, 'posts'), where('groupId', '==', id), orderBy('createdAt', 'desc'));
+      const snap = await getDocs(q);
+      setGroupCampaigns(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    } catch (e) {
+      console.error('Failed to delete campaign:', e);
+      alert('Failed to delete campaign.');
+    }
   };
 
   const onEditBannerChange = (e) => {
@@ -235,7 +246,7 @@ const GroupDetail = () => {
             {!isMember ? (
               <button onClick={handleJoin} className="px-4 py-2 rounded-full bg-green-600 hover:bg-green-700 text-white">Join</button>
             ) : (
-              <button onClick={handleLeave} className="px-4 py-2 rounded-full" style={{ backgroundColor: 'var(--hover-bg)' }}>Leave</button>
+              <button onClick={handleLeave} className="px-4 py-2 rounded-full bg-red-600 hover:bg-red-700 text-white">Leave Group</button>
             )}
             {isAdmin && (
               <button
@@ -252,42 +263,73 @@ const GroupDetail = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 p-4">
           {/* Feed */}
           <div className="lg:col-span-2 space-y-4">
-            {isMember && (
+            {(isAdmin || isModerator) && (
               <div className="card p-4">
-                <h3 className="font-semibold text-themed mb-2">Create a post</h3>
-                <form onSubmit={handlePost} className="space-y-3">
-                  <textarea
-                    className="input-field w-full min-h-[80px]"
-                    placeholder={`Share something in ${group.name}...`}
-                    value={content}
-                    onChange={(e)=> setContent(e.target.value)}
-                  />
-
-                  {imagePreview && (
-                    <div className="relative inline-block">
-                      <img src={imagePreview} alt="preview" className="w-48 h-48 object-cover rounded-lg" />
-                      <button
-                        type="button"
-                        onClick={()=> { setImage(null); setImagePreview(null); }}
-                        className="absolute -top-2 -right-2 bg-red-500 hover:bg-red-600 text-white p-1 rounded-full"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  )}
-
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <input type="file" id="group-image" className="hidden" accept="image/*" onChange={onImageChange} />
-                      <label htmlFor="group-image" className="inline-flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer" style={{ backgroundColor: 'var(--hover-bg)' }}>
-                        <ImageIcon fontSize="small" /> Add image
-                      </label>
-                    </div>
-                    <button disabled={!content.trim() && !image || posting} className="btn-primary px-6">{posting ? 'Posting...' : 'Post'}</button>
+                <h3 className="font-semibold text-themed mb-2">Group Campaigns</h3>
+                {groupCampaigns.length === 0 ? (
+                  <div className="text-sm text-themed-muted">No group campaigns yet</div>
+                ) : (
+                  <div className="space-y-2">
+                    {groupCampaigns.map(c => (
+                      <div key={c.id} className="flex items-center justify-between p-3 rounded-lg border border-outline-variant">
+                        <div className="min-w-0">
+                          <Link to={`/post/${c.id}`} className="font-medium text-themed hover:underline truncate block">{c.title || 'Untitled'}</Link>
+                          <div className="text-xs text-themed-muted truncate">{c.shortSummary || c.description?.slice(0,100) || ''}</div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Link to={`/edit-campaign/${c.id}`} className="px-3 py-1 rounded bg-green-600 hover:bg-green-700 text-white text-sm">Edit</Link>
+                          <button onClick={()=> deleteCampaign(c.id)} className="px-3 py-1 rounded bg-red-600 hover:bg-red-700 text-white text-sm">Delete</button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                </form>
+                )}
               </div>
             )}
+            {isMember && (
+              <div className="card p-4 flex items-center justify-between">
+                <div>
+                  <h3 className="font-semibold text-themed mb-1">Create a Campaign for this Group</h3>
+                  <p className="text-sm text-themed-secondary">Group campaigns have community posts, likes, shares, and full donation support.</p>
+                </div>
+                <Link to={`/create-post?groupId=${id}`} className="px-4 py-2 rounded-full bg-blue-600 hover:bg-blue-700 text-white">Create Campaign</Link>
+              </div>
+            )}
+
+            {/* Admin/Mod Group Campaigns Management */}
+            <div className="card p-4">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="font-semibold text-themed">Group Campaigns</h3>
+                {(isAdmin || isModerator) && (
+                  <span className="text-xs text-themed-muted">Admin tools enabled</span>
+                )}
+              </div>
+              {groupCampaigns.length === 0 ? (
+                <div className="text-sm text-themed-muted">No group campaigns yet</div>
+              ) : (
+                <div className="space-y-2">
+                  {groupCampaigns.map(c => (
+                    <div key={c.id} className="flex items-center justify-between p-3 rounded-lg border border-outline-variant">
+                      <div className="min-w-0">
+                        <Link to={`/post/${c.id}`} className="font-medium text-themed hover:underline truncate block">{c.title || 'Untitled'}</Link>
+                        <div className="text-xs text-themed-muted truncate">{c.shortSummary || c.description?.slice(0,100) || ''}</div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {(isAdmin || isModerator) && (
+                          <>
+                            <Link to={`/edit-campaign/${c.id}`} className="px-3 py-1 rounded bg-green-600 hover:bg-green-700 text-white text-sm">Edit</Link>
+                            <button onClick={()=> deleteCampaign(c.id)} className="px-3 py-1 rounded bg-red-600 hover:bg-red-700 text-white text-sm">Delete</button>
+                          </>
+                        )}
+                        {!(isAdmin || isModerator) && (
+                          <Link to={`/post/${c.id}`} className="px-3 py-1 rounded bg-blue-600 hover:bg-blue-700 text-white text-sm">View</Link>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
 
             {/* Posts */}
             {posts.length === 0 ? (
@@ -368,7 +410,10 @@ const GroupDetail = () => {
                       </div>
                     </div>
                     {(isAdmin || isModerator) && currentUser?.uid !== m.id && (
-                      <RoleSelect value={m.role} onChange={(role)=> changeRole(m.id, role)} disabled={!isAdmin && m.role === 'admin'} />
+                      <div className="flex items-center gap-2">
+                        <RoleSelect value={m.role} onChange={(role)=> changeRole(m.id, role)} disabled={!isAdmin && m.role === 'admin'} />
+                        <button onClick={()=> kickMember(m.id)} className="px-2 py-1 rounded bg-red-600 hover:bg-red-700 text-white text-xs">Remove</button>
+                      </div>
                     )}
                   </div>
                 ))}
