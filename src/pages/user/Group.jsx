@@ -135,7 +135,7 @@ const Group = () => {
           ) : filtered.length === 0 ? (
             <div className="card p-6 text-themed-muted">No groups yet</div>
           ) : (
-            <div className="grid grid-cols-1 gap-4">
+            <div className="grid grid-cols-1 gap-6">
               {filtered.map(g => {
                 const role = roles[g.id];
                 const rolePill = role === 'admin'
@@ -146,7 +146,7 @@ const Group = () => {
                   ? 'bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400'
                   : 'hidden';
                 return (
-                  <Link key={g.id} to={`/group/${g.id}`} className="card overflow-hidden p-0 block hover:shadow-lg transition-shadow">
+                  <Link key={g.id} to={`/group/${g.id}`} className="card overflow-hidden p-0 block border border-surface shadow-md hover:shadow-xl rounded-2xl transition-shadow">
                     {/* Banner on top */}
                     <div className="w-full h-40" style={{ backgroundColor: 'var(--card-bg)' }}>
                       {g.bannerUrl ? (

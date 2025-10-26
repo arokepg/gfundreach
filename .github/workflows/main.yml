@@ -17,6 +17,9 @@ permissions:
 
 env:
   NODE_VERSION: '20.x'
+  # Set DEPLOY_TARGET to one of: vercel | firebase | fly | none
+  # You can define this at the repo level in Settings → Secrets and variables → Actions → Variables
+  DEPLOY_TARGET: ${{ vars.DEPLOY_TARGET || 'vercel' }}
 
 jobs:
   build-test:
@@ -77,9 +80,10 @@ jobs:
           name: web-dist
           path: dist
 
-      # --- Deploy to Vercel (if secrets provided) ---
+      # --- Deploy to Vercel (if selected and secrets provided) ---
       - name: Deploy to Vercel (Production)
-        if: ${{ success() && secrets.VERCEL_TOKEN != '' && secrets.VERCEL_ORG_ID != '' && secrets.VERCEL_PROJECT_ID != '' }}
+        if: >-
+          ${{ success() && env.DEPLOY_TARGET == 'vercel' && secrets.VERCEL_TOKEN != '' && secrets.VERCEL_ORG_ID != '' && secrets.VERCEL_PROJECT_ID != '' }}
         uses: amondnet/vercel-action@v25
         with:
           vercel-token: ${{ secrets.VERCEL_TOKEN }}
@@ -88,10 +92,10 @@ jobs:
           vercel-args: '--prod'
           working-directory: .
 
-      # --- Firebase Hosting (requires secrets) ---
+      # --- Firebase Hosting (if selected and secrets provided) ---
       - name: Deploy to Firebase Hosting
         if: >-
-          ${{ success() && secrets.FIREBASE_SERVICE_ACCOUNT != '' && secrets.FIREBASE_PROJECT_ID != '' }}
+          ${{ success() && env.DEPLOY_TARGET == 'firebase' && secrets.FIREBASE_SERVICE_ACCOUNT != '' && secrets.FIREBASE_PROJECT_ID != '' }}
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
@@ -118,13 +122,13 @@ jobs:
             ghcr.io/${{ github.repository }}:latest
             ghcr.io/${{ github.repository }}:${{ github.sha }}
 
-      # --- Deploy to Fly.io (if fly.toml and token provided) ---
+      # --- Deploy to Fly.io (if selected, fly.toml and token provided) ---
       - name: Setup flyctl
-        if: ${{ hashFiles('fly.toml') != '' && secrets.FLY_API_TOKEN != '' }}
+        if: ${{ env.DEPLOY_TARGET == 'fly' && hashFiles('fly.toml') != '' && secrets.FLY_API_TOKEN != '' }}
         uses: superfly/flyctl-actions/setup-flyctl@v1
 
       - name: Deploy to Fly.io
-        if: ${{ hashFiles('fly.toml') != '' && secrets.FLY_API_TOKEN != '' }}
+        if: ${{ env.DEPLOY_TARGET == 'fly' && hashFiles('fly.toml') != '' && secrets.FLY_API_TOKEN != '' }}
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
         run: |

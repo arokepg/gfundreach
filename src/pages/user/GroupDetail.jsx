@@ -80,7 +80,14 @@ const GroupDetail = () => {
 
         try {
           const mem = await listMembers(id);
-          if (!cancelled) setMembers(mem);
+          // Sort: admins first, then moderators, then members; then by displayName
+          const roleRank = (r) => (r === 'admin' ? 0 : r === 'moderator' ? 1 : 2);
+          const sorted = [...mem].sort((a, b) => {
+            const rr = roleRank(a.role) - roleRank(b.role);
+            if (rr !== 0) return rr;
+            return (a.displayName || '').localeCompare(b.displayName || '');
+          });
+          if (!cancelled) setMembers(sorted);
         } catch (err) {
           console.warn('Failed to list members (non-fatal):', err);
           if (!cancelled) setMembers([]);
@@ -118,6 +125,11 @@ const GroupDetail = () => {
 
   const handleLeave = async () => {
     if (!currentUser) return;
+    // Prevent admins from leaving their own group
+    if (isAdmin) {
+      alert('Admins cannot leave their own group. Transfer ownership or delete the group instead.');
+      return;
+    }
     await leaveGroup(id, currentUser.uid);
     setMember(null);
   };
@@ -198,6 +210,21 @@ const GroupDetail = () => {
     }
   };
 
+  const handleDeleteGroup = async () => {
+    if (!isAdmin) return;
+    if (!window.confirm('Delete this group? This cannot be undone.')) return;
+    try {
+      setSavingGroup(true);
+      await softDeleteGroup(id);
+      alert('Group deleted');
+      window.location.href = '/group';
+    } catch (e) {
+      alert('Failed to delete group: ' + (e?.message || e));
+    } finally {
+      setSavingGroup(false);
+    }
+  };
+
   const deleteGroup = async () => {
     if (!window.confirm('Delete this group for everyone? This is a soft delete and can be reversed in the database.')) return;
     await softDeleteGroup(id);
@@ -261,6 +288,11 @@ const GroupDetail = () => {
           <div className="mt-3 flex items-center gap-2 flex-wrap">
             {!isMember ? (
               <button onClick={handleJoin} className="px-3 sm:px-4 py-2 rounded-full bg-green-600 hover:bg-green-700 text-white text-sm sm:text-base transition-all duration-300 hover:shadow-lg active:scale-95">Join</button>
+            ) : isAdmin ? (
+              <>
+                <button onClick={handleDeleteGroup} disabled={savingGroup} className="px-3 sm:px-4 py-2 rounded-full bg-red-600 hover:bg-red-700 disabled:opacity-60 text-white text-sm sm:text-base transition-all duration-300 hover:shadow-lg active:scale-95">{savingGroup ? 'Deleting…' : 'Delete Group'}</button>
+                <span className="text-xs sm:text-sm text-themed-muted">Admins cannot leave their own group.</span>
+              </>
             ) : (
               <button onClick={handleLeave} className="px-3 sm:px-4 py-2 rounded-full bg-red-600 hover:bg-red-700 text-white text-sm sm:text-base transition-all duration-300 hover:shadow-lg active:scale-95">Leave Group</button>
             )}
