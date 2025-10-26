@@ -131,7 +131,7 @@ const Sidebar = () => {
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [expanded]);
+  }, [expanded, isHovered, isClickSticky]);
 
   // Cleanup timer on unmount
   useEffect(() => {

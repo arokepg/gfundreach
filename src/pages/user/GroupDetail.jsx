@@ -5,7 +5,7 @@ import PostCard from '../../components/PostCard';
 import GroupItemCard from '../../components/GroupItemCard';
 import { useAuth } from '../../contexts/AuthContext';
 import { createGroupPost, getGroup, getMember, joinGroup, leaveGroup, listGroupPosts, listPendingGroupPosts, listMembers, setMemberRole, approveGroupPost, rejectGroupPost, updateGroup, softDeleteGroup, removeMember } from '../../utils/groups';
-import { collection, getDocs, orderBy, query, where, deleteDoc, doc as fsDoc } from 'firebase/firestore';
+import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import PersonIcon from '@mui/icons-material/Person';
 import ImageIcon from '@mui/icons-material/Image';
@@ -172,25 +172,7 @@ const GroupDetail = () => {
     }
   };
 
-  const deleteCampaign = async (campaignId) => {
-    if (!isAdmin && !isModerator) return;
-    if (!window.confirm('Delete this campaign from the group? This cannot be undone.')) return;
-    try {
-      await deleteDoc(fsDoc(db, 'posts', String(campaignId)));
-      const q = query(collection(db, 'posts'), where('groupId', '==', id));
-      const snap = await getDocs(q);
-      const items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      items.sort((a, b) => {
-        const ta = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : new Date(a.createdAt || 0).getTime();
-        const tb = b.createdAt?.toDate ? b.createdAt.toDate().getTime() : new Date(b.createdAt || 0).getTime();
-        return tb - ta;
-      });
-      setGroupCampaigns(items);
-    } catch (e) {
-      console.error('Failed to delete campaign:', e);
-      alert('Failed to delete campaign.');
-    }
-  };
+  // Note: Campaign deletion is handled within CampaignDetail for owners/admins/moderators.
 
   const onEditBannerChange = (e) => {
     const f = e.target.files?.[0];

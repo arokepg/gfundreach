@@ -1,4 +1,4 @@
-name: CI / CD
+name: CI / Vercel Deploy
 
 on:
   push:
@@ -6,23 +6,11 @@ on:
   pull_request:
     branches: [ master ]
 
-concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
-
-permissions:
-  contents: read
-  packages: write
-  id-token: write
-
 env:
   NODE_VERSION: '20.x'
-  # Set DEPLOY_TARGET to one of: vercel | firebase | fly | none
-  # You can define this at the repo level in Settings → Secrets and variables → Actions → Variables
-  DEPLOY_TARGET: ${{ vars.DEPLOY_TARGET || 'vercel' }}
 
 jobs:
-  build-test:
+  build:
     name: Lint • Test • Build
     runs-on: ubuntu-latest
 
@@ -30,11 +18,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Node.js ${{ env.NODE_VERSION }}
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: npm
+          cache: 'npm'
 
       - name: Install dependencies
         run: |
@@ -43,14 +31,13 @@ jobs:
       - name: Lint
         run: npm run -s lint
 
-      - name: Test (skips if no script)
+      - name: Test (if present)
         run: npm test --if-present
 
       - name: Build
         run: npm run -s build
 
       - name: Upload build artifact
-        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: web-dist
@@ -59,8 +46,8 @@ jobs:
           if-no-files-found: error
 
   deploy:
-    name: Deploy (optional)
-    needs: build-test
+    name: Deploy to Vercel
+    needs: build
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/master'
 
@@ -68,11 +55,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Node.js ${{ env.NODE_VERSION }}
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: npm
+          cache: 'npm'
 
       - name: Download build artifact
         uses: actions/download-artifact@v4
@@ -80,10 +67,8 @@ jobs:
           name: web-dist
           path: dist
 
-      # --- Deploy to Vercel (if selected and secrets provided) ---
       - name: Deploy to Vercel (Production)
-        if: >-
-          ${{ success() && env.DEPLOY_TARGET == 'vercel' && secrets.VERCEL_TOKEN != '' && secrets.VERCEL_ORG_ID != '' && secrets.VERCEL_PROJECT_ID != '' }}
+        if: ${{ success() && secrets.VERCEL_TOKEN != '' && secrets.VERCEL_ORG_ID != '' && secrets.VERCEL_PROJECT_ID != '' }}
         uses: amondnet/vercel-action@v25
         with:
           vercel-token: ${{ secrets.VERCEL_TOKEN }}
@@ -91,49 +76,3 @@ jobs:
           vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
           vercel-args: '--prod'
           working-directory: .
-
-      # --- Firebase Hosting (if selected and secrets provided) ---
-      - name: Deploy to Firebase Hosting
-        if: >-
-          ${{ success() && env.DEPLOY_TARGET == 'firebase' && secrets.FIREBASE_SERVICE_ACCOUNT != '' && secrets.FIREBASE_PROJECT_ID != '' }}
-        uses: FirebaseExtended/action-hosting-deploy@v0
-        with:
-          repoToken: ${{ secrets.GITHUB_TOKEN }}
-          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-          channelId: live
-          projectId: ${{ secrets.FIREBASE_PROJECT_ID }}
-
-      # --- Build & push Docker image to GHCR (if Dockerfile exists) ---
-      - name: Log in to GHCR
-        if: hashFiles('Dockerfile') != ''
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build and push image
-        if: hashFiles('Dockerfile') != ''
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          push: true
-          tags: |
-            ghcr.io/${{ github.repository }}:latest
-            ghcr.io/${{ github.repository }}:${{ github.sha }}
-
-      # --- Deploy to Fly.io (if selected, fly.toml and token provided) ---
-      - name: Setup flyctl
-        if: ${{ env.DEPLOY_TARGET == 'fly' && hashFiles('fly.toml') != '' && secrets.FLY_API_TOKEN != '' }}
-        uses: superfly/flyctl-actions/setup-flyctl@v1
-
-      - name: Deploy to Fly.io
-        if: ${{ env.DEPLOY_TARGET == 'fly' && hashFiles('fly.toml') != '' && secrets.FLY_API_TOKEN != '' }}
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-        run: |
-          if [ -f Dockerfile ]; then
-            flyctl deploy --remote-only --image ghcr.io/${{ github.repository }}:${{ github.sha }}
-          else
-            flyctl deploy --remote-only
-          fi
