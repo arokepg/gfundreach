@@ -258,6 +258,23 @@ html.dark .pill-active {
   animation: fade-in 0.4s ease-out;
 }
 
+/* Animated progress fill for completed campaigns */
+@keyframes progress-shimmer {
+  0% { background-position: 0% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.progress-animated {
+  background-image: linear-gradient(
+    90deg,
+    rgba(37,99,235,1) 0%,
+    rgba(59,130,246,1) 50%,
+    rgba(37,99,235,1) 100%
+  );
+  background-size: 200% 100%;
+  animation: progress-shimmer 2.2s linear infinite;
+}
+
 /* Slide-in animation for forms */
 @keyframes slide-in-up {
   from {

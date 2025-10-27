@@ -153,6 +153,14 @@ const NotificationDropdown = () => {
     }
   };
 
+  // When panel opens, mark all as read
+  useEffect(() => {
+    if (isOpen && unreadCount > 0) {
+      markAllAsRead();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, unreadCount]);
+
   return (
     <div className="relative" ref={dropdownRef}>
       {/* Notification Button */}

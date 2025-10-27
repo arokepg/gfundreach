@@ -22,6 +22,7 @@ const PostCard = ({ post }) => {
   const [sharesCount, setSharesCount] = useState(post.sharesCount || 0);
   const [isSaved, setIsSaved] = useState(false);
   const progress = post.goalAmount ? (post.currentAmount / post.goalAmount) * 100 : 0;
+  const isCompleted = (post.currentAmount || 0) >= (post.goalAmount || Infinity);
   const [groupName, setGroupName] = useState('');
 
   // Fetch group name for group campaigns
@@ -284,13 +285,13 @@ const PostCard = ({ post }) => {
       <div className="px-3 md:px-4 py-3">
         <div className="relative w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
           <div
-            className="absolute top-0 left-0 h-full bg-green-500 rounded-full transition-all duration-700 ease-out"
+            className={`absolute top-0 left-0 h-full rounded-full transition-all duration-700 ease-out ${isCompleted ? 'bg-blue-600 progress-animated' : 'bg-green-500'}`}
             style={{ width: `${Math.min(progress, 100)}%` }}
           />
         </div>
         <div className="flex justify-between items-center mt-2">
-          <span className="text-xs md:text-sm font-semibold text-green-600 dark:text-green-400">
-            ${post.currentAmount?.toLocaleString() || 0}
+          <span className={`text-xs md:text-sm font-semibold ${isCompleted ? 'text-blue-600 dark:text-blue-400' : 'text-green-600 dark:text-green-400'}`}>
+            ${post.currentAmount?.toLocaleString() || 0} {isCompleted && <span className="ml-1 inline-block px-2 py-0.5 rounded-full text-[10px] bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300 align-middle">Completed</span>}
           </span>
           <span className="text-xs md:text-sm text-themed-muted">
             ${post.goalAmount?.toLocaleString() || 0}

@@ -19,12 +19,16 @@ const CampaignStats = () => {
   const [loading, setLoading] = useState(true);
   const [campaign, setCampaign] = useState(null);
   const [donations, setDonations] = useState([]);
+  const [uniqueDonors, setUniqueDonors] = useState(0);
+  const [likesCount, setLikesCount] = useState(0);
+  const [sharesCount, setSharesCount] = useState(0);
   const [viewsTotal, setViewsTotal] = useState(0);
   const [views7d, setViews7d] = useState(0);
   const [uniqueVisitorsTotal, setUniqueVisitorsTotal] = useState(0);
   const [uniqueVisitors30d, setUniqueVisitors30d] = useState(0);
   const [viewsChartData, setViewsChartData] = useState([]);
   const [donationsChartData, setDonationsChartData] = useState([]);
+  const [donationDistribution, setDonationDistribution] = useState([]);
   const [categoryData, setCategoryData] = useState([]);
 
   useEffect(() => {
@@ -48,7 +52,9 @@ const CampaignStats = () => {
           return;
         }
         
-        setCampaign({ id: docSnap.id, ...data });
+  setCampaign({ id: docSnap.id, ...data });
+  setLikesCount(data.likesCount || 0);
+  setSharesCount(data.sharesCount || 0);
 
         // Views and Visitors counts (using subcollections created by view tracker)
         try {
@@ -77,44 +83,80 @@ const CampaignStats = () => {
           console.log('View stats not available yet:', viewErr);
         }
 
-        // Fetch donations for this campaign (if donations collection exists)
+        // Fetch donations for this campaign using transactions (type=='donation')
         try {
-          const donationsQuery = query(
-            collection(db, 'donations'),
+          // Primary query (may require composite index)
+          let donationsQuery = query(
+            collection(db, 'transactions'),
+            where('type', '==', 'donation'),
             where('postId', '==', id),
             orderBy('createdAt', 'desc')
           );
-          
-          const donationsSnap = await getDocs(donationsQuery);
-          const donationsData = donationsSnap.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
-          }));
-          
-          setDonations(donationsData);
-          
-          // Process donations for chart data (last 30 days)
-          const last30Days = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-          const donationsByDay = {};
-          
-          donationsData.forEach(donation => {
-            const date = donation.createdAt?.toDate ? donation.createdAt.toDate() : new Date(donation.createdAt);
-            if (date >= last30Days) {
-              const dayKey = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-              donationsByDay[dayKey] = (donationsByDay[dayKey] || 0) + (donation.amount || 0);
-            }
+          let donationsSnap;
+          try {
+            donationsSnap = await getDocs(donationsQuery);
+          } catch (primaryErr) {
+            // Fallback: avoid composite index by querying only by postId and sorting client-side
+            console.warn('Primary donations query failed (falling back):', primaryErr);
+            const fallbackQuery = query(
+              collection(db, 'transactions'),
+              where('postId', '==', id)
+            );
+            donationsSnap = await getDocs(fallbackQuery);
+          }
+
+          const donationsData = donationsSnap.docs
+            .map(d => ({ id: d.id, ...d.data() }))
+            .filter(d => d.type === 'donation');
+
+          // Sort client-side by createdAt desc
+          donationsData.sort((a, b) => {
+            const ad = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(a.createdAt || 0);
+            const bd = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.createdAt || 0);
+            return bd - ad;
           });
-          
-          const donationsChart = Object.entries(donationsByDay)
-            .map(([date, amount]) => ({ date, amount }))
-            .slice(-14); // Last 14 days
-          
-          setDonationsChartData(donationsChart);
+
+          setDonations(donationsData);
+          setUniqueDonors(new Set(donationsData.map(d => d.donorId).filter(Boolean)).size);
+
+          // Build a continuous last-14-days series with zeros
+          const days = 14;
+          const series = [];
+          const today = new Date();
+          for (let i = days - 1; i >= 0; i--) {
+            const d = new Date(today);
+            d.setDate(today.getDate() - i);
+            const key = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            series.push({ key, date: key, amount: 0 });
+          }
+          const byKey = Object.fromEntries(series.map(s => [s.key, s]));
+
+          donationsData.forEach(donation => {
+            const dt = donation.createdAt?.toDate ? donation.createdAt.toDate() : (donation.createdAt ? new Date(donation.createdAt) : null);
+            if (!dt) return;
+            const key = dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            if (byKey[key]) byKey[key].amount += (donation.amount || 0);
+          });
+          setDonationsChartData(series);
+
+          // Donation distribution by donor (top 5 + Others) for PieChart
+          const totalsByDonor = donationsData.reduce((acc, d) => {
+            const name = d.donorName || d.donorId || 'Anonymous';
+            acc[name] = (acc[name] || 0) + (d.amount || 0);
+            return acc;
+          }, {});
+          const sorted = Object.entries(totalsByDonor)
+            .sort((a, b) => b[1] - a[1]);
+          const top = sorted.slice(0, 5).map(([name, value]) => ({ name, value }));
+          const othersSum = sorted.slice(5).reduce((s, [, v]) => s + v, 0);
+          const distribution = othersSum > 0 ? [...top, { name: 'Others', value: othersSum }] : top;
+          setDonationDistribution(distribution);
         } catch (donationError) {
-          console.log('No donations found or donations collection does not exist:', donationError);
-          // Continue without donations - this is not critical
+          console.log('Donations loading failed:', donationError);
           setDonations([]);
           setDonationsChartData([]);
+          setDonationDistribution([]);
+          setUniqueDonors(0);
         }
 
         // Fetch views data for chart (last 14 days)
@@ -122,26 +164,44 @@ const CampaignStats = () => {
           const viewsCol = collection(db, 'posts', id, 'views');
           const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
           const fourteenTs = Timestamp.fromDate(fourteenDaysAgo);
-          
+
           const viewsQuery = query(viewsCol, where('createdAt', '>=', fourteenTs));
           const viewsSnap = await getDocs(viewsQuery);
-          
-          const viewsByDay = {};
+
+          // Initialize continuous series for last 14 days
+          const days = 14;
+          const series = [];
+          const today = new Date();
+          for (let i = days - 1; i >= 0; i--) {
+            const d = new Date(today);
+            d.setDate(today.getDate() - i);
+            const key = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            series.push({ key, date: key, views: 0 });
+          }
+          const byKey = Object.fromEntries(series.map(s => [s.key, s]));
+
           viewsSnap.forEach(doc => {
             const data = doc.data();
-            const date = data.createdAt?.toDate ? data.createdAt.toDate() : new Date();
-            const dayKey = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-            viewsByDay[dayKey] = (viewsByDay[dayKey] || 0) + 1;
+            const date = data.createdAt?.toDate ? data.createdAt.toDate() : null;
+            if (!date) return;
+            const key = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            if (byKey[key]) byKey[key].views += 1;
           });
-          
-          const viewsChart = Object.entries(viewsByDay)
-            .map(([date, views]) => ({ date, views }))
-            .sort((a, b) => new Date(a.date) - new Date(b.date));
-          
-          setViewsChartData(viewsChart);
+
+          setViewsChartData(series);
         } catch (viewChartErr) {
           console.log('Views chart data not available:', viewChartErr);
-          setViewsChartData([]);
+          // Still show zeroed series to ensure a chart renders
+          const days = 14;
+          const series = [];
+          const today = new Date();
+          for (let i = days - 1; i >= 0; i--) {
+            const d = new Date(today);
+            d.setDate(today.getDate() - i);
+            const key = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            series.push({ date: key, views: 0 });
+          }
+          setViewsChartData(series);
         }
 
         // Create category breakdown data
@@ -331,6 +391,42 @@ const CampaignStats = () => {
 
             <div className="card p-6">
               <div className="flex items-center gap-3 mb-2">
+                <div className="p-3 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
+                  <PeopleIcon className="text-purple-600" />
+                </div>
+                <div>
+                  <p className="text-sm text-themed-secondary">Unique Donors</p>
+                  <p className="text-2xl font-bold text-themed">{uniqueDonors}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="card p-6">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="p-3 bg-pink-100 dark:bg-pink-900/30 rounded-lg">
+                  <TrendingUpIcon className="text-pink-600" />
+                </div>
+                <div>
+                  <p className="text-sm text-themed-secondary">Likes</p>
+                  <p className="text-2xl font-bold text-themed">{likesCount}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="card p-6">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="p-3 bg-teal-100 dark:bg-teal-900/30 rounded-lg">
+                  <TrendingUpIcon className="text-teal-600" />
+                </div>
+                <div>
+                  <p className="text-sm text-themed-secondary">Shares</p>
+                  <p className="text-2xl font-bold text-themed">{sharesCount}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="card p-6">
+              <div className="flex items-center gap-3 mb-2">
                 <div className="p-3 bg-green-100 dark:bg-green-900/30 rounded-lg">
                   <TrendingUpIcon className="text-green-600" />
                 </div>
@@ -487,40 +583,28 @@ const CampaignStats = () => {
               </div>
             </div>
 
-            {/* Donation Size Distribution */}
+            {/* Donation Distribution (Top donors + Others) */}
             <div className="card p-6">
               <h2 className="text-xl font-bold text-themed mb-4">Donation Distribution</h2>
-              {donations.length > 0 ? (
+              {donationDistribution.length > 0 ? (
                 <ResponsiveContainer width="100%" height={300}>
-                  <BarChart 
-                    data={donations.slice(0, 10).map((d, i) => ({
-                      name: d.donorName || `Donor ${i + 1}`,
-                      amount: d.amount || 0
-                    }))}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                    <XAxis 
-                      dataKey="name" 
-                      stroke="#6b7280"
-                      style={{ fontSize: '10px' }}
-                      angle={-45}
-                      textAnchor="end"
-                      height={80}
-                    />
-                    <YAxis 
-                      stroke="#6b7280"
-                      style={{ fontSize: '12px' }}
-                    />
-                    <Tooltip 
-                      contentStyle={{ 
-                        backgroundColor: 'var(--card-bg)', 
-                        border: '1px solid var(--border-color)',
-                        borderRadius: '8px'
-                      }}
-                      formatter={(value) => formatCurrency(value)}
-                    />
-                    <Bar dataKey="amount" fill="#6366f1" radius={[8, 8, 0, 0]} />
-                  </BarChart>
+                  <PieChart>
+                    <Pie
+                      data={donationDistribution}
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={90}
+                      dataKey="value"
+                      nameKey="name"
+                      label={({ name, value }) => `${name}: ${formatCurrency(value)}`}
+                    >
+                      {donationDistribution.map((entry, index) => (
+                        <Cell key={`dd-${index}`} fill={["#10b981", "#3b82f6", "#f59e0b", "#ef4444", "#8b5cf6", "#6b7280"][index % 6]} />
+                      ))}
+                    </Pie>
+                    <Tooltip formatter={(v) => formatCurrency(v)} />
+                    <Legend />
+                  </PieChart>
                 </ResponsiveContainer>
               ) : (
                 <div className="h-[300px] flex items-center justify-center text-themed-secondary">
