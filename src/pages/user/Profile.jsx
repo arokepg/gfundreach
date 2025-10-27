@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { collection, query, where, getDocs, orderBy, deleteDoc, doc, getDoc, collectionGroup } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import { useAuth } from '../../contexts/AuthContext';
@@ -304,7 +304,15 @@ const Profile = () => {
   };
 
   // Calculate user stats
-  const helpedCount = userProfile?.helpedPeople || 0;
+  // Derived stats from transactions
+  const helpedPeopleCount = useMemo(() => {
+    const ids = new Set((donations || []).map(d => d.recipientId).filter(Boolean));
+    return ids.size;
+  }, [donations]);
+  const helpersCount = useMemo(() => {
+    const ids = new Set((receivedDonations || []).map(d => d.donorId).filter(Boolean));
+    return ids.size;
+  }, [receivedDonations]);
   const joinDate = userProfile?.createdAt?.toDate ? 
     new Date(userProfile.createdAt.toDate()).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : 
     'October 2025';
@@ -485,7 +493,18 @@ const Profile = () => {
                 <div>
                   <p className="text-sm text-gray-600 dark:text-gray-400">Helped</p>
                   <p className="text-lg font-bold text-green-600 dark:text-green-400">
-                    {helpedCount}
+                    {helpedPeopleCount}
+                  </p>
+                </div>
+              </div>
+
+              {/* Helpers Stat */}
+              <div className="flex items-center gap-3 p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+                <FavoriteIcon className="text-purple-600 dark:text-purple-400" />
+                <div>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Helpers</p>
+                  <p className="text-lg font-bold text-purple-600 dark:text-purple-400">
+                    {helpersCount}
                   </p>
                 </div>
               </div>

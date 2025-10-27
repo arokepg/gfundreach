@@ -7,7 +7,9 @@ import {
   onAuthStateChanged,
   GoogleAuthProvider,
   signInWithPopup,
-  updateProfile
+  updateProfile,
+  setPersistence,
+  browserLocalPersistence
 } from 'firebase/auth';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
@@ -26,6 +28,26 @@ export const AuthProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = useState(null);
   const [userProfile, setUserProfile] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  const authErrorMessage = (error) => {
+    const code = error?.code || '';
+    switch (code) {
+      case 'auth/invalid-email':
+        return 'Invalid email format. Please check and try again.';
+      case 'auth/missing-password':
+        return 'Please enter your password.';
+      case 'auth/invalid-credential':
+      case 'auth/wrong-password':
+      case 'auth/user-not-found':
+        return 'Incorrect email or password.';
+      case 'auth/user-disabled':
+        return 'This account has been disabled.';
+      case 'auth/popup-closed-by-user':
+        return 'The sign-in popup was closed before completing. Please try again.';
+      default:
+        return error?.message || 'Authentication failed. Please try again.';
+    }
+  };
 
   // Signup with email and password
   const signup = async (email, password, displayName) => {
@@ -52,14 +74,32 @@ export const AuthProvider = ({ children }) => {
   };
 
   // Login with email and password
-  const login = (email, password) => {
-    return signInWithEmailAndPassword(auth, email, password);
+  const login = async (email, password) => {
+    try {
+      await setPersistence(auth, browserLocalPersistence);
+    } catch {/* ignore persistence errors */}
+    try {
+      return await signInWithEmailAndPassword(auth, (email || '').trim(), password);
+    } catch (err) {
+      const msg = authErrorMessage(err);
+      const wrapped = new Error(msg);
+      wrapped.code = err.code;
+      throw wrapped;
+    }
   };
 
   // Login with Google
   const loginWithGoogle = async () => {
     const provider = new GoogleAuthProvider();
-    const result = await signInWithPopup(auth, provider);
+    try {
+      await setPersistence(auth, browserLocalPersistence);
+    } catch {/* ignore */}
+    const result = await signInWithPopup(auth, provider).catch((err) => {
+      const msg = authErrorMessage(err);
+      const wrapped = new Error(msg);
+      wrapped.code = err.code;
+      throw wrapped;
+    });
     const defaultDisplayName = result.user.displayName || result.user.email || 'User';
     // Ensure auth profile has a displayName so UI can show it
     if (!result.user.displayName && defaultDisplayName) {

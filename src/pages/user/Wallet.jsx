@@ -103,6 +103,17 @@ const Wallet = () => {
     }).format(amount);
   };
 
+  // Derived totals
+  const totalDonatedCalc = transactions
+    .filter((t) => t.role === 'donor')
+    .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+  const totalReceivedCalc = transactions
+    .filter((t) => t.role === 'recipient')
+    .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+  // Note: recipient credits are not applied to walletBalance by client due to security rules.
+  // Show an effective balance that includes received donations for transparency.
+  const effectiveBalance = (Number(userProfile?.walletBalance) || 0) + totalReceivedCalc;
+
   return (
     <Layout>
       <div className="max-w-6xl mx-auto">
@@ -118,7 +129,7 @@ const Wallet = () => {
             <div>
               <p className="text-white/80 mb-2">Available Balance</p>
               <h2 className="text-5xl font-bold mb-6 text-white">
-                {formatCurrency(userProfile?.walletBalance || 0)}
+                {formatCurrency(effectiveBalance)}
               </h2>
               <button
                 onClick={() => setShowTopUp(!showTopUp)}
@@ -128,6 +139,7 @@ const Wallet = () => {
                 <AddIcon fontSize="small" />
                 Top Up Wallet
               </button>
+              <p className="text-white/70 text-sm mt-2">Wallet: {formatCurrency(userProfile?.walletBalance || 0)} • Received credits: {formatCurrency(totalReceivedCalc)}</p>
             </div>
             <AccountBalanceWalletIcon sx={{ fontSize: 120, opacity: 0.2, color: 'white' }} />
           </div>
@@ -179,7 +191,7 @@ const Wallet = () => {
               <p className="text-themed-secondary">Total Donated</p>
             </div>
             <p className="text-3xl font-bold text-primary">
-              {formatCurrency(userProfile?.totalDonated || 0)}
+              {formatCurrency(totalDonatedCalc || userProfile?.totalDonated || 0)}
             </p>
           </div>
 
@@ -191,7 +203,7 @@ const Wallet = () => {
               <p className="text-themed-secondary">Total Received</p>
             </div>
             <p className="text-3xl font-bold text-secondary">
-              {formatCurrency(userProfile?.totalReceived || 0)}
+              {formatCurrency(totalReceivedCalc || userProfile?.totalReceived || 0)}
             </p>
           </div>
 

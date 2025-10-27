@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { doc, getDoc, collection, addDoc, updateDoc, increment, deleteDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
+import { doc, getDoc, collection, updateDoc, deleteDoc, arrayUnion, arrayRemove, runTransaction, serverTimestamp, increment, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import { useAuth } from '../../contexts/AuthContext';
 import { createNotification, createOrGroupLikeNotification } from '../../utils/notifications';
@@ -111,36 +111,81 @@ const CampaignDetail = () => {
       setSuccess('');
       setDonating(true);
 
-      // 1) Core writes — if these succeed, donation is considered successful
-      // Create donation transaction
-      await addDoc(collection(db, 'transactions'), {
-        type: 'donation',
-        amount,
-        message,
-        postId: id,
-        postTitle: post.title,
-        donorId: currentUser.uid,
-        donorName: currentUser.displayName || 'Anonymous',
-        recipientId: post.authorId,
-        recipientName: post.authorName,
-        createdAt: new Date().toISOString(),
+      // Donation limits: allow slight over-goal margin
+      // Margin policy: min $1, up to 5% of goal, capped at $50
+      const limits = (p) => {
+        const goal = Number(p?.goalAmount || 0);
+        const current = Number(p?.currentAmount || 0);
+        const margin = Math.max(1, Math.min(goal * 0.05, 50));
+        const maxTotal = goal + margin;
+        const maxDonation = Math.max(0, +(maxTotal - current).toFixed(2));
+        return { goal, current, margin, maxTotal, maxDonation };
+      };
+
+      // 1) Transactional core updates to enforce cap atomically
+      let thresholdCrossed = false;
+      await runTransaction(db, async (tx) => {
+  const postRef = doc(db, 'posts', id);
+  const donorRef = doc(db, 'users', currentUser.uid);
+
+        const [postSnap, donorSnap] = await Promise.all([
+          tx.get(postRef),
+          tx.get(donorRef)
+        ]);
+
+        if (!postSnap.exists()) throw new Error('Campaign not found');
+        if (!donorSnap.exists()) throw new Error('Donor profile not found');
+
+        const pdata = postSnap.data();
+        const ddata = donorSnap.data();
+        const { maxDonation } = limits(pdata);
+
+        if (maxDonation <= 0) {
+          throw new Error('This campaign is fully funded and cannot accept more donations.');
+        }
+        if (amount > maxDonation) {
+          throw new Error(`The maximum you can donate right now is $${maxDonation.toFixed(2)}.`);
+        }
+        if ((ddata?.walletBalance || 0) < amount) {
+          throw new Error('Insufficient wallet balance. Please top up your wallet first.');
+        }
+
+        // Apply atomic updates
+        const oldCurrent = Number(pdata?.currentAmount || 0);
+        const newCurrent = oldCurrent + amount;
+        const newSupporters = (pdata?.supporters || 0) + 1;
+        tx.update(postRef, { currentAmount: newCurrent, supporters: newSupporters });
+        // Detect first crossing of goal
+        const goalAmt = Number(pdata?.goalAmount || 0);
+        if (!Number.isNaN(goalAmt) && oldCurrent < goalAmt && newCurrent >= goalAmt) {
+          thresholdCrossed = true;
+        }
+
+        tx.update(donorRef, {
+          walletBalance: (ddata?.walletBalance || 0) - amount,
+          totalDonated: (ddata?.totalDonated || 0) + amount,
+        });
+
+        // Recipient totals can be updated via Cloud Function or best-effort outside rules.
+
+        // Record donation transaction with a new doc ID
+        const donationRef = doc(collection(db, 'transactions'));
+        tx.set(donationRef, {
+          type: 'donation',
+          amount,
+          message,
+          postId: id,
+          postTitle: post.title,
+          donorId: currentUser.uid,
+          donorName: currentUser.displayName || 'Anonymous',
+          recipientId: post.authorId,
+          recipientName: post.authorName,
+          createdAt: serverTimestamp(),
+        });
       });
-      // Update post current amount and supporters
-      await updateDoc(doc(db, 'posts', id), {
-        currentAmount: increment(amount),
-        supporters: increment(1),
-      });
-      // Update donor wallet balance and total donated
-      await updateDoc(doc(db, 'users', currentUser.uid), {
-        walletBalance: increment(-amount),
-        totalDonated: increment(amount),
-      });
-      // 2) Best-effort secondary writes — do not block success banner
-      // Recipient totals/balance and notifications
+
+  // 2) Best-effort notifications (non-blocking)
       const bestEfforts = [];
-      bestEfforts.push(
-        updateDoc(doc(db, 'users', post.authorId), { totalReceived: increment(amount), walletBalance: increment(amount) })
-      );
       // Notify campaign owner
       bestEfforts.push(
         createNotification(post.authorId, 'donation', {
@@ -160,6 +205,28 @@ const CampaignDetail = () => {
         })
       );
       Promise.allSettled(bestEfforts).catch(() => {});
+
+      // 3) If campaign just completed, notify all donors
+      if (thresholdCrossed) {
+        try {
+          const donorsSnap = await getDocs(
+            query(collection(db, 'transactions'), where('postId', '==', id), where('type', '==', 'donation'))
+          );
+          const donorIds = Array.from(new Set(donorsSnap.docs.map(d => d.data()?.donorId).filter(Boolean)));
+          await Promise.allSettled(
+            donorIds.map(uid =>
+              createNotification(uid, 'campaign_completed', {
+                postId: id,
+                postTitle: post.title,
+                ownerId: post.authorId,
+                goalAmount: post.goalAmount
+              })
+            )
+          );
+        } catch (e) {
+          console.warn('Failed to broadcast completion notifications (non-fatal):', e);
+        }
+      }
 
       setSuccess(`Successfully donated $${amount}! Thank you for your support.`);
       setDonationAmount('');
@@ -523,12 +590,14 @@ const CampaignDetail = () => {
                 </p>
                 <div className="relative w-full h-3 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden mb-2">
                   <div
-                    className="absolute top-0 left-0 h-full bg-green-500 rounded-full transition-all"
+                    className={`absolute top-0 left-0 h-full rounded-full transition-all ${
+                      (post.currentAmount || 0) >= (post.goalAmount || Infinity) ? 'bg-blue-600' : 'bg-green-500'
+                    }`}
                     style={{ width: `${Math.min(calculateProgress(post.currentAmount || 0, post.goalAmount), 100)}%` }}
                   />
                 </div>
                 <p className="text-sm text-themed-secondary mt-2">
-                  {Math.round(calculateProgress(post.currentAmount || 0, post.goalAmount))}% funded
+                  {Math.round(calculateProgress(post.currentAmount || 0, post.goalAmount))}% funded { (post.currentAmount||0) >= (post.goalAmount||Infinity) && <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300">Completed</span> }
                 </p>
               </div>
 
@@ -564,6 +633,14 @@ const CampaignDetail = () => {
                     </div>
                   )}
 
+                  {(() => {
+                    const goal = Number(post.goalAmount || 0);
+                    const current = Number(post.currentAmount || 0);
+                    const margin = Math.max(1, Math.min(goal * 0.05, 50));
+                    const maxTotal = goal + margin;
+                    const maxDonation = Math.max(0, +(maxTotal - current).toFixed(2));
+                    const fullyFunded = maxDonation <= 0;
+                    return (
                   <form onSubmit={handleDonate} className="space-y-4">
                     <div>
                       <label className="block text-sm font-medium text-themed mb-2">
@@ -577,10 +654,14 @@ const CampaignDetail = () => {
                         placeholder="Enter amount"
                         min="1"
                         step="0.01"
+                        max={maxDonation > 0 ? maxDonation : undefined}
                         required
                       />
                       <p className="text-xs text-themed-muted mt-1">
                         Wallet Balance: {formatCurrency(userProfile?.walletBalance || 0)}
+                      </p>
+                      <p className="text-xs text-themed-muted mt-1">
+                        Max you can donate now: {formatCurrency(maxDonation)} (goal {formatCurrency(goal)} + margin {formatCurrency(margin)})
                       </p>
                     </div>
 
@@ -598,12 +679,13 @@ const CampaignDetail = () => {
 
                     <button
                       type="submit"
-                      disabled={donating}
+                      disabled={donating || fullyFunded}
                       className="btn-primary w-full"
                     >
-                      {donating ? 'Processing...' : 'Donate Now'}
+                      {fullyFunded ? 'Goal Reached' : (donating ? 'Processing...' : 'Donate Now')}
                     </button>
                   </form>
+                  );})()}
                 </div>
               )}
 
