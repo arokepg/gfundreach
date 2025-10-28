@@ -406,33 +406,37 @@ button:active::after {
 }
 
 /* Smooth page transitions */
-.page-enter {
-  opacity: 0;
-  transform: translateY(20px);
+.mobile-center-btn {
+  width: 80px;
+  height: 80px;
+  border-radius: 9999px;
+  background: #000; /* black background to highlight */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.22);
+  z-index: 60;
+  transition: transform 160ms ease, box-shadow 160ms ease;
+  bottom: 18px; /* lift up so it's closer to icons */
 }
 
-.page-enter-active {
-  opacity: 1;
-  transform: translateY(0);
-  transition: all 0.3s ease-out;
+.mobile-center-btn:hover {
+  transform: translateY(-6px) scale(1.03);
 }
 
-.page-transition {
-  animation: page-fade-in 0.4s ease-out;
+html.dark .mobile-center-btn {
+  background: #000; /* keep black in dark mode */
 }
 
-@keyframes page-fade-in {
-  from {
-    opacity: 0;
-    transform: translateY(15px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+/* Respect safe area inset */
+.safe-area-bottom .mobile-center-btn {
+  margin-bottom: calc(env(safe-area-inset-bottom) + 2px);
 }
 
-/* Shimmer loading effect */
+@media (max-width: 420px) {
+  .mobile-center-btn { width: 72px; height: 72px; bottom: 14px; }
+  .mobile-bottom-item .mobile-icon-wrap { width: 44px; height: 44px; }
+}
 @keyframes shimmer {
   0% {
     background-position: -1000px 0;
@@ -508,6 +512,99 @@ button, .pill, .nav-link {
   -moz-user-select: none;
   -ms-user-select: none;
   user-select: none;
+}
+
+/* Mobile bottom navigation styles */
+.mobile-bottom-item {
+  color: var(--text-secondary);
+  text-decoration: none;
+  padding: 6px;
+}
+
+.mobile-bottom-item .mobile-icon-wrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  transition: background-color 160ms ease, transform 160ms ease;
+}
+
+.mobile-bottom-item .mobile-icon-wrap svg {
+  font-size: 32px;
+}
+
+.mobile-bottom-item .mobile-icon-wrap.active {
+  background-color: #A8F0BA; /* light green active background */
+}
+
+/* Center floating create button */
+.mobile-center-btn {
+  width: 80px;
+  height: 80px;
+  border-radius: 9999px;
+  background: #000; /* black background to highlight */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 12px 32px rgba(0,0,0,0.24);
+  z-index: 60;
+  transition: transform 160ms ease, box-shadow 160ms ease;
+  bottom: 18px;
+}
+
+.mobile-center-btn:hover {
+  transform: translateY(-6px) scale(1.03);
+}
+
+html.dark .mobile-center-btn {
+  background: #000; /* keep black in dark mode */
+}
+
+/* Respect safe area inset */
+.safe-area-bottom .mobile-center-btn {
+  margin-bottom: calc(env(safe-area-inset-bottom) + 2px);
+}
+
+@media (max-width: 420px) {
+  .mobile-center-btn { width: 72px; height: 72px; bottom: 12px; }
+  .mobile-bottom-item .mobile-icon-wrap { width: 48px; height: 48px; }
+}
+
+/* Group container for even spacing in bottom nav */
+.mobile-bottom-group {
+  /* leave space for half of center button (center button is 80px -> 40px) */
+  width: calc(50% - 40px);
+  display: flex;
+  justify-content: space-between; /* even spacing between the two icons */
+  align-items: center;
+}
+
+/* mobile nav spacing variable */
+:root {
+  --mobile-icon-gap: 40px;
+}
+
+/* Mobile bottom nav uses a 5-column grid so we can place icons around a centered floating button */
+.mobile-bottom-nav {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  align-items: center;
+  column-gap: 0; /* columns take equal width */
+  /* small horizontal padding to keep icons away from edges */
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+}
+
+/* Center items inside their grid cell */
+.mobile-bottom-nav .mobile-bottom-item {
+  justify-self: center;
+}
+
+/* Make item label slightly smaller and centered */
+.mobile-bottom-item span.text-xs {
+  font-size: 11px;
 }
 
 

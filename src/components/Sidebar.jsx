@@ -338,36 +338,103 @@ const Sidebar = () => {
     </div>
 
     {/* Mobile Bottom Navigation */}
-    <div 
+    <div
       className="md:hidden fixed bottom-0 left-0 right-0 border-t border-surface z-50 safe-area-bottom"
       style={{
         backgroundColor: 'var(--bg)',
         borderColor: 'var(--card-bg)'
       }}
     >
-      <nav className="flex justify-around items-center px-2 py-3">
-        {menuItems.slice(0, 5).map((item) => {
+      {/* Use a 5-column grid so icons can be evenly spaced around the centered floating button */}
+      <nav className="mobile-bottom-nav grid grid-cols-5 items-center px-4 py-2 relative">
+        {/* Column 1: Home */}
+        {(() => {
+          const item = { icon: <HomeIcon />, label: 'Home', path: '/' };
           const active = isActive(item.path);
           return (
             <Link
               key={item.path}
-              to={item.label === 'Search' ? '#' : item.path}
-              className={`flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-all duration-300 hover:scale-110 active:scale-95 ${
-                active
-                  ? 'bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400'
-                  : 'text-themed-secondary'
-              }`}
-              onClick={(e)=>{ if(item.label === 'Search'){ e.preventDefault(); open(); } }}
+              to={item.path}
+              className={`mobile-bottom-item flex flex-col items-center gap-1 justify-center`}
+              aria-label={item.label}
             >
-              <span className="transition-transform duration-300">
+              <span className={`mobile-icon-wrap ${active ? 'active' : ''}`}>
                 {item.icon}
               </span>
-              <span className={`text-xs font-medium ${active ? 'text-green-700 dark:text-green-400' : ''}`}>
-                {item.label}
-              </span>
+              <span className={`text-xs font-medium ${active ? 'text-green-700' : 'text-themed-secondary'}`}>{item.label}</span>
             </Link>
           );
-        })}
+        })()}
+
+        {/* Column 2: Groups (moved left to sit between Home and center +) */}
+        {(() => {
+          const item = { icon: <GroupIcon />, label: 'Groups', path: '/groups' };
+          const active = isActive(item.path);
+          return (
+            <Link
+              key={item.path}
+              to={item.path}
+              className={`mobile-bottom-item flex flex-col items-center gap-1 justify-center`}
+              aria-label={item.label}
+            >
+              <span className={`mobile-icon-wrap ${active ? 'active' : ''}`}>
+                {item.icon}
+              </span>
+              <span className={`text-xs font-medium ${active ? 'text-green-700' : 'text-themed-secondary'}`}>{item.label}</span>
+            </Link>
+          );
+        })()}
+
+        {/* Column 3 intentionally left empty (center floating button overlaps here) */}
+        <div />
+
+        {/* Column 4: Saved (moved right to sit between center + and Wallet) */}
+        {(() => {
+          const item = { icon: <BookmarkIcon />, label: 'Saved', path: '/saved' };
+          const active = isActive(item.path);
+          return (
+            <Link
+              key={item.path}
+              to={item.path}
+              className={`mobile-bottom-item flex flex-col items-center gap-1 justify-center`}
+              aria-label={item.label}
+            >
+              <span className={`mobile-icon-wrap ${active ? 'active' : ''}`}>
+                {item.icon}
+              </span>
+              <span className={`text-xs font-medium ${active ? 'text-green-700' : 'text-themed-secondary'}`}>{item.label}</span>
+            </Link>
+          );
+        })()}
+
+        {/* Column 5: Wallet */}
+        {(() => {
+          const item = { icon: <AccountBalanceWalletIcon />, label: 'Wallet', path: '/wallet' };
+          const active = isActive(item.path);
+          return (
+            <Link
+              key={item.path}
+              to={item.path}
+              className={`mobile-bottom-item flex flex-col items-center gap-1 justify-center`}
+              aria-label={item.label}
+            >
+              <span className={`mobile-icon-wrap ${active ? 'active' : ''}`}>
+                {item.icon}
+              </span>
+              <span className={`text-xs font-medium ${active ? 'text-green-700' : 'text-themed-secondary'}`}>{item.label}</span>
+            </Link>
+          );
+        })()}
+
+        {/* Center floating create button (mobile) */}
+        <Link
+          to="/create-post"
+          className="mobile-center-btn absolute left-1/2 -translate-x-1/2"
+          title="Create Campaign"
+          aria-label="Create campaign"
+        >
+          <AddCircleIcon sx={{ color: '#fff', fontSize: 32 }} />
+        </Link>
       </nav>
     </div>
     </>
