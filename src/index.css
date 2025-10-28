@@ -553,7 +553,7 @@ button, .pill, .nav-link {
   transition: transform 160ms ease, box-shadow 160ms ease;
   bottom: 18px;
 }
-
+/* toi bi ngu */
 .mobile-center-btn:hover {
   transform: translateY(-6px) scale(1.03);
 }
