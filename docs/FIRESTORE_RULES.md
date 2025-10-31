@@ -89,7 +89,7 @@ service cloud.firestore {
       allow read: if isSignedIn();
       // Any signed-in user can create a donation record for their donation
       allow create: if isSignedIn() && request.resource.data.donorId == request.auth.uid &&
-        request.resource.data.type == 'donation';
+        request.resource.data.type in ['donation', 'topup', 'withdraw'];
     }
 
     // Saved items (bookmarks)
