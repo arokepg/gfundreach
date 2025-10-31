@@ -114,11 +114,11 @@ const Saved = () => {
 
   return (
     <Layout>
-      <div className="max-w-7xl mx-auto">
+      <div className="max-w-7xl mx-auto animate-fade-in">
         <div className="flex flex-col lg:flex-row gap-6">
           {/* Main Content */}
           <div className="flex-1 lg:order-1">
-            <div className="mb-6 flex items-end justify-between gap-4">
+            <div className="mb-6 flex items-end justify-between gap-4 animate-slide-in-up">
               <h1 className="text-2xl font-bold text-themed">
                 {selectedCollection
                   ? collections.find((c) => c.id === selectedCollection)?.name

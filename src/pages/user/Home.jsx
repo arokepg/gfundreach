@@ -9,10 +9,13 @@ import CommunityPostCard from '../../components/CommunityPostCard';
 import GroupItemCard from '../../components/GroupItemCard';
 import Layout from '../../components/Layout';
 import { useQuery } from '@tanstack/react-query';
+import { useAuth } from '../../contexts/AuthContext';
+import { listFriendIds } from '../../utils/friends';
 
 const Home = () => {
   const [activeTab, setActiveTab] = useState('all');
   const location = useLocation();
+  const { currentUser } = useAuth();
   // Layout provides header, sidebar, and search sidebar
 
   const { data: merged = [], isLoading: loading } = useQuery({
@@ -123,11 +126,29 @@ const Home = () => {
     },
   });
 
+  // Friends list for filtering
+  const { data: friendIdSet = new Set(), isLoading: loadingFriends } = useQuery({
+    queryKey: ['friendIds', currentUser?.uid],
+    enabled: !!currentUser,
+    queryFn: async () => {
+      const ids = await listFriendIds(currentUser.uid);
+      return new Set(ids);
+    }
+  });
+
   const handleTabChange = (tab) => {
     setActiveTab(tab);
   };
 
-  const filteredPosts = useMemo(() => merged, [merged]);
+  const filteredPosts = useMemo(() => {
+    if (activeTab !== 'friends') return merged;
+    if (!currentUser) return [];
+    const isFriendAuthor = (item) => {
+      const authorId = item.authorId || item.ownerId || item.userId || null;
+      return authorId && friendIdSet.has(authorId);
+    };
+    return merged.filter(isFriendAuthor);
+  }, [merged, activeTab, friendIdSet, currentUser]);
 
   return (
     <Layout>
@@ -141,7 +162,7 @@ const Home = () => {
             <FilterTabs activeTab={activeTab} onTabChange={handleTabChange} />
           </div>
 
-          {loading ? (
+          {loading || (activeTab === 'friends' && loadingFriends) ? (
             <div className="text-center py-12">
               <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-green-600"></div>
               <p className="mt-4 text-gray-600 dark:text-gray-400">Loading posts...</p>

@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { collection, query, where, getDocs, orderBy, deleteDoc, doc, getDoc, collectionGroup } from 'firebase/firestore';
+import { collection, query, where, getDocs, orderBy, deleteDoc, doc, getDoc, collectionGroup, updateDoc } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import { useAuth } from '../../contexts/AuthContext';
 import { Link, useNavigate, useParams } from 'react-router-dom';
@@ -19,6 +19,11 @@ import LanguageIcon from '@mui/icons-material/Language';
 import WcIcon from '@mui/icons-material/Wc';
 import LogoutIcon from '@mui/icons-material/Logout';
 import AddIcon from '@mui/icons-material/Add';
+import LockIcon from '@mui/icons-material/Lock';
+import PublicIcon from '@mui/icons-material/Public';
+import AddFriendButton from '../../components/AddFriendButton';
+import { listFriendIds } from '../../utils/friends';
+import { calculateWalletStats } from '../../utils/walletHelpers';
 
 const Profile = () => {
   const { currentUser, userProfile: currentUserProfile, logout } = useAuth();
@@ -32,9 +37,13 @@ const Profile = () => {
   const [loading, setLoading] = useState(true);
   const [donationsLoading, setDonationsLoading] = useState(true);
   const [receivedLoading, setReceivedLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('personal'); // 'personal', 'campaigns', 'community', 'donations', 'received'
+  const [activeTab, setActiveTab] = useState('personal'); // 'personal', 'campaigns', 'community', 'donations', 'received', 'friends'
   const [donationFilter, setDonationFilter] = useState('all'); // 'all', '7days', '30days'
   const [receivedFilter, setReceivedFilter] = useState('all'); // 'all', '7days', '30days'
+  const [friendsList, setFriendsList] = useState([]);
+  const [friendsLoading, setFriendsLoading] = useState(false);
+  const [friendsPrivacy, setFriendsPrivacy] = useState('public'); // 'public' or 'private'
+  const [walletStats, setWalletStats] = useState({ totalDonated: 0, totalReceived: 0 });
 
   // Determine if viewing own profile or another user's profile
   const isOwnProfile = !userId || userId === currentUser?.uid;
@@ -45,14 +54,84 @@ const Profile = () => {
     if (profileUserId) {
       if (!isOwnProfile) {
         fetchViewedUserProfile();
+      } else {
+        // Fetch privacy setting for own profile
+        fetchPrivacySettings();
       }
-  fetchUserPosts();
-  fetchUserCommunityPosts();
+      fetchUserPosts();
+      fetchUserCommunityPosts();
       fetchDonationHistory();
       fetchReceivedHistory();
+      // Fetch wallet stats
+      calculateWalletStats(profileUserId).then(stats => {
+        setWalletStats(stats);
+      });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profileUserId, userId]);
+
+  const fetchPrivacySettings = async () => {
+    try {
+      const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
+      if (userDoc.exists()) {
+        const data = userDoc.data();
+        setFriendsPrivacy(data?.profilePrivacy?.friendsList || 'public');
+      }
+    } catch (error) {
+      console.error('Error fetching privacy settings:', error);
+    }
+  };
+
+  const fetchFriendsList = async () => {
+    setFriendsLoading(true);
+    try {
+      const ids = await listFriendIds(profileUserId);
+      const friendsData = await Promise.all(
+        ids.map(async (id) => {
+          try {
+            const userDoc = await getDoc(doc(db, 'users', id));
+            if (userDoc.exists()) {
+              return { id, ...userDoc.data() };
+            }
+            return null;
+          } catch {
+            return null;
+          }
+        })
+      );
+      setFriendsList(friendsData.filter(Boolean));
+    } catch (error) {
+      console.error('Error fetching friends list:', error);
+    } finally {
+      setFriendsLoading(false);
+    }
+  };
+
+  const toggleFriendsPrivacy = async () => {
+    const newPrivacy = friendsPrivacy === 'public' ? 'private' : 'public';
+    try {
+      await updateDoc(doc(db, 'users', currentUser.uid), {
+        'profilePrivacy.friendsList': newPrivacy
+      });
+      setFriendsPrivacy(newPrivacy);
+    } catch (error) {
+      console.error('Error updating privacy:', error);
+      alert('Failed to update privacy settings');
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'friends') {
+      // Check privacy: if viewing others and their list is private, don't fetch
+      if (!isOwnProfile && friendsPrivacy === 'private') {
+        setFriendsList([]);
+        setFriendsLoading(false);
+      } else {
+        fetchFriendsList();
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, profileUserId]);
 
   const fetchViewedUserProfile = async () => {
     try {
@@ -319,12 +398,12 @@ const Profile = () => {
 
   return (
     <Layout>
-      <div className="max-w-7xl mx-auto px-4">
+      <div className="max-w-7xl mx-auto px-4 animate-fade-in">
         {/* Profile Header */}
-        <div className="card p-6 mb-6">
+        <div className="card p-6 mb-6 animate-slide-in-up">
           <div className="flex items-center gap-6">
             {/* Profile Picture */}
-            <div className="w-32 h-32 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center flex-shrink-0">
+            <div className="w-32 h-32 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center shrink-0">
               {(userProfile?.photoURL || currentUser?.photoURL) ? (
                 <img
                   src={userProfile?.photoURL || currentUser?.photoURL}
@@ -360,6 +439,11 @@ const Profile = () => {
               <p className="text-lg text-gray-600 dark:text-gray-400">
                 {userProfile?.title || userProfile?.bio || 'username'}
               </p>
+              {!isOwnProfile && (
+                <div className="mt-3">
+                  <AddFriendButton targetUserId={profileUserId} targetName={userProfile?.displayName || ''} />
+                </div>
+              )}
             </div>
           </div>
 
@@ -392,24 +476,25 @@ const Profile = () => {
 
         {/* Tabs */}
         <div className="card mb-6">
-          <div className="flex flex-wrap border-b border-gray-200 dark:border-gray-700 overflow-x-auto" role="tablist" aria-label="Profile sections">
+          <div className="flex border-b border-gray-200 dark:border-gray-700 overflow-x-auto scrollbar-hide" role="tablist" aria-label="Profile sections">
             <button
               onClick={() => setActiveTab('personal')}
-              className={`relative px-4 sm:px-6 py-3 font-medium whitespace-nowrap transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500/40 hover:[background-color:var(--hover-bg)] ${
+              className={`relative px-3 sm:px-6 py-2.5 sm:py-3 font-medium whitespace-nowrap transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500/40 hover:[background-color:var(--hover-bg)] text-xs sm:text-base ${
                 activeTab === 'personal'
-                  ? 'text-green-700 dark:text-green-400 after:content-[""] after:absolute after:left-0 after:right-0 after:bottom-0 after:h-0.5 after:bg-green-600 dark:after:bg-green-500'
+                  ? 'text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/20 after:content-[""] after:absolute after:left-0 after:right-0 after:bottom-0 after:h-0.5 after:bg-green-600 dark:after:bg-green-500'
                   : 'text-themed-secondary'
               }`}
               role="tab"
               aria-selected={activeTab === 'personal'}
             >
-              Personal Info
+              <span className="hidden sm:inline">Personal Info</span>
+              <span className="sm:hidden">Info</span>
             </button>
             <button
               onClick={() => setActiveTab('campaigns')}
-              className={`relative px-4 sm:px-6 py-3 font-medium whitespace-nowrap transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500/40 hover:[background-color:var(--hover-bg)] ${
+              className={`relative px-3 sm:px-6 py-2.5 sm:py-3 font-medium whitespace-nowrap transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500/40 hover:[background-color:var(--hover-bg)] text-xs sm:text-base ${
                 activeTab === 'campaigns'
-                  ? 'text-green-700 dark:text-green-400 after:content-[""] after:absolute after:left-0 after:right-0 after:bottom-0 after:h-0.5 after:bg-green-600 dark:after:bg-green-500'
+                  ? 'text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/20 after:content-[""] after:absolute after:left-0 after:right-0 after:bottom-0 after:h-0.5 after:bg-green-600 dark:after:bg-green-500'
                   : 'text-themed-secondary'
               }`}
               role="tab"
@@ -419,44 +504,59 @@ const Profile = () => {
             </button>
             <button
               onClick={() => setActiveTab('community')}
-              className={`relative px-4 sm:px-6 py-3 font-medium whitespace-nowrap transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500/40 hover:[background-color:var(--hover-bg)] ${
+              className={`relative px-3 sm:px-6 py-2.5 sm:py-3 font-medium whitespace-nowrap transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500/40 hover:[background-color:var(--hover-bg)] text-xs sm:text-base ${
                 activeTab === 'community'
-                  ? 'text-green-700 dark:text-green-400 after:content-[""] after:absolute after:left-0 after:right-0 after:bottom-0 after:h-0.5 after:bg-green-600 dark:after:bg-green-500'
+                  ? 'text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/20 after:content-[""] after:absolute after:left-0 after:right-0 after:bottom-0 after:h-0.5 after:bg-green-600 dark:after:bg-green-500'
                   : 'text-themed-secondary'
               }`}
               role="tab"
               aria-selected={activeTab === 'community'}
             >
-              Community Posts
+              <span className="hidden sm:inline">Community Posts</span>
+              <span className="sm:hidden">Posts</span>
             </button>
             {isOwnProfile && (
               <button
                 onClick={() => setActiveTab('donations')}
-                className={`relative px-4 sm:px-6 py-3 font-medium whitespace-nowrap transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500/40 hover:[background-color:var(--hover-bg)] ${
+                className={`relative px-3 sm:px-6 py-2.5 sm:py-3 font-medium whitespace-nowrap transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500/40 text-xs sm:text-base ${
                   activeTab === 'donations'
-                    ? 'text-green-700 dark:text-green-400 after:content-[""] after:absolute after:left-0 after:right-0 after:bottom-0 after:h-0.5 after:bg-green-600 dark:after:bg-green-500'
-                    : 'text-themed-secondary'
+                    ? 'text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/20 after:content-[""] after:absolute after:left-0 after:right-0 after:bottom-0 after:h-0.5 after:bg-green-600 dark:after:bg-green-500'
+                    : 'text-themed-secondary hover:bg-gray-100 dark:hover:bg-gray-800'
                 }`}
                 role="tab"
                 aria-selected={activeTab === 'donations'}
               >
-                Donation History
+                <span className="hidden sm:inline">Donation History</span>
+                <span className="sm:hidden">Sent</span>
               </button>
             )}
             {isOwnProfile && (
               <button
                 onClick={() => setActiveTab('received')}
-                className={`relative px-4 sm:px-6 py-3 font-medium whitespace-nowrap transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500/40 hover:[background-color:var(--hover-bg)] ${
+                className={`relative px-3 sm:px-6 py-2.5 sm:py-3 font-medium whitespace-nowrap transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500/40 text-xs sm:text-base ${
                   activeTab === 'received'
-                    ? 'text-green-700 dark:text-green-400 after:content-[""] after:absolute after:left-0 after:right-0 after:bottom-0 after:h-0.5 after:bg-green-600 dark:after:bg-green-500'
-                    : 'text-themed-secondary'
+                    ? 'text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/20 after:content-[""] after:absolute after:left-0 after:right-0 after:bottom-0 after:h-0.5 after:bg-green-600 dark:after:bg-green-500'
+                    : 'text-themed-secondary hover:bg-gray-100 dark:hover:bg-gray-800'
                 }`}
                 role="tab"
                 aria-selected={activeTab === 'received'}
               >
-                Received History
+                <span className="hidden sm:inline">Received History</span>
+                <span className="sm:hidden">Received</span>
               </button>
             )}
+            <button
+              onClick={() => setActiveTab('friends')}
+              className={`relative px-3 sm:px-6 py-2.5 sm:py-3 font-medium whitespace-nowrap transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500/40 text-xs sm:text-base ${
+                activeTab === 'friends'
+                  ? 'text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/20 after:content-[""] after:absolute after:left-0 after:right-0 after:bottom-0 after:h-0.5 after:bg-green-600 dark:after:bg-green-500'
+                  : 'text-themed-secondary hover:bg-gray-100 dark:hover:bg-gray-800'
+              }`}
+              role="tab"
+              aria-selected={activeTab === 'friends'}
+            >
+              Friends
+            </button>
           </div>
         </div>
 
@@ -471,7 +571,7 @@ const Profile = () => {
                 <div>
                   <p className="text-sm text-gray-600 dark:text-gray-400">Donated</p>
                   <p className="text-lg font-bold text-green-600 dark:text-green-400">
-                    {formatCurrency(userProfile?.totalDonated || 0)}
+                    {formatCurrency(walletStats.totalDonated)}
                   </p>
                 </div>
               </div>
@@ -482,7 +582,7 @@ const Profile = () => {
                 <div>
                   <p className="text-sm text-gray-600 dark:text-gray-400">Received</p>
                   <p className="text-lg font-bold text-blue-600 dark:text-blue-400">
-                    {formatCurrency(userProfile?.totalReceived || 0)}
+                    {formatCurrency(walletStats.totalReceived)}
                   </p>
                 </div>
               </div>
@@ -837,7 +937,7 @@ const Profile = () => {
                               >
                                 <td className="py-4 px-4">
                                   <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center flex-shrink-0">
+                                    <div className="w-10 h-10 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center shrink-0">
                                       {donation.recipientPhoto ? (
                                         <img
                                           src={donation.recipientPhoto}
@@ -968,7 +1068,7 @@ const Profile = () => {
                               >
                                 <td className="py-4 px-4">
                                   <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center flex-shrink-0">
+                                    <div className="w-10 h-10 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center shrink-0">
                                       {donation.donorPhoto ? (
                                         <img
                                           src={donation.donorPhoto}
@@ -1008,6 +1108,88 @@ const Profile = () => {
                           })}
                       </tbody>
                     </table>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Friends Tab */}
+            {activeTab === 'friends' && (
+              <div className="card p-6">
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-2xl font-bold" style={{ color: 'var(--text)' }}>
+                    Friends {friendsList.length > 0 && `(${friendsList.length})`}
+                  </h2>
+                  {isOwnProfile && (
+                    <button
+                      onClick={toggleFriendsPrivacy}
+                      className="flex items-center gap-2 px-4 py-2 rounded-lg transition-colors bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700"
+                      title={`Friends list is ${friendsPrivacy}`}
+                    >
+                      {friendsPrivacy === 'public' ? (
+                        <>
+                          <PublicIcon className="text-green-600 dark:text-green-400" fontSize="small" />
+                          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Public</span>
+                        </>
+                      ) : (
+                        <>
+                          <LockIcon className="text-gray-600 dark:text-gray-400" fontSize="small" />
+                          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Private</span>
+                        </>
+                      )}
+                    </button>
+                  )}
+                </div>
+
+                {!isOwnProfile && friendsPrivacy === 'private' ? (
+                  <div className="text-center py-12">
+                    <LockIcon className="text-gray-400 mb-4" sx={{ fontSize: 48 }} />
+                    <p className="text-themed-secondary">This user's friends list is private</p>
+                  </div>
+                ) : friendsLoading ? (
+                  <div className="text-center py-12">
+                    <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div>
+                    <p className="mt-4 text-gray-600 dark:text-gray-400">Loading friends...</p>
+                  </div>
+                ) : friendsList.length === 0 ? (
+                  <div className="text-center py-12">
+                    <p className="text-themed-secondary">
+                      {isOwnProfile ? 'You haven\'t added any friends yet' : 'No friends to show'}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                    {friendsList.map((friend) => (
+                      <Link
+                        key={friend.id}
+                        to={`/profile/${friend.id}`}
+                        className="card p-4 hover:shadow-md transition-shadow flex items-center gap-3"
+                      >
+                        <div className="w-12 h-12 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center overflow-hidden shrink-0">
+                          {friend.photoURL ? (
+                            <img
+                              src={friend.photoURL}
+                              alt={friend.displayName || 'Friend'}
+                              className="w-12 h-12 object-cover"
+                              loading="lazy"
+                              referrerPolicy="no-referrer"
+                            />
+                          ) : (
+                            <PersonIcon className="text-gray-400" />
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium truncate" style={{ color: 'var(--text)' }}>
+                            {friend.displayName || friend.email || 'Anonymous'}
+                          </p>
+                          {friend.title && (
+                            <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
+                              {friend.title}
+                            </p>
+                          )}
+                        </div>
+                      </Link>
+                    ))}
                   </div>
                 )}
               </div>

@@ -283,16 +283,16 @@ const CampaignStats = () => {
 
   return (
     <Layout>
-      <div className="max-w-6xl mx-auto p-6">
+      <div className="max-w-6xl mx-auto p-6 animate-fade-in">
         <button
           onClick={() => navigate('/profile')}
-          className="flex items-center gap-2 text-themed-secondary hover:text-themed mb-6 transition-colors"
+          className="flex items-center gap-2 text-themed-secondary hover:text-themed mb-6 transition-colors animate-slide-in-up"
         >
           <ArrowBackIcon />
           <span>Back to Profile</span>
         </button>
 
-        <div className="space-y-6">
+        <div className="space-y-6 animate-slide-in-up">
           {/* Campaign Header */}
           <div className="card p-6">
             <div className="flex justify-between items-start mb-4">

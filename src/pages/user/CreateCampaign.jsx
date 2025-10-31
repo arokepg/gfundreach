@@ -178,16 +178,16 @@ const CreateCampaign = () => {
 
   return (
     <Layout>
-      <div className="max-w-3xl mx-auto p-6">
+      <div className="max-w-3xl mx-auto p-6 animate-fade-in">
         <button
           onClick={() => navigate('/')}
-          className="flex items-center gap-2 text-themed-secondary hover:text-themed mb-6 transition-colors"
+          className="flex items-center gap-2 text-themed-secondary hover:text-themed mb-6 transition-colors animate-slide-in-up"
         >
           <ArrowBackIcon />
           <span>Back to Home</span>
         </button>
 
-        <div className="card p-8">
+        <div className="card p-8 animate-slide-in-up">
           <h1 className="text-3xl font-bold text-themed mb-6">Create Campaign</h1>
 
           {error && (

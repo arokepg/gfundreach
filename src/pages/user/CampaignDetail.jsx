@@ -3,9 +3,10 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { doc, getDoc, collection, updateDoc, deleteDoc, arrayUnion, arrayRemove, runTransaction, serverTimestamp, increment, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import { useAuth } from '../../contexts/AuthContext';
-import { createNotification, createOrGroupLikeNotification } from '../../utils/notifications';
+import { createNotification, createOrGroupLikeNotification, createOrGroupShareNotification } from '../../utils/notifications';
 import Layout from '../../components/Layout';
 import CampaignUpdates from '../../components/CampaignUpdates';
+import CampaignMilestones from '../../components/CampaignMilestones';
 import PersonIcon from '@mui/icons-material/Person';
 import FavoriteIcon from '@mui/icons-material/Favorite';
 import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
@@ -31,11 +32,13 @@ const CampaignDetail = () => {
   const [sharesCount, setSharesCount] = useState(0);
   const [groupName, setGroupName] = useState('');
   const [canGroupModerate, setCanGroupModerate] = useState(false);
+  const [donors, setDonors] = useState([]);
   const { currentUser, userProfile } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
     fetchPost();
+    fetchDonors();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
@@ -44,6 +47,21 @@ const CampaignDetail = () => {
     if (!id) return;
     recordCampaignView(id, currentUser).catch(() => {});
   }, [id, currentUser]);
+
+  const fetchDonors = async () => {
+    try {
+      const q = query(
+        collection(db, 'transactions'),
+        where('postId', '==', id),
+        where('type', '==', 'donation')
+      );
+      const querySnapshot = await getDocs(q);
+      const uniqueDonors = [...new Set(querySnapshot.docs.map(doc => doc.data().senderId))];
+      setDonors(uniqueDonors);
+    } catch (err) {
+      console.error('Error fetching donors:', err);
+    }
+  };
 
   const fetchPost = async () => {
     try {
@@ -327,6 +345,19 @@ const CampaignDetail = () => {
         await navigator.clipboard.writeText(window.location.href);
         alert('Link copied to clipboard!');
       }
+
+      // Create grouped share notification for post author
+      try {
+        if (post?.authorId && currentUser?.uid !== post.authorId) {
+          await createOrGroupShareNotification(post.authorId, {
+            senderId: currentUser.uid,
+            senderName: userProfile?.name || currentUser.displayName || 'Someone',
+            postId: post.id,
+            postTitle: post.title || '',
+            postType: 'campaign'
+          });
+        }
+      } catch {/* non-fatal */}
     } catch (error) {
       if (error.name !== 'AbortError') {
         console.error('Error sharing:', error);
@@ -385,10 +416,10 @@ const CampaignDetail = () => {
 
   return (
     <Layout>
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-4xl mx-auto animate-fade-in">
         <button
           onClick={() => navigate('/')}
-          className="flex items-center gap-2 text-primary hover:underline mb-6"
+          className="flex items-center gap-2 text-primary hover:underline mb-6 animate-slide-in-up"
         >
           <ArrowBackIcon fontSize="small" />
           Back to Home
@@ -428,6 +459,8 @@ const CampaignDetail = () => {
                     </p>
                   </div>
                 </div>
+                {/* Right-side actions: Friend or manage */}
+                {/* Friends UI removed from here; it now lives on Profile when viewing other users */}
 
                 {/* Campaign Management Buttons - Visible to owner or group admin/moderator */}
                 {canManage && (
@@ -566,6 +599,17 @@ const CampaignDetail = () => {
               </div>
             </div>
 
+            {/* Campaign Milestones */}
+            <CampaignMilestones 
+              campaign={{ 
+                ...post, 
+                raisedAmount: post.currentAmount || 0,
+                goalAmount: post.goalAmount || 0 
+              }} 
+              isOwner={currentUser && currentUser.uid === post.authorId}
+              donors={donors}
+            />
+
             {/* Community Posts Section */}
             <div className="mt-6">
               <CampaignUpdates 
@@ -672,7 +716,7 @@ const CampaignDetail = () => {
                       <textarea
                         value={message}
                         onChange={(e) => setMessage(e.target.value)}
-                        className="input-field min-h-[80px]"
+                        className="input-field min-h-20"
                         placeholder="Leave a message of support"
                       />
                     </div>

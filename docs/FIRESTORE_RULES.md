@@ -116,6 +116,16 @@ service cloud.firestore {
       allow create: if isSignedIn();
     }
 
+    // Friendships (symmetric friend system)
+    match /friendships/{friendshipId} {
+      // Users can read friendships they're part of
+      allow read: if isSignedIn() && request.auth.uid in resource.data.users;
+      // Users can create a friendship request if they're one of the participants
+      allow create: if isSignedIn() && request.auth.uid in request.resource.data.users;
+      // Users can update (accept) or delete (cancel/unfriend) if they're one of the participants
+      allow update, delete: if isSignedIn() && request.auth.uid in resource.data.users;
+    }
+
     // Groups
     match /groups/{groupId} {
       allow read: if true;

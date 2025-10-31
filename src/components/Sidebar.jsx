@@ -11,6 +11,8 @@ import AddCircleIcon from '@mui/icons-material/AddCircle';
 import PersonIcon from '@mui/icons-material/Person';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
+import { calculateWalletStats, formatCompactCurrency } from '../utils/walletHelpers';
+import logo from '../assets/logo.svg';
 // no pin UI in hover-only mode
 
 const Sidebar = () => {
@@ -19,6 +21,7 @@ const Sidebar = () => {
   const [isClickSticky, setIsClickSticky] = useState(false);
   const [hoverTimer, setHoverTimer] = useState(null);
   const [clickTimer, setClickTimer] = useState(null);
+  const [walletStats, setWalletStats] = useState({ totalDonated: 0, totalReceived: 0 });
   const location = useLocation();
   const { open } = useSearch();
   const { currentUser, userProfile } = useAuth();
@@ -35,6 +38,15 @@ const Sidebar = () => {
   ];
 
   const isActive = (path) => location.pathname === path;
+
+  // Fetch wallet stats when user is available
+  useEffect(() => {
+    if (currentUser?.uid) {
+      calculateWalletStats(currentUser.uid).then(stats => {
+        setWalletStats(stats);
+      });
+    }
+  }, [currentUser]);
 
   // Keep CSS var in sync so other components (SearchSidebar) can offset correctly
   useEffect(() => {
@@ -71,9 +83,12 @@ const Sidebar = () => {
       clearTimeout(hoverTimer);
       setHoverTimer(null);
     }
-    // Don't collapse if click-sticky is active
-    if (isClickSticky) return;
-    
+    // Always collapse on mouse leave to avoid sticking open
+    if (clickTimer) {
+      clearTimeout(clickTimer);
+      setClickTimer(null);
+    }
+    setIsClickSticky(false);
     // Auto-collapse when not detecting hover
     setIsHovered(false);
     if (typeof document !== 'undefined') {
@@ -155,14 +170,10 @@ const Sidebar = () => {
       >
       {/* Header */}
       <div className="flex items-center justify-center h-[73px] border-b border-surface">
-        <Link to="/" className="flex items-center space-x-2">
-          {expanded ? (
-            <span className="text-2xl font-bold whitespace-nowrap">
-              <span className="text-green-600 dark:text-green-500">G</span>
-              <span className="text-themed">fundreach</span>
-            </span>
-          ) : (
-            <span className="text-2xl font-bold text-green-600 dark:text-green-500">G</span>
+        <Link to="/" className={`flex items-center ${expanded ? 'gap-2' : ''}`}>
+          <img src={logo} alt="Gfundreach" className={expanded ? 'w-7 h-7' : 'w-8 h-8'} />
+          {expanded && (
+            <span className="text-2xl font-bold whitespace-nowrap text-themed">fundreach</span>
           )}
         </Link>
       </div>
@@ -294,13 +305,27 @@ const Sidebar = () => {
                   className="text-xs"
                   style={{ color: isDarkMode ? '#9ca3af' : '#6b7280' }}
                 >
+                  Balance
+                </span>
+                <span 
+                  className="text-sm font-semibold"
+                  style={{ color: isDarkMode ? '#60a5fa' : '#2563eb' }}
+                >
+                  ${userProfile?.walletBalance || 0}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span 
+                  className="text-xs"
+                  style={{ color: isDarkMode ? '#9ca3af' : '#6b7280' }}
+                >
                   Donated
                 </span>
                 <span 
                   className="text-sm font-semibold"
                   style={{ color: isDarkMode ? '#34d399' : '#059669' }}
                 >
-                  ${userProfile?.totalDonated || 0}
+                  {formatCompactCurrency(walletStats.totalDonated)}
                 </span>
               </div>
               <div className="flex items-center justify-between">
@@ -314,7 +339,7 @@ const Sidebar = () => {
                   className="text-sm font-semibold"
                   style={{ color: isDarkMode ? '#60a5fa' : '#2563eb' }}
                 >
-                  ${userProfile?.totalReceived || 0}
+                  {formatCompactCurrency(walletStats.totalReceived)}
                 </span>
               </div>
               <div className="flex items-center justify-between">

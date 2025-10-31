@@ -10,6 +10,7 @@ import LightModeIcon from '@mui/icons-material/LightMode';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
 import SearchSidebar from './SearchSidebar';
 import { useSearch } from '../contexts/SearchContext';
+import logo from '../assets/logo.svg';
 
 const Layout = ({ children }) => {
   const { currentUser, userProfile } = useAuth();
@@ -30,10 +31,8 @@ const Layout = ({ children }) => {
             {/* Mobile Logo */}
             <div className="md:hidden">
               <Link to="/" className="flex items-center gap-2">
-                <span className="text-xl font-bold">
-                  <span className="text-green-600 dark:text-green-500">G</span>
-                  <span className="text-themed">fundreach</span>
-                </span>
+                <img src={logo} alt="Gfundreach" className="w-6 h-6" />
+                <span className="text-xl font-bold text-themed">fundreach</span>
               </Link>
             </div>
             

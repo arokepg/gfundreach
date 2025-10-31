@@ -5,7 +5,7 @@ import { doc, getDoc, updateDoc, arrayUnion, arrayRemove, increment, collectionG
 import { saveItem, unsaveItem, isItemSaved } from '../../utils/savedItems';
 import { db } from '../../config/firebase';
 import { useAuth } from '../../contexts/AuthContext';
-import { createNotification, createOrGroupLikeNotification } from '../../utils/notifications';
+import { createOrGroupLikeNotification, createOrGroupShareNotification } from '../../utils/notifications';
 import Layout from '../../components/Layout';
 import PersonIcon from '@mui/icons-material/Person';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
@@ -150,11 +150,12 @@ const CommunityPostDetail = () => {
       // Best-effort: notify post author about share
       try {
         if (post?.authorId && currentUser?.uid !== post.authorId) {
-          await createNotification(post.authorId, 'share', {
+          await createOrGroupShareNotification(post.authorId, {
             senderId: currentUser.uid,
             senderName: currentUser.displayName || 'Someone',
             postId: post.id,
-            postTitle: campaign?.title || ''
+            postTitle: campaign?.title || '',
+            postType: 'community post'
           });
         }
       } catch {/* non-fatal */}
@@ -224,18 +225,18 @@ const CommunityPostDetail = () => {
 
   return (
   <Layout>
-      <div className="max-w-4xl mx-auto p-4">
+      <div className="max-w-4xl mx-auto p-4 animate-fade-in">
         {/* Back Button */}
         <button
           onClick={() => navigate(-1)}
-          className="flex items-center gap-2 text-themed-secondary hover:text-themed mb-4 transition-colors"
+          className="flex items-center gap-2 text-themed-secondary hover:text-themed mb-4 transition-colors animate-slide-in-up"
         >
           <ArrowBackIcon />
           <span>Back</span>
         </button>
 
         {/* Post Card */}
-        <div className="card p-6 mb-6">
+        <div className="card p-6 mb-6 animate-slide-in-up">
           {/* Parent Campaign Info */}
           {campaign && (
             <Link 

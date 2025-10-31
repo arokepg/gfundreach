@@ -178,16 +178,27 @@ const CommunityPostCard = ({ post }) => {
       {/* Header */}
       <div className="p-3 md:p-4 flex items-start justify-between">
         <div className="flex items-center space-x-3 flex-1">
-          <div className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center overflow-hidden">
+          <Link
+            to={`/profile/${post.authorId}`}
+            className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+            title={`View ${post.authorName || 'profile'}`}
+          >
             {post.authorPhoto ? (
               <img src={post.authorPhoto} alt={post.authorName} className="w-10 h-10 object-cover" referrerPolicy="no-referrer" />
             ) : (
               <PersonIcon className="text-gray-600 dark:text-gray-300" />
             )}
-          </div>
+          </Link>
           <div className="flex-1 min-w-0">
             <div className="flex items-center space-x-1">
-              <span className="font-semibold text-themed">{post.authorName || 'Anonymous'}</span>
+              <Link
+                to={`/profile/${post.authorId}`}
+                className="font-semibold text-themed hover:underline"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {post.authorName || 'Anonymous'}
+              </Link>
               <VerifiedIcon className="text-blue-500 text-sm" />
             </div>
             <p className="text-xs text-themed-muted">{timeAgo(post.createdAt)}</p>

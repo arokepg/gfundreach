@@ -32,6 +32,7 @@ const Wallet = () => {
       console.log('Fetching transactions for user:', currentUser.uid);
       
       // Fetch transactions where user is donor or recipient
+      // Prefer ordered queries; fall back to non-indexed queries and sort client-side
       const q1 = query(
         collection(db, 'transactions'),
         where('donorId', '==', currentUser.uid),
@@ -43,10 +44,27 @@ const Wallet = () => {
         orderBy('createdAt', 'desc')
       );
 
-      const [donorSnapshot, recipientSnapshot] = await Promise.all([
-        getDocs(q1),
-        getDocs(q2)
-      ]);
+      let donorSnapshot, recipientSnapshot;
+      try {
+        donorSnapshot = await getDocs(q1);
+      } catch (e) {
+        console.warn('Donor query requires index, using fallback without orderBy:', e?.message);
+        const donorFallback = query(
+          collection(db, 'transactions'),
+          where('donorId', '==', currentUser.uid)
+        );
+        donorSnapshot = await getDocs(donorFallback);
+      }
+      try {
+        recipientSnapshot = await getDocs(q2);
+      } catch (e) {
+        console.warn('Recipient query requires index, using fallback without orderBy:', e?.message);
+        const recipientFallback = query(
+          collection(db, 'transactions'),
+          where('recipientId', '==', currentUser.uid)
+        );
+        recipientSnapshot = await getDocs(recipientFallback);
+      }
 
       console.log('Donor transactions found:', donorSnapshot.size);
       console.log('Recipient transactions found:', recipientSnapshot.size);
@@ -247,54 +265,55 @@ const Wallet = () => {
   const totalReceivedCalc = transactions
     .filter((t) => t.role === 'recipient')
     .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
-  // Note: recipient credits are not applied to walletBalance by client due to security rules.
-  // Show an effective balance that includes received donations for transparency.
-  const effectiveBalance = (Number(userProfile?.walletBalance) || 0) + totalReceivedCalc;
+  // Wallet balance shows only liquid funds available for withdrawal or donations
+  // Received donations stay with campaigns and don't add to personal wallet
+  const actualBalance = Number(userProfile?.walletBalance) || 0;
 
   return (
     <Layout>
-      <div className="max-w-6xl mx-auto">
+      <div className="max-w-6xl mx-auto animate-fade-in">
         {/* Header */}
-        <div className="mb-8">
+        <div className="mb-8 animate-slide-in-up">
           <h1 className="text-3xl font-bold mb-2" style={{ color: 'var(--text)' }}>Wallet</h1>
           <p className="text-gray-600 dark:text-gray-400">Manage your funds and transaction history</p>
         </div>
 
         {/* Wallet Balance Card */}
-        <div className="card p-8 mb-8" style={{ background: 'linear-gradient(135deg, #16a34a 0%, #15803d 100%)' }}>
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-white/80 mb-2">Available Balance</p>
-              <h2 className="text-5xl font-bold mb-6 text-white">
-                {formatCurrency(effectiveBalance)}
+        <div className="card p-4 sm:p-8 mb-8" style={{ background: 'linear-gradient(135deg, #16a34a 0%, #15803d 100%)' }}>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="w-full sm:w-auto">
+              <p className="text-white/80 mb-2 text-sm sm:text-base">Available Balance</p>
+              <h2 className="text-3xl sm:text-5xl font-bold mb-4 sm:mb-6 text-white">
+                {formatCurrency(actualBalance)}
               </h2>
-              <div className="flex gap-3">
+              <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
                 <button
                   onClick={() => {
                     setShowTopUp(!showTopUp);
                     setShowWithdraw(false);
                   }}
-                  className="bg-white px-6 py-3 rounded-full font-medium hover:bg-gray-100 transition-colors flex items-center gap-2"
+                  className="bg-white px-4 sm:px-6 py-2 sm:py-3 rounded-full font-medium hover:bg-gray-100 transition-colors flex items-center justify-center gap-2 text-sm sm:text-base"
                   style={{ color: '#16a34a' }}
                 >
                   <AddIcon fontSize="small" />
-                  Top Up Wallet
+                  <span className="hidden sm:inline">Top Up Wallet</span>
+                  <span className="sm:hidden">Top Up</span>
                 </button>
                 <button
                   onClick={() => {
                     setShowWithdraw(!showWithdraw);
                     setShowTopUp(false);
                   }}
-                  className="bg-white px-6 py-3 rounded-full font-medium hover:bg-gray-100 transition-colors flex items-center gap-2"
+                  className="bg-white px-4 sm:px-6 py-2 sm:py-3 rounded-full font-medium hover:bg-gray-100 transition-colors flex items-center justify-center gap-2 text-sm sm:text-base"
                   style={{ color: '#dc2626' }}
                 >
                   <RemoveIcon fontSize="small" />
                   Withdraw
                 </button>
               </div>
-              <p className="text-white/70 text-sm mt-2">Wallet: {formatCurrency(userProfile?.walletBalance || 0)} • Received credits: {formatCurrency(totalReceivedCalc)}</p>
+              <p className="text-white/70 text-xs sm:text-sm mt-2">Wallet: {formatCurrency(userProfile?.walletBalance || 0)} • Received: {formatCurrency(totalReceivedCalc)}</p>
             </div>
-            <AccountBalanceWalletIcon sx={{ fontSize: 120, opacity: 0.2, color: 'white' }} />
+            <AccountBalanceWalletIcon sx={{ fontSize: { xs: 80, sm: 120 }, opacity: 0.2, color: 'white' }} className="hidden sm:block" />
           </div>
         </div>
 
@@ -443,11 +462,11 @@ const Wallet = () => {
               return (
                 <div
                   key={transaction.id}
-                  className="flex items-center justify-between p-4 border border-outline-variant rounded-xl transition-colors"
+                  className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 border border-outline-variant rounded-xl transition-colors gap-3"
                 >
-                  <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-3 sm:gap-4">
                     <div
-                      className={`w-12 h-12 rounded-full flex items-center justify-center ${
+                      className={`w-10 h-10 sm:w-12 sm:h-12 shrink-0 rounded-full flex items-center justify-center ${
                         isTopUp
                           ? 'bg-blue-50'
                           : isWithdraw
@@ -458,17 +477,17 @@ const Wallet = () => {
                       }`}
                     >
                       {isTopUp ? (
-                        <AddIcon className="text-blue-600" />
+                        <AddIcon className="text-blue-600" fontSize="small" />
                       ) : isWithdraw ? (
-                        <RemoveIcon className="text-orange-600" />
+                        <RemoveIcon className="text-orange-600" fontSize="small" />
                       ) : isDonor ? (
-                        <TrendingDownIcon className="text-error" />
+                        <TrendingDownIcon className="text-error" fontSize="small" />
                       ) : (
-                        <TrendingUpIcon className="text-green-600" />
+                        <TrendingUpIcon className="text-green-600" fontSize="small" />
                       )}
                     </div>
-                    <div>
-                      <p className="font-medium text-themed">
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium text-themed text-sm sm:text-base">
                         {isTopUp 
                           ? 'Wallet Top-Up'
                           : isWithdraw
@@ -478,32 +497,32 @@ const Wallet = () => {
                           : 'Donation Received'}
                       </p>
                       {!isTopUp && !isWithdraw && (
-                        <p className="text-sm text-themed-secondary">
+                        <p className="text-xs sm:text-sm text-themed-secondary truncate">
                           {isDonor
                             ? `To: ${transaction.recipientName}`
                             : `From: ${transaction.donorName}`}
                         </p>
                       )}
                       {transaction.postTitle && transaction.postTitle !== 'Wallet Top-Up' && transaction.postTitle !== 'Wallet Withdrawal' && (
-                        <p className="text-xs text-themed-muted mt-1">
+                        <p className="text-xs text-themed-muted mt-1 truncate">
                           {transaction.postTitle}
                         </p>
                       )}
                       {transaction.message && (
-                        <p className="text-sm text-themed-secondary mt-1 italic">
+                        <p className="text-xs sm:text-sm text-themed-secondary mt-1 italic line-clamp-2">
                           "{transaction.message}"
                         </p>
                       )}
                       <p className="text-xs text-gray-400 mt-1">
                         {transaction.createdAt?.toDate 
-                          ? transaction.createdAt.toDate().toLocaleString()
-                          : new Date(transaction.createdAt).toLocaleString()}
+                          ? transaction.createdAt.toDate().toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+                          : new Date(transaction.createdAt).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                       </p>
                     </div>
                   </div>
-                  <div className="text-right">
+                  <div className="text-right sm:text-right flex sm:block justify-between items-center sm:items-end">
                     <p
-                      className={`text-xl font-bold ${
+                      className={`text-lg sm:text-xl font-bold ${
                         isTopUp
                           ? 'text-blue-600'
                           : isWithdraw

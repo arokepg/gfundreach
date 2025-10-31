@@ -235,9 +235,9 @@ const GroupDetail = () => {
 
   return (
     <Layout>
-      <div className="max-w-6xl mx-auto">
+      <div className="max-w-6xl mx-auto animate-fade-in">
         {/* Banner */}
-        <div className="h-32 sm:h-48 w-full relative" style={{ backgroundColor: 'var(--card-bg)' }}>
+        <div className="h-32 sm:h-48 w-full relative animate-slide-in-up" style={{ backgroundColor: 'var(--card-bg)' }}>
           {group.bannerUrl ? (
             <img src={group.bannerUrl} alt={group.name} className="w-full h-full object-cover" />
           ) : (

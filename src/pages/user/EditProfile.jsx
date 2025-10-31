@@ -107,8 +107,8 @@ const EditProfile = () => {
 
   return (
     <Layout>
-      <div className="max-w-3xl mx-auto p-6">
-        <div className="card p-8">
+      <div className="max-w-3xl mx-auto p-6 animate-fade-in">
+        <div className="card p-8 animate-slide-in-up">
           {/* Header */}
           <div className="flex items-center gap-4 mb-8">
             <button

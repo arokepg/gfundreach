@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
+import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../config/firebase';
+import { calculateWalletStats } from '../utils/walletHelpers';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
 
@@ -15,17 +16,31 @@ const RightSidebar = () => {
 
   const fetchTopDonators = async () => {
     try {
-      const q = query(
-        collection(db, 'users'),
-        orderBy('totalDonated', 'desc'),
-        limit(3)
-      );
-      const snapshot = await getDocs(q);
-      const donators = snapshot.docs.map(doc => ({
+      // Fetch all users first
+      const snapshot = await getDocs(collection(db, 'users'));
+      const users = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       }));
-      setTopDonators(donators);
+
+      // Calculate actual donation stats for each user
+      const usersWithStats = await Promise.all(
+        users.map(async (user) => {
+          const stats = await calculateWalletStats(user.id);
+          return {
+            ...user,
+            totalDonated: stats.totalDonated
+          };
+        })
+      );
+
+      // Sort by totalDonated and take top 3
+      const topDonatorsList = usersWithStats
+        .filter(u => u.totalDonated > 0)
+        .sort((a, b) => b.totalDonated - a.totalDonated)
+        .slice(0, 3);
+
+      setTopDonators(topDonatorsList);
     } catch (error) {
       console.error('Error fetching top donators:', error);
     }

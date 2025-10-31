@@ -80,12 +80,62 @@ export const createOrGroupLikeNotification = async (recipientId, data) => {
 };
 
 /**
+ * Group/batch share notifications per recipient + postId within a time window
+ * Falls back to a single doc with an aggregate counter and up to 3 recent names
+ */
+export const createOrGroupShareNotification = async (recipientId, data) => {
+  try {
+    if (data.senderId === recipientId) return;
+    const { postId, senderName, postType = 'post' } = data;
+    if (!postId) return createNotification(recipientId, 'share', data);
+
+    // Find an existing grouped share notification for this post
+    const q = query(
+      collection(db, 'notifications'),
+      where('recipientId', '==', recipientId),
+      where('type', '==', 'share_grouped'),
+      where('postId', '==', postId),
+      limit(1)
+    );
+    const snap = await getDocs(q);
+    if (!snap.empty) {
+      const d = snap.docs[0];
+      const ref = doc(db, 'notifications', d.id);
+      const existing = d.data();
+      const names = Array.isArray(existing.names) ? existing.names : [];
+      const newNames = [senderName, ...names.filter(n => n && n !== senderName)].slice(0, 3);
+      await updateDoc(ref, {
+        count: increment(1),
+        names: newNames,
+        createdAt: serverTimestamp(),
+      });
+      return;
+    }
+    // Create new grouped share
+    await addDoc(collection(db, 'notifications'), {
+      recipientId,
+      type: 'share_grouped',
+      read: false,
+      createdAt: serverTimestamp(),
+      postId,
+      postTitle: data.postTitle || '',
+      postType,
+      count: 1,
+      names: [senderName].filter(Boolean),
+    });
+  } catch (e) {
+    console.warn('Failed to group share notification, sending single share instead:', e);
+    await createNotification(recipientId, 'share', data);
+  }
+};
+
+/**
  * Format notification message based on type
  * @param {object} notification - Notification object from Firestore
  * @returns {string} Formatted message
  */
 export const formatNotificationMessage = (notification) => {
-  const { type, senderName, postTitle, amount, groupName, likesCount, names } = notification;
+  const { type, senderName, postTitle, amount, groupName, likesCount, names, count, postType } = notification;
 
   switch (type) {
     case 'donation':
@@ -119,6 +169,24 @@ export const formatNotificationMessage = (notification) => {
       return `${senderName} joined ${groupName}`;
     case 'follow':
       return `${senderName} started following you`;
+    case 'friend_request':
+      return `${senderName} sent you a friend request`;
+    case 'friend_accepted':
+      return `${senderName} accepted your friend request`;
+    case 'campaign_update':
+      return `New update on "${campaignTitle}"${updateText ? `: ${updateText}` : ''}`;
+    case 'share_grouped': {
+      const shareCount = count || 1;
+      const namesText = Array.isArray(names) && names.length > 0 ? names : [];
+      if (shareCount === 1) {
+        return `${namesText[0] || 'Someone'} shared your ${postType || 'post'}${postTitle ? ` "${postTitle}"` : ''}`;
+      } else if (shareCount === 2) {
+        return `${namesText[0] || 'Someone'} and ${namesText[1] || 'someone else'} shared your ${postType || 'post'}${postTitle ? ` "${postTitle}"` : ''}`;
+      } else {
+        const others = shareCount - 1;
+        return `${namesText[0] || 'Someone'} and ${others} ${others === 1 ? 'other' : 'others'} shared your ${postType || 'post'}${postTitle ? ` "${postTitle}"` : ''}`;
+      }
+    }
     default:
       return 'New notification';
   }

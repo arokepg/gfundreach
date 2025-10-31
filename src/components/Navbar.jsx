@@ -6,7 +6,7 @@ import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 import PersonIcon from '@mui/icons-material/Person';
 import AddCircleIcon from '@mui/icons-material/AddCircle';
 import LogoutIcon from '@mui/icons-material/Logout';
-import VolunteerActivismIcon from '@mui/icons-material/VolunteerActivism';
+import logo from '../assets/logo.svg';
 import LightModeIcon from '@mui/icons-material/LightMode';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
 
@@ -33,10 +33,8 @@ const Navbar = () => {
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
           <Link to="/" className="flex items-center gap-2 group">
-            <div className="bg-primary rounded-full p-2 transition-all duration-300 group-hover:scale-110 group-hover:rotate-6">
-              <VolunteerActivismIcon sx={{ color: 'white', fontSize: 24 }} />
-            </div>
-            <span className="text-2xl font-bold text-primary transition-all duration-300 group-hover:tracking-wide">Gfundreach</span>
+            <img src={logo} alt="Gfundreach" className="w-7 h-7 transition-transform group-hover:scale-110" />
+            <span className="text-2xl font-bold text-primary transition-all duration-300 group-hover:tracking-wide">fundreach</span>
           </Link>
 
           {/* Navigation Links */}
@@ -65,7 +63,7 @@ const Navbar = () => {
           </div>
 
           {/* Right Side */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-4">
             <Link to="/create-post" className="btn-primary flex items-center gap-2">
               <AddCircleIcon fontSize="small" />
               <span className="hidden sm:inline">Create Campaign</span>

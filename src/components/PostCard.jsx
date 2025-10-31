@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { doc, updateDoc, increment, arrayUnion, arrayRemove, getDoc } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { useAuth } from '../contexts/AuthContext';
-import { createOrGroupLikeNotification } from '../utils/notifications';
+import { createOrGroupLikeNotification, createOrGroupShareNotification } from '../utils/notifications';
 import { saveItem, unsaveItem, isItemSaved } from '../utils/savedItems';
 import FavoriteIcon from '@mui/icons-material/Favorite';
 import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
@@ -145,6 +145,19 @@ const PostCard = ({ post }) => {
         await navigator.clipboard.writeText(url);
         alert('Link copied to clipboard!');
       }
+
+      // Create grouped share notification for post author
+      try {
+        if (post?.authorId && currentUser?.uid !== post.authorId) {
+          await createOrGroupShareNotification(post.authorId, {
+            senderId: currentUser.uid,
+            senderName: userProfile?.name || currentUser.displayName || 'Someone',
+            postId: post.id,
+            postTitle: post.title || '',
+            postType: 'campaign'
+          });
+        }
+      } catch {/* non-fatal */}
     } catch (error) {
       if (error.name !== 'AbortError') {
         console.error('Error sharing:', error);

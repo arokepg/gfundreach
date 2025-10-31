@@ -30,6 +30,7 @@ CI/CD and Hosting
 - Campaign completion UX: progress bar turns blue with a shimmering animation and a “Completed” badge when the goal is reached
 - Donation safety: client enforces a strict donation cap (see below) via Firestore transactions; no over-funding
 - Wallet and stats: profile shows “Helped” and “Helpers” counts; wallet displays effective balance and totals; campaign stats surface unique donors, likes, shares, views/visitors
+- Friends: send/accept/cancel friend requests and unfriend from campaign author cards via a smart Add Friend button
 - Error resilience: global ErrorBoundary; resilient Firestore fetching that avoids white screens and reduces long-lived listeners
 - React Query: automatic loading states, error handling, and caching for Home, Saved, and Groups
 
@@ -68,6 +69,8 @@ src/
 
 docs/
   CLOUD_FUNCTIONS.md      # Safe server-side credits for donation recipients
+  FIRESTORE_RULES.md      # Security rules reference
+  FIRESTORE_INDEXES.md    # Composite indexes guide and fallback strategies
 ```
 
 ## ⚙️ React Query
@@ -98,13 +101,38 @@ Details and sample backend code: see `docs/CLOUD_FUNCTIONS.md`.
   - Helped: unique recipients a user has donated to
   - Helpers: unique donors who have donated to the user’s campaigns
 
-## 🧱 CI/CD (GitHub Actions)
+## 👥 Friends
+
+- Minimal, privacy-friendly friend system using a symmetric `friendships` collection:
+  - Status values: `pending`, `accepted`
+  - Deterministic doc id: `minUid_maxUid`
+- UI: `AddFriendButton` appears on user profiles for non-owners and supports Add, Accept, Cancel, and Unfriend.
+- Friends-only feed: Home page "Friends" tab filters campaigns and posts to show only content from your friends.
+- Profile friends list: View friends on user profiles with privacy controls (public/private toggle for your own list).
+- No composite index required; all queries that would need one have client-side fallbacks.
+
+## �🧱 CI/CD (GitHub Actions)
 
 Workflow: `.github/workflows/main.yml`
 - Triggers on pushes/PRs to `master`
 - Steps: Install → Lint → Test (`npm test --if-present`) → Build → Upload artifact
 - Production deploy to Vercel is gated behind a secrets check to avoid YAML parser issues and skipped safely when secrets are missing
 - Optional deploys: Firebase Hosting, GHCR image, Fly.io
+
+## 🗂️ Firestore Indexes
+
+This app is designed to work **without** requiring any composite indexes. All queries have graceful fallbacks (client-side sorting/filtering) to ensure the app works out of the box.
+
+For improved performance at scale, you can create optional composite indexes:
+
+- transactions: `donorId` asc, `createdAt` desc
+- transactions: `recipientId` asc, `createdAt` desc
+- friendships: `status` asc, `users` array-contains
+- updates (collection group): `authorId` asc, `createdAt` desc
+
+**See `docs/FIRESTORE_INDEXES.md` for a complete guide on creating and deploying indexes.**
+
+With indexes present, the app will automatically use them when available; without them, it falls back to simpler queries.
 
 ## 🧱 CI/CD (GitHub Actions)
 
