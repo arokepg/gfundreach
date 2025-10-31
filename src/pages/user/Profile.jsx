@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { collection, query, where, getDocs, orderBy, deleteDoc, doc, getDoc, collectionGroup, updateDoc } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import { useAuth } from '../../contexts/AuthContext';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useLocation } from 'react-router-dom';
 import Layout from '../../components/Layout';
 import PersonIcon from '@mui/icons-material/Person';
 import EditIcon from '@mui/icons-material/Edit';
@@ -22,7 +22,7 @@ import AddIcon from '@mui/icons-material/Add';
 import LockIcon from '@mui/icons-material/Lock';
 import PublicIcon from '@mui/icons-material/Public';
 import AddFriendButton from '../../components/AddFriendButton';
-import { listFriendIds } from '../../utils/friends';
+import { listFriendIds, getFriendshipStatus, acceptFriendRequest, cancelFriendRequest } from '../../utils/friends';
 import { calculateWalletStats } from '../../utils/walletHelpers';
 
 const Profile = () => {
@@ -41,9 +41,31 @@ const Profile = () => {
   const [donationFilter, setDonationFilter] = useState('all'); // 'all', '7days', '30days'
   const [receivedFilter, setReceivedFilter] = useState('all'); // 'all', '7days', '30days'
   const [friendsList, setFriendsList] = useState([]);
+  const [friendRequests, setFriendRequests] = useState([]); // received requests with user info
   const [friendsLoading, setFriendsLoading] = useState(false);
+  const [profileFriendStatus, setProfileFriendStatus] = useState(''); // status vs profileUserId
+  const [acceptedAnim, setAcceptedAnim] = useState(false);
   const [friendsPrivacy, setFriendsPrivacy] = useState('public'); // 'public' or 'private'
+  const location = useLocation();
+  // Sub-tab state for Friends area: 'friends' or 'requests'. Default to 'friends'
+  const [friendsSubTab, setFriendsSubTab] = useState('friends');
   const [walletStats, setWalletStats] = useState({ totalDonated: 0, totalReceived: 0 });
+
+  // If navigation provides a friendsSubTab in location.state or query, open Friends tab and set the sub-tab
+  useEffect(() => {
+    try {
+      const stateSub = location?.state?.friendsSubTab || location?.state?.friendsTab;
+      const querySub = new URLSearchParams(location?.search || '').get('friendsSubTab');
+      const initialSub = stateSub || querySub;
+      if (initialSub) {
+        setActiveTab('friends');
+        setFriendsSubTab(initialSub);
+      }
+    } catch {
+      // ignore
+    }
+    // Only run on mount / when location changes
+  }, [location]);
 
   // Determine if viewing own profile or another user's profile
   const isOwnProfile = !userId || userId === currentUser?.uid;
@@ -66,6 +88,19 @@ const Profile = () => {
       calculateWalletStats(profileUserId).then(stats => {
         setWalletStats(stats);
       });
+      // check friendship status against profile user (for header badge and accept/delete)
+      if (currentUser?.uid && profileUserId && !isOwnProfile) {
+        (async () => {
+          try {
+            const s = await getFriendshipStatus(currentUser.uid, profileUserId);
+            setProfileFriendStatus(s.status);
+          } catch {
+            setProfileFriendStatus('');
+          }
+        })();
+      } else {
+        setProfileFriendStatus('');
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profileUserId, userId]);
@@ -86,8 +121,15 @@ const Profile = () => {
     setFriendsLoading(true);
     try {
       const ids = await listFriendIds(profileUserId);
+      
+      // Filter out the profile owner from the IDs list immediately
+      const filteredIds = ids.filter(id => id !== profileUserId);
+      
       const friendsData = await Promise.all(
-        ids.map(async (id) => {
+        filteredIds.map(async (id) => {
+          // Extra safety: skip if id matches profileUserId
+          if (id === profileUserId) return null;
+          
           try {
             const userDoc = await getDoc(doc(db, 'users', id));
             if (userDoc.exists()) {
@@ -99,7 +141,24 @@ const Profile = () => {
           }
         })
       );
-      setFriendsList(friendsData.filter(Boolean));
+      let allFriends = friendsData.filter(Boolean);
+      
+      // Triple-check: Remove the profile owner from their own friends list display
+      allFriends = allFriends.filter(friend => friend && friend.id && friend.id !== profileUserId);
+      
+      // If viewing someone else's profile and their list is private, only show mutual friends
+      if (!isOwnProfile && friendsPrivacy === 'private' && currentUser?.uid) {
+        try {
+          const myFriendIds = await listFriendIds(currentUser.uid);
+          // Only keep friends that are also in the current user's friend list (mutual friends)
+          allFriends = allFriends.filter(friend => myFriendIds.includes(friend.id));
+        } catch (error) {
+          console.error('Error filtering mutual friends:', error);
+          allFriends = [];
+        }
+      }
+      
+      setFriendsList(allFriends);
     } catch (error) {
       console.error('Error fetching friends list:', error);
     } finally {
@@ -122,16 +181,91 @@ const Profile = () => {
 
   useEffect(() => {
     if (activeTab === 'friends') {
-      // Check privacy: if viewing others and their list is private, don't fetch
-      if (!isOwnProfile && friendsPrivacy === 'private') {
-        setFriendsList([]);
-        setFriendsLoading(false);
+      // When viewing others' profile, always show 'friends' tab (no Requests)
+      if (!isOwnProfile) {
+        setFriendsSubTab('friends');
       } else {
-        fetchFriendsList();
+        // Ensure sub-tab default when user navigates to Friends tab without deep-link
+        // Priority: location.state.friendsSubTab -> query param friendsSubTab -> default 'friends'
+        try {
+          const stateSub = location?.state?.friendsSubTab || location?.state?.friendsTab;
+          const querySub = new URLSearchParams(location?.search || '').get('friendsSubTab');
+          const initialSub = stateSub || querySub || 'friends';
+          setFriendsSubTab(initialSub);
+        } catch {
+          setFriendsSubTab('friends');
+        }
       }
+
+      // Always fetch friends list, the fetchFriendsList will handle privacy filtering
+      fetchFriendsList();
+      // Also fetch pending friend requests for current user (received) - only on own profile
+      if (isOwnProfile && currentUser?.uid) fetchFriendRequests();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, profileUserId]);
+  }, [activeTab, profileUserId, friendsPrivacy]);
+
+  const fetchFriendRequests = async () => {
+    if (!currentUser?.uid) return;
+    try {
+      // Query friendships with status 'pending' where current user is in users
+      const { collection, query, where, getDocs } = await import('firebase/firestore');
+      const { db } = await import('../../config/firebase');
+      const col = collection(db, 'friendships');
+      const q = query(col, where('status', '==', 'pending'), where('users', 'array-contains', currentUser.uid));
+      const snap = await getDocs(q);
+      const requests = [];
+      for (const d of snap.docs) {
+        const data = d.data() || {};
+        if (data.requestedBy && data.requestedBy !== currentUser.uid) {
+          // requestedBy is the sender
+          try {
+            const userDoc = await getDoc(doc(db, 'users', data.requestedBy));
+            if (userDoc.exists()) {
+              requests.push({ id: data.requestedBy, ...userDoc.data() });
+            } else {
+              requests.push({ id: data.requestedBy });
+            }
+          } catch {
+            requests.push({ id: data.requestedBy });
+          }
+        }
+      }
+      setFriendRequests(requests);
+    } catch (err) {
+      console.error('Error fetching friend requests:', err);
+    }
+  };
+
+  const handleAcceptRequest = async (senderId) => {
+    if (!currentUser?.uid) return;
+    // Optimistic UI: immediately show friend state + small animation
+    setProfileFriendStatus('friends');
+    setAcceptedAnim(true);
+    try {
+      await acceptFriendRequest(currentUser.uid, senderId, currentUser.displayName || currentUser.email || 'Someone');
+      // refresh lists from server to ensure consistency
+      fetchFriendsList();
+      fetchFriendRequests();
+    } catch (err) {
+      console.error('Failed to accept friend request:', err);
+      // Revert optimistic update on failure
+      setProfileFriendStatus('pending-received');
+    } finally {
+      // End animation after short delay
+      setTimeout(() => setAcceptedAnim(false), 700);
+    }
+  };
+
+  const handleDeleteRequest = async (senderId) => {
+    if (!currentUser?.uid) return;
+    try {
+      await cancelFriendRequest(currentUser.uid, senderId);
+      fetchFriendRequests();
+    } catch (err) {
+      console.error('Failed to delete/cancel friend request:', err);
+    }
+  };
 
   const fetchViewedUserProfile = async () => {
     try {
@@ -400,7 +534,14 @@ const Profile = () => {
     <Layout>
       <div className="max-w-7xl mx-auto px-4 animate-fade-in">
         {/* Profile Header */}
-        <div className="card p-6 mb-6 animate-slide-in-up">
+        <div
+          className="card p-6 mb-6 animate-slide-in-up"
+          style={{
+            transform: acceptedAnim ? 'scale(1.02)' : 'scale(1)',
+            transition: 'transform 320ms ease, box-shadow 320ms ease',
+            boxShadow: acceptedAnim ? '0 8px 30px rgba(34,197,94,0.08)' : undefined
+          }}
+        >
           <div className="flex items-center gap-6">
             {/* Profile Picture */}
             <div className="w-32 h-32 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center shrink-0">
@@ -440,8 +581,18 @@ const Profile = () => {
                 {userProfile?.title || userProfile?.bio || 'username'}
               </p>
               {!isOwnProfile && (
-                <div className="mt-3">
-                  <AddFriendButton targetUserId={profileUserId} targetName={userProfile?.displayName || ''} />
+                <div className="mt-3 flex items-center gap-3">
+                  {/* If already friends, show badge on the left */}
+                  {profileFriendStatus === 'friends' && (
+                    <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-green-50 text-green-700 font-medium">Friends</span>
+                  )}
+
+                  <AddFriendButton 
+                    targetUserId={profileUserId} 
+                    targetName={userProfile?.displayName || ''} 
+                    hideInlineActions={true}
+                    onStatusChange={(newStatus) => setProfileFriendStatus(newStatus)}
+                  />
                 </div>
               )}
             </div>
@@ -1117,9 +1268,36 @@ const Profile = () => {
             {activeTab === 'friends' && (
               <div className="card p-6">
                 <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-2xl font-bold" style={{ color: 'var(--text)' }}>
-                    Friends {friendsList.length > 0 && `(${friendsList.length})`}
-                  </h2>
+                  {/* Move sub-tabs into header and remove big H2 */}
+                  <div className="inline-flex items-center gap-4">
+                    {/* Only show Requests button on own profile */}
+                    {isOwnProfile && (
+                      <button
+                        onClick={() => setFriendsSubTab('requests')}
+                        className={`px-5 py-2.5 rounded-full transition-all font-semibold text-base sm:text-lg ${
+                          friendsSubTab === 'requests'
+                            ? 'bg-green-400 text-white shadow-md'
+                            : 'bg-green-50 text-green-700 hover:bg-green-400 hover:text-white'
+                        }`}
+                        aria-pressed={friendsSubTab === 'requests'}
+                      >
+                        Requests
+                      </button>
+                    )}
+
+                    <button
+                      onClick={() => setFriendsSubTab('friends')}
+                      className={`px-5 py-2.5 rounded-full transition-all font-semibold text-base sm:text-lg ${
+                        friendsSubTab === 'friends'
+                          ? 'bg-green-400 text-white shadow-md'
+                          : 'bg-green-50 text-green-700 hover:bg-green-400 hover:text-white'
+                      }`}
+                      aria-pressed={friendsSubTab === 'friends'}
+                    >
+                      Friends
+                    </button>
+                  </div>
+
                   {isOwnProfile && (
                     <button
                       onClick={toggleFriendsPrivacy}
@@ -1141,56 +1319,110 @@ const Profile = () => {
                   )}
                 </div>
 
-                {!isOwnProfile && friendsPrivacy === 'private' ? (
-                  <div className="text-center py-12">
-                    <LockIcon className="text-gray-400 mb-4" sx={{ fontSize: 48 }} />
-                    <p className="text-themed-secondary">This user's friends list is private</p>
-                  </div>
-                ) : friendsLoading ? (
-                  <div className="text-center py-12">
-                    <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div>
-                    <p className="mt-4 text-gray-600 dark:text-gray-400">Loading friends...</p>
-                  </div>
-                ) : friendsList.length === 0 ? (
-                  <div className="text-center py-12">
-                    <p className="text-themed-secondary">
-                      {isOwnProfile ? 'You haven\'t added any friends yet' : 'No friends to show'}
-                    </p>
+                {/* Only show Requests content on own profile */}
+                {friendsSubTab === 'requests' && isOwnProfile ? (
+                  <div>
+                    {friendRequests.length === 0 ? (
+                      <div className="text-center py-12">
+                        <p className="text-themed-secondary">You don't have any friend requests</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {friendRequests.map((req) => (
+                          <div key={req.id} className="card p-4 flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <Link to={`/profile/${req.id}`} state={{ friendsSubTab: 'requests' }} className="w-12 h-12 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden flex-shrink-0">
+                                {req.photoURL ? (
+                                  <img src={req.photoURL} alt={req.displayName || req.email} className="w-12 h-12 object-cover" />
+                                ) : (
+                                  <PersonIcon className="text-gray-400" />
+                                )}
+                              </Link>
+                              <div>
+                                <Link to={`/profile/${req.id}`} state={{ friendsSubTab: 'requests' }} className="font-medium" style={{ color: 'var(--text)' }}>{req.displayName || req.email || 'Anonymous'}</Link>
+                                {req.title && <div className="text-sm text-gray-500">{req.title}</div>}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <button onClick={() => handleAcceptRequest(req.id)} className="px-4 py-2 bg-green-400 text-white rounded-full font-medium hover:bg-green-500">Accept</button>
+                              <button onClick={() => handleDeleteRequest(req.id)} className="px-4 py-2 bg-gray-100 text-gray-700 rounded-full font-medium hover:bg-gray-200">Delete</button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                    {friendsList.map((friend) => (
-                      <Link
-                        key={friend.id}
-                        to={`/profile/${friend.id}`}
-                        className="card p-4 hover:shadow-md transition-shadow flex items-center gap-3"
-                      >
-                        <div className="w-12 h-12 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center overflow-hidden shrink-0">
-                          {friend.photoURL ? (
-                            <img
-                              src={friend.photoURL}
-                              alt={friend.displayName || 'Friend'}
-                              className="w-12 h-12 object-cover"
-                              loading="lazy"
-                              referrerPolicy="no-referrer"
-                            />
-                          ) : (
-                            <PersonIcon className="text-gray-400" />
-                          )}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium truncate" style={{ color: 'var(--text)' }}>
-                            {friend.displayName || friend.email || 'Anonymous'}
+                  null
+                )}
+
+                {friendsSubTab === 'friends' && (
+                  friendsLoading ? (
+                    <div className="text-center py-12">
+                      <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div>
+                      <p className="mt-4 text-gray-600 dark:text-gray-400">Loading friends...</p>
+                    </div>
+                  ) : friendsList.length === 0 ? (
+                    <div className="text-center py-12">
+                      {!isOwnProfile && friendsPrivacy === 'private' ? (
+                        <>
+                          <LockIcon className="text-gray-400 mb-4" sx={{ fontSize: 48 }} />
+                          <p className="text-themed-secondary">This user's friends list is private</p>
+                          <p className="text-sm text-gray-500 mt-2">Only mutual friends are shown</p>
+                        </>
+                      ) : (
+                        <p className="text-themed-secondary">
+                          {isOwnProfile ? 'You haven\'t added any friends yet' : 'No friends to show'}
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <>
+                      {!isOwnProfile && friendsPrivacy === 'private' && friendsList.length > 0 && (
+                        <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg flex items-center gap-2">
+                          <LockIcon className="text-blue-600 dark:text-blue-400" fontSize="small" />
+                          <p className="text-sm text-blue-700 dark:text-blue-300">
+                            This user's friends list is private. Showing {friendsList.length} mutual friend{friendsList.length > 1 ? 's' : ''}.
                           </p>
-                          {friend.title && (
-                            <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
-                              {friend.title}
-                            </p>
-                          )}
                         </div>
-                      </Link>
-                    ))}
-                  </div>
+                      )}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                        {friendsList
+                          .filter(friend => friend && friend.id && friend.id !== profileUserId)
+                          .map((friend) => (
+                          <Link
+                            key={friend.id}
+                          to={`/profile/${friend.id}`}
+                          className="card p-4 hover:shadow-md transition-shadow flex items-center gap-3"
+                        >
+                          <div className="w-12 h-12 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center overflow-hidden shrink-0">
+                            {friend.photoURL ? (
+                              <img
+                                src={friend.photoURL}
+                                alt={friend.displayName || 'Friend'}
+                                className="w-12 h-12 object-cover"
+                                loading="lazy"
+                                referrerPolicy="no-referrer"
+                              />
+                            ) : (
+                              <PersonIcon className="text-gray-400" />
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium truncate" style={{ color: 'var(--text)' }}>
+                              {friend.displayName || friend.email || 'Anonymous'}
+                            </p>
+                            {friend.title && (
+                              <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
+                                {friend.title}
+                              </p>
+                            )}
+                          </div>
+                        </Link>
+                      ))}
+                    </div>
+                    </>
+                  )
                 )}
               </div>
             )}

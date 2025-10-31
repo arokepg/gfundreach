@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { collection, query, where, orderBy, onSnapshot, doc, updateDoc, deleteDoc, limit, getDocs } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { useAuth } from '../contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import { formatNotificationMessage, getTimeAgo } from '../utils/notifications';
 import NotificationsIcon from '@mui/icons-material/Notifications';
 import CloseIcon from '@mui/icons-material/Close';
@@ -20,6 +21,7 @@ const NotificationDropdown = () => {
   const { currentUser } = useAuth();
   
   const dropdownRef = useRef(null);
+  const navigate = useNavigate();
 
   // Handle smooth close animation
   const handleClose = () => {
@@ -163,6 +165,24 @@ const NotificationDropdown = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, unreadCount]);
 
+  const handleNotificationClick = async (notification) => {
+    try {
+      await markAsRead(notification.id);
+    } catch {
+      // ignore
+    }
+
+    // If this is a friend request, navigate to own profile Requests sub-tab
+    if (notification.type === 'friend_request') {
+      // Close dropdown then navigate
+      setIsOpen(false);
+      navigate('/profile', { state: { friendsSubTab: 'requests' } });
+      return;
+    }
+
+    // For other notification types we currently just mark as read
+  };
+
   return (
     <div className="relative" ref={dropdownRef}>
       {/* Notification Button */}
@@ -228,7 +248,7 @@ const NotificationDropdown = () => {
                   className={`px-4 py-4 lg:py-3 border-b border-surface transition-colors cursor-pointer ${
                     !notification.read ? 'bg-green-50/50 dark:bg-green-900/10' : ''
                   }`}
-                  onClick={() => markAsRead(notification.id)}
+                  onClick={() => handleNotificationClick(notification)}
                   onMouseEnter={(e)=>{ e.currentTarget.style.backgroundColor = !notification.read ? 'rgba(34,197,94,0.1)' : 'var(--hover-bg)'; }}
                   onMouseLeave={(e)=>{ e.currentTarget.style.backgroundColor = !notification.read ? 'rgba(34,197,94,0.05)' : 'transparent'; }}
                 >

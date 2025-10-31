@@ -4,7 +4,7 @@ import { getFriendshipStatus, sendFriendRequest, acceptFriendRequest, cancelFrie
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../config/firebase';
 
-const AddFriendButton = ({ targetUserId, targetName }) => {
+const AddFriendButton = ({ targetUserId, targetName, hideInlineActions = false, onStatusChange }) => {
   const { currentUser } = useAuth();
   const [status, setStatus] = useState('loading');
   const [busy, setBusy] = useState(false);
@@ -43,28 +43,44 @@ const AddFriendButton = ({ targetUserId, targetName }) => {
 
   const handleSend = async () => {
     setBusy(true);
-    try { await sendFriendRequest(me, targetUserId, senderName); setStatus('pending-sent'); } finally { setBusy(false); }
+    try { 
+      await sendFriendRequest(me, targetUserId, senderName); 
+      setStatus('pending-sent');
+      if (onStatusChange) onStatusChange('pending-sent');
+    } finally { setBusy(false); }
   };
   const handleAccept = async () => {
     setBusy(true);
-    try { await acceptFriendRequest(me, targetUserId, senderName); setStatus('friends'); } finally { setBusy(false); }
+    try { 
+      await acceptFriendRequest(me, targetUserId, senderName); 
+      setStatus('friends');
+      if (onStatusChange) onStatusChange('friends');
+    } finally { setBusy(false); }
   };
   const handleCancel = async () => {
     setBusy(true);
-    try { await cancelFriendRequest(me, targetUserId); setStatus('none'); } finally { setBusy(false); }
+    try { 
+      await cancelFriendRequest(me, targetUserId); 
+      setStatus('none');
+      if (onStatusChange) onStatusChange('none');
+    } finally { setBusy(false); }
   };
   const handleUnfriend = async () => {
     setBusy(true);
-    try { await removeFriend(me, targetUserId); setStatus('none'); } finally { setBusy(false); }
+    try { 
+      await removeFriend(me, targetUserId); 
+      setStatus('none');
+      if (onStatusChange) onStatusChange('none');
+    } finally { setBusy(false); }
   };
 
   switch (status) {
     case 'friends':
+      // When already friends, only render the Unfriend control (parent can render a Friends badge)
       return (
-        <div className="flex items-center gap-2">
-          <span className="text-green-600 text-sm">Friends</span>
-          <button onClick={handleUnfriend} className={`${base} border-red-200 text-red-600 hover:bg-red-50`}>Unfriend</button>
-        </div>
+        <button onClick={handleUnfriend} className={`${base} rounded-full border-red-200 text-red-600 hover:bg-red-50`}>
+          Unfriend
+        </button>
       );
     case 'pending-sent':
       return (
@@ -74,6 +90,11 @@ const AddFriendButton = ({ targetUserId, targetName }) => {
         </div>
       );
     case 'pending-received':
+      if (hideInlineActions) {
+        // When parent wants to hide inline actions (profile header), don't show Accept/Decline here
+        return null;
+      }
+
       return (
         <div className="flex items-center gap-2">
           <button onClick={handleAccept} className={`${base} border-green-300 text-green-700 hover:bg-green-50`}>Accept</button>

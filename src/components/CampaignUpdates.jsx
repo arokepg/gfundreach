@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { collection, addDoc, query, orderBy, getDocs, serverTimestamp, updateDoc, doc, increment, deleteDoc, getDoc, arrayUnion, arrayRemove, where } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { db, storage } from '../config/firebase';
+import { db } from '../config/firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { useQueryClient } from '@tanstack/react-query';
 import { createNotification, createOrGroupLikeNotification } from '../utils/notifications';
 import { compressImageFile } from '../utils/imageUtils';
+import { uploadImage } from '../utils/uploadHelpers';
 import { saveItem, unsaveItem, isItemSaved } from '../utils/savedItems';
 import PersonIcon from '@mui/icons-material/Person';
 import EditIcon from '@mui/icons-material/Edit';
@@ -99,22 +99,44 @@ const CampaignUpdates = ({ campaignId, onUpdateCountChange }) => {
   const handleImageChange = async (e) => {
     const file = e.target.files[0];
     if (file) {
-      const compressed = await compressImageFile(file, 1600, 0.82);
-      setImage(compressed);
-      const reader = new FileReader();
-      reader.onloadend = () => setImagePreview(reader.result);
-      reader.readAsDataURL(compressed);
+      try {
+        setError('Compressing image...');
+        // Ultra-aggressive compression to 400KB max
+        const compressed = await compressImageFile(file, 1000, 0.7, 400);
+        console.log(`Original: ${(file.size / 1024).toFixed(0)}KB → Compressed: ${(compressed.size / 1024).toFixed(0)}KB`);
+        setImage(compressed);
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setImagePreview(reader.result);
+          setError('');
+        };
+        reader.readAsDataURL(compressed);
+      } catch (err) {
+        console.error('Image compression failed:', err);
+        setError('Failed to process image. Please try a different image.');
+      }
     }
   };
 
   const handleEditImageChange = async (e) => {
     const file = e.target.files[0];
     if (file) {
-      const compressed = await compressImageFile(file, 1600, 0.82);
-      setEditImage(compressed);
-      const reader = new FileReader();
-      reader.onloadend = () => setEditImagePreview(reader.result);
-      reader.readAsDataURL(compressed);
+      try {
+        setError('Compressing image...');
+        // Ultra-aggressive compression to 400KB max
+        const compressed = await compressImageFile(file, 1000, 0.7, 400);
+        console.log(`Original: ${(file.size / 1024).toFixed(0)}KB → Compressed: ${(compressed.size / 1024).toFixed(0)}KB`);
+        setEditImage(compressed);
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setEditImagePreview(reader.result);
+          setError('');
+        };
+        reader.readAsDataURL(compressed);
+      } catch (err) {
+        console.error('Image compression failed:', err);
+        setError('Failed to process image. Please try a different image.');
+      }
     }
   };
 
@@ -143,11 +165,19 @@ const CampaignUpdates = ({ campaignId, onUpdateCountChange }) => {
       } catch (err) {
         console.warn('Failed to fetch parent campaign title', err);
       }
-      // Upload image if provided
+      // Upload image if provided - using new upload helper with retry
       if (image) {
-        const imageRef = ref(storage, `community-posts/${campaignId}/${Date.now()}_${image.name}`);
-        await uploadBytes(imageRef, image);
-        imageUrl = await getDownloadURL(imageRef);
+        try {
+          console.log('Starting community post image upload with retry mechanism...');
+          const storagePath = `community-posts/${campaignId}/${Date.now()}_${image.name || 'image.jpg'}`;
+          imageUrl = await uploadImage(image, storagePath, (progress) => {
+            console.log(`Upload progress: ${progress.toFixed(0)}%`);
+          });
+          console.log('Community post image uploaded successfully:', imageUrl);
+        } catch (uploadError) {
+          console.error('Community post image upload failed after retries:', uploadError);
+          throw new Error(`Image upload failed: ${uploadError.message}. Please check your internet connection and try again.`);
+        }
       }
 
       await addDoc(collection(db, 'posts', campaignId, 'updates'), {
@@ -260,11 +290,19 @@ const CampaignUpdates = ({ campaignId, onUpdateCountChange }) => {
       setUpdating(true);
 
       let imageUrl = editImagePreview;
-      // Upload new image if changed
+      // Upload new image if changed - using new upload helper with retry
       if (editImage) {
-        const imageRef = ref(storage, `community-posts/${campaignId}/${Date.now()}_${editImage.name}`);
-        await uploadBytes(imageRef, editImage);
-        imageUrl = await getDownloadURL(imageRef);
+        try {
+          console.log('Starting community post edit image upload with retry mechanism...');
+          const storagePath = `community-posts/${campaignId}/${Date.now()}_${editImage.name || 'image.jpg'}`;
+          imageUrl = await uploadImage(editImage, storagePath, (progress) => {
+            console.log(`Edit upload progress: ${progress.toFixed(0)}%`);
+          });
+          console.log('Community post edit image uploaded successfully:', imageUrl);
+        } catch (uploadError) {
+          console.error('Community post edit image upload failed after retries:', uploadError);
+          throw new Error(`Image upload failed: ${uploadError.message}. Please check your internet connection and try again.`);
+        }
       }
 
       await updateDoc(doc(db, 'posts', campaignId, 'updates', postId), {

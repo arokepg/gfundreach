@@ -1,14 +1,14 @@
 import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { collection, addDoc, getDocs, doc, getDoc } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { db, storage } from '../../config/firebase';
+import { db } from '../../config/firebase';
 import { createNotification } from '../../utils/notifications';
 import { useAuth } from '../../contexts/AuthContext';
 import Layout from '../../components/Layout';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { compressImageFile } from '../../utils/imageUtils';
+import { uploadImage } from '../../utils/uploadHelpers';
 
 const CreateCampaign = () => {
   const [formData, setFormData] = useState({
@@ -59,13 +59,28 @@ const CreateCampaign = () => {
   const handleImageChange = async (e) => {
     const file = e.target.files[0];
     if (file) {
-      const compressed = await compressImageFile(file, 1600, 0.82);
-      setImage(compressed);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result);
-      };
-      reader.readAsDataURL(compressed);
+      try {
+        setLoading(true);
+        setError('Compressing image...');
+        
+        // Ultra-aggressive compression to 400KB max
+        const compressed = await compressImageFile(file, 1000, 0.7, 400);
+        
+        console.log(`Original: ${(file.size / 1024).toFixed(0)}KB → Compressed: ${(compressed.size / 1024).toFixed(0)}KB`);
+        
+        setImage(compressed);
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setImagePreview(reader.result);
+          setError(''); // Clear compression message
+          setLoading(false);
+        };
+        reader.readAsDataURL(compressed);
+      } catch (err) {
+        console.error('Image compression failed:', err);
+        setError('Failed to process image. Please try a different image.');
+        setLoading(false);
+      }
     }
   };
 
@@ -88,11 +103,19 @@ const CreateCampaign = () => {
 
       let imageUrl = '';
       
-      // Upload image if provided
+      // Upload image if provided - using new upload helper with retry
       if (image) {
-        const imageRef = ref(storage, `posts/${currentUser.uid}/${Date.now()}_${image.name}`);
-        await uploadBytes(imageRef, image);
-        imageUrl = await getDownloadURL(imageRef);
+        try {
+          console.log('Starting image upload with retry mechanism...');
+          const storagePath = `posts/${currentUser.uid}/${Date.now()}_${image.name || 'image.jpg'}`;
+          imageUrl = await uploadImage(image, storagePath, (progress) => {
+            console.log(`Upload progress: ${progress.toFixed(0)}%`);
+          });
+          console.log('Image uploaded successfully:', imageUrl);
+        } catch (uploadError) {
+          console.error('Image upload failed after retries:', uploadError);
+          throw new Error(`Image upload failed: ${uploadError.message}. Please check your internet connection and try again.`);
+        }
       }
 
       // Prepare derived fields
