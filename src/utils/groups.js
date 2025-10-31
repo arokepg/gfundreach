@@ -5,50 +5,73 @@ import { createNotification } from './notifications';
 
 // Create a group with name, description and optional banner file
 export const createGroup = async (ownerId, { name, description = '', bannerFile = null }) => {
-  const groupData = {
-    name,
-    description,
-    ownerId,
-    createdAt: serverTimestamp(),
-    memberCount: 1,
-    postCount: 0,
-    bannerUrl: '',
-    privacy: 'public',
-    requireApproval: true,
-    deleted: false,
-  };
-
-  const groupRef = await addDoc(collection(db, 'groups'), groupData);
-
-  // Upload banner if provided
-  if (bannerFile) {
-    const bannerRef = ref(storage, `groups/${groupRef.id}/banner_${Date.now()}`);
-    await uploadBytes(bannerRef, bannerFile);
-    const url = await getDownloadURL(bannerRef);
-    await updateDoc(groupRef, { bannerUrl: url });
-  }
-
-  // Add owner as admin member with profile info
-  let displayName = 'User';
-  let photoURL = '';
+  let groupRef = null;
+  
   try {
-    const userSnap = await getDoc(doc(db, 'users', ownerId));
-    if (userSnap.exists()) {
-      const u = userSnap.data();
-      displayName = u.displayName || u.email || 'User';
-      photoURL = u.photoURL || '';
+    const groupData = {
+      name,
+      description,
+      ownerId,
+      createdAt: serverTimestamp(),
+      memberCount: 1,
+      postCount: 0,
+      bannerUrl: '',
+      privacy: 'public',
+      requireApproval: true,
+      deleted: false,
+    };
+
+    groupRef = await addDoc(collection(db, 'groups'), groupData);
+
+    // Upload banner if provided
+    if (bannerFile) {
+      try {
+        const bannerRef = ref(storage, `groups/${groupRef.id}/banner_${Date.now()}`);
+        await uploadBytes(bannerRef, bannerFile);
+        const url = await getDownloadURL(bannerRef);
+        await updateDoc(groupRef, { bannerUrl: url });
+      } catch (uploadErr) {
+        console.error('Banner upload failed, continuing without banner:', uploadErr);
+        // Continue without banner rather than failing entirely
+      }
     }
-  } catch { /* ignore profile fetch errors */ }
 
-  await setDoc(doc(db, 'groups', groupRef.id, 'members', ownerId), {
-    userId: ownerId,
-    role: 'admin',
-    joinedAt: serverTimestamp(),
-    displayName,
-    photoURL,
-  });
+    // Add owner as admin member with profile info
+    let displayName = 'User';
+    let photoURL = '';
+    try {
+      const userSnap = await getDoc(doc(db, 'users', ownerId));
+      if (userSnap.exists()) {
+        const u = userSnap.data();
+        displayName = u.displayName || u.email || 'User';
+        photoURL = u.photoURL || '';
+      }
+    } catch { /* ignore profile fetch errors */ }
 
-  return groupRef.id;
+    await setDoc(doc(db, 'groups', groupRef.id, 'members', ownerId), {
+      userId: ownerId,
+      role: 'admin',
+      joinedAt: serverTimestamp(),
+      displayName,
+      photoURL,
+    });
+
+    return groupRef.id;
+  } catch (err) {
+    // If group was created but something else failed, clean it up
+    if (groupRef) {
+      try {
+        await deleteDoc(doc(db, 'groups', groupRef.id));
+        // Try to delete the member doc too
+        try {
+          await deleteDoc(doc(db, 'groups', groupRef.id, 'members', ownerId));
+        } catch { /* ignore */ }
+      } catch (cleanupErr) {
+        console.error('Failed to cleanup group after error:', cleanupErr);
+      }
+    }
+    throw err;
+  }
 };
 
 export const getGroup = async (groupId) => {

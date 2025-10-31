@@ -148,6 +148,8 @@ const NotificationDropdown = () => {
         return <PersonAddIcon className="text-purple-600" />;
       case 'follow':
         return <PersonAddIcon className="text-green-500" />;
+      case 'friend_request':
+        return <PersonAddIcon className="text-blue-500" />;
       default:
         return <NotificationsIcon className="text-gray-500" />;
     }
@@ -191,7 +193,7 @@ const NotificationDropdown = () => {
           {/* Notification panel */}
           <div className={`fixed lg:absolute inset-0 lg:inset-auto lg:right-0 lg:top-full lg:mt-2 lg:w-96 surface lg:rounded-2xl shadow-xl border-0 lg:border border-surface z-50 overflow-hidden flex flex-col lg:max-h-[600px] ${isClosing ? 'notif-panel-exit lg:notif-dropdown-exit' : 'notif-panel-enter lg:notif-dropdown-enter'}`}>
             {/* Header */}
-            <div className="px-4 py-4 lg:py-3 border-b border-surface flex items-center justify-between flex-shrink-0">
+            <div className="px-4 py-4 lg:py-3 border-b border-surface flex items-center justify-between shrink-0">
               <h3 className="text-xl lg:text-lg font-bold text-themed">
                 Notifications
               </h3>
@@ -232,7 +234,7 @@ const NotificationDropdown = () => {
                 >
                   <div className="flex items-start space-x-3">
                     {/* Icon */}
-                    <div className="flex-shrink-0 mt-1">
+                    <div className="shrink-0 mt-1">
                       {getNotificationIcon(notification.type)}
                     </div>
 
@@ -252,7 +254,7 @@ const NotificationDropdown = () => {
                         e.stopPropagation();
                         deleteNotification(notification.id);
                       }}
-                      className="flex-shrink-0 p-2 lg:p-1 rounded-full transition-colors"
+                      className="shrink-0 p-2 lg:p-1 rounded-full transition-colors"
                       style={{ backgroundColor: 'transparent' }}
                       onMouseEnter={(e)=>{ e.currentTarget.style.backgroundColor = 'var(--hover-bg)'; }}
                       onMouseLeave={(e)=>{ e.currentTarget.style.backgroundColor = 'transparent'; }}
@@ -262,7 +264,7 @@ const NotificationDropdown = () => {
 
                     {/* Unread Indicator */}
                     {!notification.read && (
-                      <div className="flex-shrink-0 w-2 h-2 bg-green-500 rounded-full mt-2"></div>
+                      <div className="shrink-0 w-2 h-2 bg-green-500 rounded-full mt-2"></div>
                     )}
                   </div>
                 </div>
@@ -272,7 +274,7 @@ const NotificationDropdown = () => {
 
           {/* Footer */}
           {notifications.length > 0 && (
-            <div className="px-4 py-4 lg:py-3 border-t border-surface text-center flex-shrink-0">
+            <div className="px-4 py-4 lg:py-3 border-t border-surface text-center shrink-0">
               <button className="text-sm text-green-600 dark:text-green-400 hover:underline font-medium">
                 View all notifications
               </button>
