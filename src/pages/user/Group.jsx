@@ -186,36 +186,42 @@ const Group = () => {
                 <CloseIcon />
               </button>
             </div>
-            <form onSubmit={handleCreate} className="p-4 grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="md:col-span-1 space-y-3">
-                <div className="w-20 h-20 rounded-full overflow-hidden bg-gray-200 dark:bg-gray-800 flex items-center justify-center">
+            <form onSubmit={handleCreate} className="p-4 space-y-4">
+              <div className="space-y-3">
+                <label className="block text-sm font-medium text-themed">Group Banner</label>
+                <div className="relative w-full h-48 rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-800 border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-green-500 dark:hover:border-green-500 transition-colors cursor-pointer">
                   {bannerPreview ? (
                     <img src={bannerPreview} alt="banner" className="w-full h-full object-cover" />
                   ) : (
-                    <ImageIcon className="text-gray-400" />
+                    <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-400">
+                      <ImageIcon sx={{ fontSize: 48 }} />
+                      <p className="mt-2 text-sm">Click to upload banner image</p>
+                      <p className="mt-1 text-xs">Recommended: 1200x400px</p>
+                    </div>
                   )}
-                </div>
-                <div>
-                  <input id="banner-upload" type="file" accept="image/*" className="hidden" onChange={onBannerChange} />
-                  <label htmlFor="banner-upload" className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm cursor-pointer" style={{ backgroundColor: 'var(--hover-bg)' }}>
-                    <ImageIcon fontSize="small" /> Add banner
-                  </label>
+                  <input id="banner-upload" type="file" accept="image/*" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onChange={onBannerChange} />
                 </div>
               </div>
-              <div className="md:col-span-2 space-y-3">
-                <input
-                  className="input-field w-full"
-                  placeholder="Group name"
-                  value={name}
-                  onChange={(e)=> setName(e.target.value)}
-                />
-                <textarea
-                  className="input-field w-full min-h-[120px]"
-                  placeholder="Description (optional)"
-                  value={description}
-                  onChange={(e)=> setDescription(e.target.value)}
-                />
-                <div className="flex justify-end gap-2">
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-sm font-medium text-themed mb-2">Group Name *</label>
+                  <input
+                    className="input-field w-full"
+                    placeholder="Enter group name"
+                    value={name}
+                    onChange={(e)=> setName(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-themed mb-2">Description (optional)</label>
+                  <textarea
+                    className="input-field w-full min-h-[120px]"
+                    placeholder="Describe what your group is about..."
+                    value={description}
+                    onChange={(e)=> setDescription(e.target.value)}
+                  />
+                </div>
+                <div className="flex justify-end gap-2 pt-2">
                   <button type="button" onClick={()=> setShowCreate(false)} className="px-4 py-2 rounded-lg text-themed" style={{ backgroundColor: 'var(--hover-bg)' }}>Cancel</button>
                   <button disabled={!name.trim() || creating} className="px-4 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white disabled:opacity-60">{creating ? 'Creating...' : 'Create'}</button>
                 </div>

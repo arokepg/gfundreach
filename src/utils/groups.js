@@ -123,6 +123,11 @@ export const leaveGroup = async (groupId, userId) => {
     const groupName = gSnap.data()?.name || 'Group';
     await createNotification(userId, 'group_leave_success', { senderId: userId, groupId, groupName });
   } catch {/* non-fatal */}
+  
+  // Check if group is now empty and delete if so
+  try {
+    await cleanupEmptyGroup(groupId);
+  } catch {/* non-fatal */}
 };
 
 export const removeMember = async (groupId, userId) => {
@@ -135,6 +140,12 @@ export const removeMember = async (groupId, userId) => {
     const groupName = gSnap.data()?.name || 'Group';
     await createNotification(userId, 'group_kicked', { senderId: userId, groupId, groupName });
   } catch {/* non-fatal */}
+  
+  // Check if group is now empty and delete if so
+  try {
+    await cleanupEmptyGroup(groupId);
+  } catch {/* non-fatal */}
+  
   return true;
 };
 
@@ -244,5 +255,38 @@ export const updateGroup = async (groupId, { name, description, bannerFile }) =>
 };
 
 export const softDeleteGroup = async (groupId) => {
-  await updateDoc(doc(db, 'groups', groupId), { deleted: true });
+  // Actually delete the group document and all subcollections
+  try {
+    // Delete all members
+    const membersSnapshot = await getDocs(collection(db, 'groups', groupId, 'members'));
+    const memberDeletes = membersSnapshot.docs.map(doc => deleteDoc(doc.ref));
+    await Promise.all(memberDeletes);
+
+    // Delete all group posts
+    const postsSnapshot = await getDocs(collection(db, 'groups', groupId, 'posts'));
+    const postDeletes = postsSnapshot.docs.map(doc => deleteDoc(doc.ref));
+    await Promise.all(postDeletes);
+
+    // Delete the group itself
+    await deleteDoc(doc(db, 'groups', groupId));
+  } catch (err) {
+    console.error('Error deleting group:', err);
+    throw err;
+  }
+};
+
+// Check if group has no members and delete if empty
+export const cleanupEmptyGroup = async (groupId) => {
+  try {
+    const membersSnapshot = await getDocs(collection(db, 'groups', groupId, 'members'));
+    if (membersSnapshot.empty) {
+      console.log(`Group ${groupId} has no members, deleting...`);
+      await softDeleteGroup(groupId);
+      return true;
+    }
+    return false;
+  } catch (err) {
+    console.error('Error checking group members:', err);
+    return false;
+  }
 };

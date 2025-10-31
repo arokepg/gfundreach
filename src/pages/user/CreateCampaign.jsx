@@ -8,6 +8,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import Layout from '../../components/Layout';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import { compressImageFile } from '../../utils/imageUtils';
 
 const CreateCampaign = () => {
   const [formData, setFormData] = useState({
@@ -55,15 +56,16 @@ const CreateCampaign = () => {
     });
   };
 
-  const handleImageChange = (e) => {
+  const handleImageChange = async (e) => {
     const file = e.target.files[0];
     if (file) {
-      setImage(file);
+      const compressed = await compressImageFile(file, 1600, 0.82);
+      setImage(compressed);
       const reader = new FileReader();
       reader.onloadend = () => {
         setImagePreview(reader.result);
       };
-      reader.readAsDataURL(file);
+      reader.readAsDataURL(compressed);
     }
   };
 

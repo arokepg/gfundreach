@@ -26,12 +26,20 @@ export const ThemeProvider = ({ children }) => {
     const root = document.documentElement;
     
     if (isDarkMode) {
+      root.classList.add('theme-xfade');
       root.classList.add('dark');
       localStorage.setItem('theme', 'dark');
     } else {
+      root.classList.add('theme-xfade');
       root.classList.remove('dark');
       localStorage.setItem('theme', 'light');
     }
+
+    // Remove transition helper class after animation
+    const t = setTimeout(() => {
+      root.classList.remove('theme-xfade');
+    }, 250);
+    return () => clearTimeout(t);
   }, [isDarkMode]);
 
   const toggleTheme = () => {

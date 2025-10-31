@@ -6,6 +6,7 @@ import { db, storage } from '../config/firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { useQueryClient } from '@tanstack/react-query';
 import { createNotification, createOrGroupLikeNotification } from '../utils/notifications';
+import { compressImageFile } from '../utils/imageUtils';
 import { saveItem, unsaveItem, isItemSaved } from '../utils/savedItems';
 import PersonIcon from '@mui/icons-material/Person';
 import EditIcon from '@mui/icons-material/Edit';
@@ -95,23 +96,25 @@ const CampaignUpdates = ({ campaignId, onUpdateCountChange }) => {
     }
   };
 
-  const handleImageChange = (e) => {
+  const handleImageChange = async (e) => {
     const file = e.target.files[0];
     if (file) {
-      setImage(file);
+      const compressed = await compressImageFile(file, 1600, 0.82);
+      setImage(compressed);
       const reader = new FileReader();
       reader.onloadend = () => setImagePreview(reader.result);
-      reader.readAsDataURL(file);
+      reader.readAsDataURL(compressed);
     }
   };
 
-  const handleEditImageChange = (e) => {
+  const handleEditImageChange = async (e) => {
     const file = e.target.files[0];
     if (file) {
-      setEditImage(file);
+      const compressed = await compressImageFile(file, 1600, 0.82);
+      setEditImage(compressed);
       const reader = new FileReader();
       reader.onloadend = () => setEditImagePreview(reader.result);
-      reader.readAsDataURL(file);
+      reader.readAsDataURL(compressed);
     }
   };
 
@@ -440,7 +443,7 @@ const CampaignUpdates = ({ campaignId, onUpdateCountChange }) => {
             </div>
           )}
           <div className="flex gap-3">
-            <div className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center flex-shrink-0">
+            <div className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center shrink-0">
               {currentUser.photoURL ? (
                 <img
                   src={currentUser.photoURL}
@@ -454,7 +457,7 @@ const CampaignUpdates = ({ campaignId, onUpdateCountChange }) => {
             </div>
             <div className="flex-1 space-y-2">
               <textarea
-                className="input-field min-h-[80px]"
+                className="input-field min-h-20"
                 placeholder="Share your thoughts about this campaign..."
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
@@ -479,7 +482,7 @@ const CampaignUpdates = ({ campaignId, onUpdateCountChange }) => {
               {/* Image preview */}
               {imagePreview && (
                 <div className="relative inline-block">
-                  <img src={imagePreview} alt="Preview" className="w-32 h-32 object-cover rounded-lg" />
+                  <img src={imagePreview} alt="Preview" className="w-32 h-32 object-cover rounded-lg" loading="lazy" decoding="async" />
                   <button
                     type="button"
                     onClick={() => { setImage(null); setImagePreview(null); }}
@@ -539,7 +542,7 @@ const CampaignUpdates = ({ campaignId, onUpdateCountChange }) => {
                 /* Edit mode */
                 <div className="space-y-3">
                   <div className="flex items-center gap-3 mb-3">
-                    <div className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center flex-shrink-0">
+                    <div className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center shrink-0">
                       {upd.authorPhoto ? (
                         <img
                           src={upd.authorPhoto}
@@ -558,7 +561,7 @@ const CampaignUpdates = ({ campaignId, onUpdateCountChange }) => {
                   </div>
                   
                   <textarea
-                    className="input-field min-h-[80px] w-full"
+                    className="input-field min-h-20 w-full"
                     value={editContent}
                     onChange={(e) => setEditContent(e.target.value)}
                   />
@@ -622,7 +625,7 @@ const CampaignUpdates = ({ campaignId, onUpdateCountChange }) => {
                 <>
                   {/* Author info */}
                   <div className="flex items-center gap-3 mb-3">
-                    <Link to={`/profile/${upd.authorId}`} className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center flex-shrink-0 overflow-hidden hover:opacity-90">
+                    <Link to={`/profile/${upd.authorId}`} className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center shrink-0 overflow-hidden hover:opacity-90">
                       {upd.authorPhoto ? (
                         <img
                           src={upd.authorPhoto}

@@ -16,14 +16,9 @@ service cloud.firestore {
         get(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid)).data.role in ['admin', 'moderator'];
     }
     function isSignedIn() {
+      # Firestore Security Rules (Proposed)
       return request.auth != null;
     }
-    function isOwner(uid) {
-      return isSignedIn() && request.auth.uid == uid;
-    }
-    
-    // Validate likedBy toggles safely without using unsupported statements
-    // Avoids 'let' and 'if' statements by returning a boolean expression.
     function listSize(l) {
       return l == null ? 0 : l.size();
     }
@@ -90,16 +85,11 @@ service cloud.firestore {
       // Any signed-in user can create a donation record for their donation
       allow create: if isSignedIn() && request.resource.data.donorId == request.auth.uid &&
         request.resource.data.type in ['donation', 'topup', 'withdraw'];
-    }
 
     // Saved items (bookmarks)
     match /savedItems/{sid} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
       // Doc ID convention: `${userId}_${itemId}`
       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
-    }
-
     // Collections (user-defined lists)
     match /collections/{cid} {
       allow read: if isSignedIn() && resource.data.userId == request.auth.uid;

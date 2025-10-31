@@ -7,6 +7,7 @@ import { db, storage } from '../../config/firebase';
 import { useAuth } from '../../contexts/AuthContext';
 import Layout from '../../components/Layout';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import { compressImageFile } from '../../utils/imageUtils';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import CloseIcon from '@mui/icons-material/Close';
 
@@ -151,16 +152,17 @@ const EditCampaign = () => {
 		}));
 	};
 
-	const handleImageChange = (e) => {
-		const file = e.target.files[0];
-		if (file) {
-			setImage(file);
-			const reader = new FileReader();
-			reader.onloadend = () => {
-				setImagePreview(reader.result);
-			};
-			reader.readAsDataURL(file);
-		}
+	const handleImageChange = async (e) => {
+			const file = e.target.files[0];
+			if (file) {
+				const compressed = await compressImageFile(file, 1600, 0.82);
+				setImage(compressed);
+				const reader = new FileReader();
+				reader.onloadend = () => {
+					setImagePreview(reader.result);
+				};
+				reader.readAsDataURL(compressed);
+			}
 	};
 
 	const removeImage = () => {

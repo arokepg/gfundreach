@@ -479,10 +479,10 @@ const Profile = () => {
           <div className="flex border-b border-gray-200 dark:border-gray-700 overflow-x-auto scrollbar-hide" role="tablist" aria-label="Profile sections">
             <button
               onClick={() => setActiveTab('personal')}
-              className={`relative px-3 sm:px-6 py-2.5 sm:py-3 font-medium whitespace-nowrap transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500/40 hover:[background-color:var(--hover-bg)] text-xs sm:text-base ${
+              className={`relative px-3 sm:px-6 py-2.5 sm:py-3 font-medium whitespace-nowrap transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500/40 text-xs sm:text-base border-b-2 ${
                 activeTab === 'personal'
-                  ? 'text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/20 after:content-[""] after:absolute after:left-0 after:right-0 after:bottom-0 after:h-0.5 after:bg-green-600 dark:after:bg-green-500'
-                  : 'text-themed-secondary'
+                  ? 'text-green-700 dark:text-green-400 border-green-600 dark:border-green-500 bg-green-50 dark:bg-green-900/20'
+                  : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100 border-transparent'
               }`}
               role="tab"
               aria-selected={activeTab === 'personal'}
@@ -492,10 +492,10 @@ const Profile = () => {
             </button>
             <button
               onClick={() => setActiveTab('campaigns')}
-              className={`relative px-3 sm:px-6 py-2.5 sm:py-3 font-medium whitespace-nowrap transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500/40 hover:[background-color:var(--hover-bg)] text-xs sm:text-base ${
+              className={`relative px-3 sm:px-6 py-2.5 sm:py-3 font-medium whitespace-nowrap transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500/40 text-xs sm:text-base border-b-2 ${
                 activeTab === 'campaigns'
-                  ? 'text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/20 after:content-[""] after:absolute after:left-0 after:right-0 after:bottom-0 after:h-0.5 after:bg-green-600 dark:after:bg-green-500'
-                  : 'text-themed-secondary'
+                  ? 'text-green-700 dark:text-green-400 border-green-600 dark:border-green-500 bg-green-50 dark:bg-green-900/20'
+                  : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100 border-transparent'
               }`}
               role="tab"
               aria-selected={activeTab === 'campaigns'}
@@ -504,10 +504,10 @@ const Profile = () => {
             </button>
             <button
               onClick={() => setActiveTab('community')}
-              className={`relative px-3 sm:px-6 py-2.5 sm:py-3 font-medium whitespace-nowrap transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500/40 hover:[background-color:var(--hover-bg)] text-xs sm:text-base ${
+              className={`relative px-3 sm:px-6 py-2.5 sm:py-3 font-medium whitespace-nowrap transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500/40 text-xs sm:text-base border-b-2 ${
                 activeTab === 'community'
-                  ? 'text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/20 after:content-[""] after:absolute after:left-0 after:right-0 after:bottom-0 after:h-0.5 after:bg-green-600 dark:after:bg-green-500'
-                  : 'text-themed-secondary'
+                  ? 'text-green-700 dark:text-green-400 border-green-600 dark:border-green-500 bg-green-50 dark:bg-green-900/20'
+                  : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100 border-transparent'
               }`}
               role="tab"
               aria-selected={activeTab === 'community'}
@@ -518,10 +518,10 @@ const Profile = () => {
             {isOwnProfile && (
               <button
                 onClick={() => setActiveTab('donations')}
-                className={`relative px-3 sm:px-6 py-2.5 sm:py-3 font-medium whitespace-nowrap transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500/40 text-xs sm:text-base ${
+                className={`relative px-3 sm:px-6 py-2.5 sm:py-3 font-medium whitespace-nowrap transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500/40 text-xs sm:text-base border-b-2 ${
                   activeTab === 'donations'
-                    ? 'text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/20 after:content-[""] after:absolute after:left-0 after:right-0 after:bottom-0 after:h-0.5 after:bg-green-600 dark:after:bg-green-500'
-                    : 'text-themed-secondary hover:bg-gray-100 dark:hover:bg-gray-800'
+                    ? 'text-green-700 dark:text-green-400 border-green-600 dark:border-green-500 bg-green-50 dark:bg-green-900/20'
+                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100 border-transparent'
                 }`}
                 role="tab"
                 aria-selected={activeTab === 'donations'}
@@ -533,10 +533,10 @@ const Profile = () => {
             {isOwnProfile && (
               <button
                 onClick={() => setActiveTab('received')}
-                className={`relative px-3 sm:px-6 py-2.5 sm:py-3 font-medium whitespace-nowrap transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500/40 text-xs sm:text-base ${
+                className={`relative px-3 sm:px-6 py-2.5 sm:py-3 font-medium whitespace-nowrap transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500/40 text-xs sm:text-base border-b-2 ${
                   activeTab === 'received'
-                    ? 'text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/20 after:content-[""] after:absolute after:left-0 after:right-0 after:bottom-0 after:h-0.5 after:bg-green-600 dark:after:bg-green-500'
-                    : 'text-themed-secondary hover:bg-gray-100 dark:hover:bg-gray-800'
+                    ? 'text-green-700 dark:text-green-400 border-green-600 dark:border-green-500 bg-green-50 dark:bg-green-900/20'
+                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100 border-transparent'
                 }`}
                 role="tab"
                 aria-selected={activeTab === 'received'}
@@ -547,10 +547,10 @@ const Profile = () => {
             )}
             <button
               onClick={() => setActiveTab('friends')}
-              className={`relative px-3 sm:px-6 py-2.5 sm:py-3 font-medium whitespace-nowrap transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500/40 text-xs sm:text-base ${
+              className={`relative px-3 sm:px-6 py-2.5 sm:py-3 font-medium whitespace-nowrap transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500/40 text-xs sm:text-base border-b-2 ${
                 activeTab === 'friends'
-                  ? 'text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/20 after:content-[""] after:absolute after:left-0 after:right-0 after:bottom-0 after:h-0.5 after:bg-green-600 dark:after:bg-green-500'
-                  : 'text-themed-secondary hover:bg-gray-100 dark:hover:bg-gray-800'
+                  ? 'text-green-700 dark:text-green-400 border-green-600 dark:border-green-500 bg-green-50 dark:bg-green-900/20'
+                  : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100 border-transparent'
               }`}
               role="tab"
               aria-selected={activeTab === 'friends'}

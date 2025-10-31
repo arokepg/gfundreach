@@ -52,6 +52,11 @@ body {
   transition: background-color 200ms ease, color 200ms ease;
 }
 
+/* Smooth theme transitions when toggling dark/light */
+html.theme-xfade *, html.theme-xfade *::before, html.theme-xfade *::after {
+  transition: background-color 200ms ease, color 200ms ease, border-color 200ms ease, fill 200ms ease, stroke 200ms ease !important;
+}
+
 .card {
   background-color: var(--card-bg);
   border-radius: 1rem;

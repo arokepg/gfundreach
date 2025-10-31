@@ -185,7 +185,7 @@ const CommunityPostCard = ({ post }) => {
             title={`View ${post.authorName || 'profile'}`}
           >
             {post.authorPhoto ? (
-              <img src={post.authorPhoto} alt={post.authorName} className="w-10 h-10 object-cover" referrerPolicy="no-referrer" />
+              <img src={post.authorPhoto} alt={post.authorName} className="w-10 h-10 object-cover" referrerPolicy="no-referrer" loading="lazy" decoding="async" />
             ) : (
               <PersonIcon className="text-gray-600 dark:text-gray-300" />
             )}
@@ -229,6 +229,9 @@ const CommunityPostCard = ({ post }) => {
             src={post.imageUrl}
             alt="Post attachment"
             className="w-full max-h-96 object-cover transition-transform duration-500 hover:scale-105"
+            loading="lazy"
+            decoding="async"
+            sizes="(max-width: 768px) 100vw, 640px"
           />
         </div>
       )}
