@@ -135,7 +135,7 @@ export const createOrGroupShareNotification = async (recipientId, data) => {
  * @returns {string} Formatted message
  */
 export const formatNotificationMessage = (notification) => {
-  const { type, senderName, postTitle, amount, groupName, likesCount, names, count, postType } = notification;
+  const { type, senderName, postTitle, amount, groupName, likesCount, names, count, postType, campaignTitle, updateText } = notification;
 
   switch (type) {
     case 'donation':
@@ -174,7 +174,7 @@ export const formatNotificationMessage = (notification) => {
     case 'friend_accepted':
       return `${senderName} accepted your friend request`;
     case 'campaign_update':
-      return `New update on "${campaignTitle}"${updateText ? `: ${updateText}` : ''}`;
+      return `New update on ${campaignTitle ? `"${campaignTitle}"` : 'your campaign'}${updateText ? `: ${updateText}` : ''}`;
     case 'share_grouped': {
       const shareCount = count || 1;
       const namesText = Array.isArray(names) && names.length > 0 ? names : [];

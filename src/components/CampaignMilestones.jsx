@@ -87,7 +87,7 @@ const CampaignMilestones = ({ campaign, isOwner, donors = [] }) => {
 
         {/* Milestone List */}
         <div className="space-y-3">
-          {milestones.map((milestone, index) => (
+          {milestones.map((milestone) => (
             <div 
               key={milestone.percent}
               className={`flex items-center gap-3 p-3 rounded-lg transition-all ${
