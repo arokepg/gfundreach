@@ -28,7 +28,7 @@ const Explore = () => {
       const postsData = querySnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
-      }));
+      })).filter(p => !p.hidden);
       setPosts(postsData);
       setFilteredPosts(postsData);
     } catch (error) {
@@ -41,7 +41,7 @@ const Explore = () => {
   const handleSearchResults = (results) => {
     setSearchResults(results);
     if (results && results.posts) {
-      setFilteredPosts(results.posts);
+      setFilteredPosts((results.posts || []).filter(p => !p.hidden));
     } else {
       setFilteredPosts(posts);
     }

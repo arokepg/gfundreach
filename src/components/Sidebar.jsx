@@ -12,6 +12,7 @@ import PersonIcon from '@mui/icons-material/Person';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { calculateWalletStats, formatCompactCurrency } from '../utils/walletHelpers';
+import { formatCurrencyShort } from '../utils/numberFormat';
 import logo from '../assets/logo.svg';
 // no pin UI in hover-only mode
 
@@ -197,7 +198,7 @@ const Sidebar = () => {
           }}
           title={!expanded ? 'Create Campaign' : ''}
         >
-          <AddCircleIcon className="flex-shrink-0" />
+          <AddCircleIcon className="shrink-0" />
           {expanded && (
             <span className="whitespace-nowrap animate-fade-in">
               Create Campaign
@@ -231,7 +232,7 @@ const Sidebar = () => {
               onMouseEnter={(e)=>{ if(!active){ e.currentTarget.style.backgroundColor = 'var(--hover-bg)'; e.currentTarget.style.color = 'var(--text)'; } }}
               onMouseLeave={(e)=>{ if(!active){ e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--text)'; } }}
             >
-              <span className={`flex-shrink-0 transition-transform duration-300 ${active ? 'text-green-700 dark:text-green-400' : ''}`}>
+              <span className={`shrink-0 transition-transform duration-300 ${active ? 'text-green-700 dark:text-green-400' : ''}`}>
                 {item.icon}
               </span>
               {expanded && (
@@ -267,7 +268,7 @@ const Sidebar = () => {
         >
           {/* Profile Header */}
           <div className={`flex items-center ${expanded ? 'gap-3 mb-3' : 'justify-center'}`}>
-            <div className="w-12 h-12 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden">
+            <div className="w-12 h-12 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center shrink-0 overflow-hidden">
               {(userProfile?.photoURL || currentUser?.photoURL) ? (
                 <img
                   src={userProfile?.photoURL || currentUser?.photoURL}
@@ -311,7 +312,7 @@ const Sidebar = () => {
                   className="text-sm font-semibold"
                   style={{ color: isDarkMode ? '#60a5fa' : '#2563eb' }}
                 >
-                  ${userProfile?.walletBalance || 0}
+                  {formatCurrencyShort(userProfile?.walletBalance || 0, { maxDigits: 5 })}
                 </span>
               </div>
               <div className="flex items-center justify-between">

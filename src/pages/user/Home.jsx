@@ -115,6 +115,11 @@ const Home = () => {
         }
       }
 
+      // Filter out hidden content
+      campaigns = campaigns.filter(c => !c.hidden);
+      updates = updates.filter(u => !u.hidden);
+      groupItems = groupItems.filter(g => !g.hidden);
+
       // Merge and sort by createdAt
       const merged = [...campaigns, ...updates, ...groupItems].sort((a, b) => {
         const aDate = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(a.createdAt || 0);

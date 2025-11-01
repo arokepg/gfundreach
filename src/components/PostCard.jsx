@@ -13,6 +13,9 @@ import BookmarkIcon from '@mui/icons-material/Bookmark';
 import BookmarkBorderIcon from '@mui/icons-material/BookmarkBorder';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
 import VerifiedIcon from '@mui/icons-material/Verified';
+import FlagIcon from '@mui/icons-material/Flag';
+import { formatCurrencyShort } from '../utils/numberFormat';
+import { reportContent } from '../utils/reports';
 
 const PostCard = ({ post }) => {
   const navigate = useNavigate();
@@ -165,6 +168,29 @@ const PostCard = ({ post }) => {
     }
   };
 
+  const handleReport = async (e) => {
+    e.stopPropagation();
+    if (!currentUser) { alert('Please log in to report'); return; }
+    const reason = window.prompt('Report reason (spam, inappropriate, misleading, other):', 'spam');
+    if (reason === null) return; // cancelled
+    const comment = window.prompt('Optional details (leave blank if none):', '') || '';
+    try {
+      await reportContent({
+        targetType: 'campaign',
+        targetId: post.id,
+        reportedById: currentUser.uid,
+        reportedByName: userProfile?.displayName || currentUser.displayName || 'User',
+        reason: String(reason || 'other').toLowerCase(),
+        comment,
+        meta: { authorId: post.authorId || null, groupId: post.groupId || null, title: post.title || '' },
+      });
+      alert('Thanks for your report. Our moderators will review it.');
+    } catch (err) {
+      console.error('Failed to submit report', err);
+      alert('Failed to submit report. Please try again.');
+    }
+  };
+
   const handleSave = async (e) => {
     e.stopPropagation();
     
@@ -176,11 +202,16 @@ const PostCard = ({ post }) => {
     try {
       if (isSaved) {
         // Unsave
-        await unsaveItem(currentUser.uid, post.id);
-        setIsSaved(false);
+        const result = await unsaveItem(currentUser.uid, post.id);
+        if (result.success) {
+          setIsSaved(false);
+        } else {
+          console.error('Failed to unsave:', result.error);
+          alert('Failed to remove bookmark. Please try again.');
+        }
       } else {
         // Save
-        await saveItem(
+        const result = await saveItem(
           currentUser.uid,
           post.id,
           (post.groupId ? 'group_campaign' : 'campaign'),
@@ -197,10 +228,16 @@ const PostCard = ({ post }) => {
             groupId: post.groupId || null,
           }
         );
-        setIsSaved(true);
+        if (result.success) {
+          setIsSaved(true);
+        } else {
+          console.error('Failed to save:', result.error);
+          alert('Failed to bookmark. Please try again.');
+        }
       }
     } catch (error) {
       console.error('Error toggling save:', error);
+      alert('An error occurred while bookmarking. Please try again.');
     }
   };
 
@@ -262,7 +299,7 @@ const PostCard = ({ post }) => {
         )}
         {post.groupId && (
           <span className="ml-2 inline-flex items-center gap-1 text-[11px] md:text-xs px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 align-middle whitespace-nowrap max-w-[60%] overflow-hidden text-ellipsis">
-            <span className="flex-shrink-0">Group:</span>
+            <span className="shrink-0">Group:</span>
             <Link
               to={`/group/${post.groupId}`}
               onClick={(e)=> e.stopPropagation()}
@@ -304,10 +341,10 @@ const PostCard = ({ post }) => {
         </div>
         <div className="flex justify-between items-center mt-2">
           <span className={`text-xs md:text-sm font-semibold ${isCompleted ? 'text-blue-600 dark:text-blue-400' : 'text-green-600 dark:text-green-400'}`}>
-            ${post.currentAmount?.toLocaleString() || 0} {isCompleted && <span className="ml-1 inline-block px-2 py-0.5 rounded-full text-[10px] bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300 align-middle">Completed</span>}
+            {formatCurrencyShort(post.currentAmount || 0, { maxDigits: 5 })} {isCompleted && <span className="ml-1 inline-block px-2 py-0.5 rounded-full text-[10px] bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300 align-middle">Completed</span>}
           </span>
           <span className="text-xs md:text-sm text-themed-muted">
-            ${post.goalAmount?.toLocaleString() || 0}
+            {formatCurrencyShort(post.goalAmount || 0, { maxDigits: 5 })}
           </span>
         </div>
       </div>
@@ -360,6 +397,13 @@ const PostCard = ({ post }) => {
             ) : (
               <BookmarkBorderIcon className="text-sm md:text-base" />
             )}
+          </button>
+          <button
+            onClick={handleReport}
+            className="flex items-center space-x-1 text-themed-secondary hover:text-red-600 dark:hover:text-red-400 transition-all duration-300 active:scale-110 md:hover:scale-110 md:active:scale-95"
+            title="Report"
+          >
+            <FlagIcon className="text-sm md:text-base" />
           </button>
         </div>
         <Link

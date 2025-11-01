@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { calculateWalletStats } from '../utils/walletHelpers';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
+import { formatCurrencyShort } from '../utils/numberFormat';
 
 const RightSidebar = () => {
   const [topDonators, setTopDonators] = useState([]);
@@ -75,17 +77,12 @@ const RightSidebar = () => {
     }
   };
 
-  const formatAmount = (amount) => {
-    if (amount >= 1000) {
-      return `$${(amount / 1000).toFixed(1)}k`;
-    }
-    return `$${amount}`;
-  };
+  const formatAmount = (amount) => formatCurrencyShort(amount || 0, { maxDigits: 5 });
 
   return (
     <div className="space-y-6">
       {/* Top Donators */}
-  <div className="card p-6">
+      <Link to="/top-donors" className="block card p-6 hover:shadow-lg transition-shadow" role="button" aria-label="Top Donators">
         <div className="flex items-center space-x-2 mb-4">
           <EmojiEventsIcon className="text-green-600" />
           <h3 className="text-lg font-bold text-themed">Top Donators</h3>
@@ -93,7 +90,7 @@ const RightSidebar = () => {
         <div className="space-y-4">
           {topDonators.map((donator, index) => (
             <div key={donator.id} className="flex items-center space-x-3">
-              <div className="flex-shrink-0 w-10 h-10 rounded-full bg-gradient-to-br from-green-400 to-blue-500 flex items-center justify-center text-white font-bold text-lg">
+              <div className="shrink-0 w-10 h-10 rounded-full bg-linear-to-br from-green-400 to-blue-500 flex items-center justify-center text-white font-bold text-lg">
                 {index + 1}
               </div>
               <div className="flex-1 min-w-0">
@@ -112,7 +109,7 @@ const RightSidebar = () => {
             </p>
           )}
         </div>
-      </div>
+      </Link>
 
       {/* Trending Categories */}
   <div className="card p-6">

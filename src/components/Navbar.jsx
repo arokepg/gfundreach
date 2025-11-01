@@ -72,7 +72,7 @@ const Navbar = () => {
             {/* Dark Mode Toggle */}
             <button
               onClick={toggleTheme}
-              className="p-2 rounded-lg transition-all duration-300 hover:scale-110 active:scale-95 text-themed hover:[background-color:var(--hover-bg)]"
+              className="p-2 rounded-lg transition-all duration-300 hover:scale-110 active:scale-95 text-themed hover:bg-(--hover-bg)"
               title={isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
             >
               {isDarkMode ? <LightModeIcon fontSize="small" /> : <DarkModeIcon fontSize="small" />}

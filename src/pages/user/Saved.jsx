@@ -1,5 +1,7 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { collectionGroup, getDocs, query, where } from 'firebase/firestore';
+import { db } from '../../config/firebase';
 import Layout from '../../components/Layout';
 import { useAuth } from '../../contexts/AuthContext';
 import { getSavedItems, getUserCollections, createCollection, addToCollection, removeFromCollection, deleteCollection, unsaveItem } from '../../utils/savedItems';
@@ -15,6 +17,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 const Saved = () => {
   const { currentUser } = useAuth();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   
   const [selectedCollection, setSelectedCollection] = useState(null);
@@ -39,6 +42,42 @@ const Saved = () => {
     queryFn: () => getUserCollections(currentUser.uid),
     enabled: !!currentUser,
   });
+
+  // Resolve the correct target URL for a saved item, including legacy entries without campaignId
+  const resolveSavedItemTarget = async (item) => {
+    try {
+      // Community post types (newer format)
+      if ((item.itemType === 'community_post' || item.itemType === 'group_community_post') && item.campaignId) {
+        return `/community-post/${item.campaignId}/${item.itemId}`;
+      }
+      // Legacy community posts saved as 'post' with campaignId
+      if (item.itemType === 'post' && item.campaignId) {
+        return `/community-post/${item.campaignId}/${item.itemId}`;
+      }
+      // Legacy community posts saved as 'post' without campaignId: find parent campaign via collection group
+      if (item.itemType === 'post' && !item.campaignId) {
+        try {
+          const q = query(collectionGroup(db, 'updates'), where('__name__', '==', item.itemId));
+          const snap = await getDocs(q);
+          if (!snap.empty) {
+            const d = snap.docs[0];
+            const parentCampaignId = d.ref.parent.parent?.id;
+            if (parentCampaignId) return `/community-post/${parentCampaignId}/${item.itemId}`;
+          }
+        } catch {/* ignore and fall through */}
+      }
+      // Default to campaign post
+      return `/post/${item.itemId}`;
+    } catch {
+      return `/post/${item.itemId}`;
+    }
+  };
+
+  const openSavedItem = async (item, e) => {
+    if (e) e.preventDefault();
+    const target = await resolveSavedItemTarget(item);
+    navigate(target);
+  };
 
   const savedItems = savedQuery.data || [];
   const collections = collectionsQuery.data || [];
@@ -155,17 +194,9 @@ const Saved = () => {
                     <div className="flex flex-col sm:flex-row">
                       {/* Thumbnail */}
                       <Link
-                        to={(() => {
-                          if ((item.itemType === 'community_post' || item.itemType === 'group_community_post') && item.campaignId) {
-                            return `/community-post/${item.campaignId}/${item.itemId}`;
-                          }
-                          if (item.itemType === 'post' && item.campaignId) {
-                            // Legacy saved community post
-                            return `/community-post/${item.campaignId}/${item.itemId}`;
-                          }
-                          return `/post/${item.itemId}`;
-                        })()}
-                        className="sm:w-56 h-40 sm:h-36 block flex-shrink-0"
+                        to="#"
+                        onClick={(e) => openSavedItem(item, e)}
+                        className="sm:w-56 h-40 sm:h-36 block shrink-0"
                       >
                         <div className="w-full h-full overflow-hidden" style={{ backgroundColor: 'var(--card-bg)' }}>
                           {item.imageUrl ? (
@@ -185,17 +216,7 @@ const Saved = () => {
                       <div className="flex-1 p-4 flex items-start justify-between gap-4">
                         <div className="min-w-0">
                           <div className="flex items-center gap-2 mb-1">
-                            <Link
-                              to={(() => {
-                                switch (item.itemType) {
-                                  case 'community_post':
-                                  case 'group_community_post':
-                                    return `/community-post/${item.campaignId}/${item.itemId}`;
-                                  default:
-                                    return `/post/${item.itemId}`;
-                                }
-                              })()}
-                            >
+                            <Link to="#" onClick={(e) => openSavedItem(item, e)}>
                               <h3 className="font-semibold text-themed text-base sm:text-lg truncate hover:text-green-600 dark:hover:text-green-400 transition-colors">
                                 {item.title}
                               </h3>
@@ -220,7 +241,7 @@ const Saved = () => {
                           )}
                           <div className="text-xs text-themed-muted">Saved from {item.authorName}</div>
                         </div>
-                        <div className="flex-shrink-0 flex items-center gap-2">
+                        <div className="shrink-0 flex items-center gap-2">
                           <button
                             onClick={() => {
                               setSelectedItem(item);
@@ -251,7 +272,7 @@ const Saved = () => {
           </div>
 
           {/* Collections Sidebar - Now on the right */}
-          <div className="lg:w-64 flex-shrink-0 lg:order-2">
+          <div className="lg:w-64 shrink-0 lg:order-2">
             <div className="card p-4 sticky top-24">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="font-bold text-lg text-themed">My collections</h2>

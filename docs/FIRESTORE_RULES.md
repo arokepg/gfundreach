@@ -16,28 +16,22 @@ service cloud.firestore {
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
-    function listSize(l) {
-      return l == null ? 0 : l.size();
-    }
-    function isValidLikeToggle() {
-      return (
-        !("likedBy" in request.resource.data)
-        || (
-          request.resource.data.likedBy.size() == listSize(resource.data.likedBy) + 1 &&
-          request.resource.data.likedBy.hasAll(resource.data.likedBy) &&
-          request.resource.data.likedBy.hasAny([request.auth.uid])
-        )
-        || (
-          listSize(resource.data.likedBy) == request.resource.data.likedBy.size() + 1 &&
-          resource.data.likedBy.hasAll(request.resource.data.likedBy) &&
-          resource.data.likedBy.hasAny([request.auth.uid])
-        )
-      );
-    }
+    // NOTE: Keep helper functions minimal to reduce syntax issues in editors.
     function isGroupAdminOrMod(groupId) {
       return isSignedIn() &&
         exists(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid)) &&
         get(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid)).data.role in ['admin', 'moderator'];
+    }
+
+    // Optional: Global Admin helper
+    // Use Firebase Auth custom claims (request.auth.token.admin) or a role field on the user document
+    function isAdmin() {
+      return isSignedIn() && (
+        (request.auth.token.admin == true) || (
+          exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
+        )
+      );
     }
 
     // Users collection
@@ -83,10 +77,20 @@ service cloud.firestore {
         request.resource.data.type in ['donation', 'topup', 'withdraw'];
     }
 
+    // Reports (content moderation)
+    // Structure suggestion: { targetType: 'post'|'groupPost'|'comment', targetId, groupId?, reason, comment, status }
+    match /reports/{rid} {
+      allow read, create: if isSignedIn(); // anyone can file a report; listing is admin-only in UI
+      allow update, delete: if isAdmin();  // only admins can modify/delete reports
+    }
+
     // Saved items (bookmarks)
     match /savedItems/{sid} {
       // Doc ID convention: `${userId}_${itemId}`
+      // Owner can create, read their own, and remove their own saved items
       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
     }
 
     // Collections (user-defined lists)
@@ -114,12 +118,14 @@ service cloud.firestore {
       allow read: if true;
       allow create: if isSignedIn();
       allow update, delete: if isSignedIn() && request.auth.uid == resource.data.ownerId;
+      // Optional: allow platform admins to manage any group
+      allow update, delete: if isAdmin();
 
       // Group posts
       match /posts/{postId} {
         allow read: if true;
         allow create: if isSignedIn();
-        allow update, delete: if isSignedIn() && (request.auth.uid == resource.data.authorId || isGroupAdminOrMod(groupId));
+        allow update, delete: if isSignedIn() && (request.auth.uid == resource.data.authorId || isGroupAdminOrMod(groupId) || isAdmin());
         allow update: if isSignedIn() &&
           request.resource.data.diff(resource.data).changedKeys().hasOnly(["likesCount","sharesCount","likedBy"]);
       }

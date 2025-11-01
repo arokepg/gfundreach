@@ -242,7 +242,9 @@ export const createGroupPost = async (groupId, user, { content, imageFile = null
 export const listGroupPosts = async (groupId) => {
   const q = query(collection(db, 'groups', groupId, 'posts'), orderBy('createdAt', 'desc'));
   const snap = await getDocs(q);
-  return snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(p => p.status !== 'pending');
+  return snap.docs
+    .map(d => ({ id: d.id, ...d.data() }))
+    .filter(p => p.status !== 'pending' && !p.hidden);
 };
 
 export const listPendingGroupPosts = async (groupId) => {

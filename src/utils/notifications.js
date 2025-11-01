@@ -141,7 +141,7 @@ export const formatNotificationMessage = (notification) => {
     case 'donation':
       return `${senderName} donated $${amount} to your post${postTitle ? ` "${postTitle}"` : ''}`;
     case 'donation_receipt':
-      return `Thank you for donating$${amount ? ` $${amount}` : ''}${postTitle ? ` to "${postTitle}"` : ''}`;
+      return `You have donated${amount ? ` $${amount}` : ''}${postTitle ? ` to "${postTitle}"` : ''}`;
     case 'like':
       return `${senderName} liked your post${postTitle ? ` "${postTitle}"` : ''}`;
     case 'like_grouped': {

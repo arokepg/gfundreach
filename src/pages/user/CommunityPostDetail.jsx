@@ -255,7 +255,7 @@ const CommunityPostDetail = () => {
 
           {/* Post Header */}
           <div className="flex items-start gap-4 mb-6">
-            <Link to={`/profile/${post.authorId}`} className="w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center flex-shrink-0 overflow-hidden hover:opacity-90">
+            <Link to={`/profile/${post.authorId}`} className="w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center shrink-0 overflow-hidden hover:opacity-90">
               {post.authorPhoto ? (
                 <img
                   src={post.authorPhoto}

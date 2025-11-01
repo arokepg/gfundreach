@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { formatCurrencyShort } from '../../utils/numberFormat';
 import { collection, query, where, getDocs, orderBy, doc, updateDoc, increment, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import { useAuth } from '../../contexts/AuthContext';
@@ -251,12 +252,7 @@ const Wallet = () => {
     }
   };
 
-  const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(amount);
-  };
+  const formatCurrency = (amount) => formatCurrencyShort(amount, { maxDigits: 5 });
 
   // Derived totals
   const totalDonatedCalc = transactions

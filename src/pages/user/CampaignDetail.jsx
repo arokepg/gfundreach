@@ -16,7 +16,10 @@ import BarChartIcon from '@mui/icons-material/BarChart';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { recordCampaignView } from '../../utils/viewTracker';
+import { formatCurrencyShort } from '../../utils/numberFormat';
 import { getMember } from '../../utils/groups';
+import FlagIcon from '@mui/icons-material/Flag';
+import { reportContent } from '../../utils/reports';
 
 const CampaignDetail = () => {
   const { id } = useParams();
@@ -281,12 +284,8 @@ const CampaignDetail = () => {
     return diff;
   };
 
-  const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(amount);
-  };
+  // Limit displayed currency to five digits using short format
+  const formatCurrency = (amount) => formatCurrencyShort(amount, { maxDigits: 5 });
 
   const handleLike = async () => {
     if (!currentUser) {
@@ -365,6 +364,28 @@ const CampaignDetail = () => {
       if (error.name !== 'AbortError') {
         console.error('Error sharing:', error);
       }
+    }
+  };
+
+  const handleReport = async () => {
+    if (!currentUser) { alert('Please log in to report'); return; }
+    const reason = window.prompt('Report reason (spam, inappropriate, misleading, other):', 'spam');
+    if (reason === null) return;
+    const comment = window.prompt('Optional details (leave blank if none):', '') || '';
+    try {
+      await reportContent({
+        targetType: 'campaign',
+        targetId: id,
+        reportedById: currentUser.uid,
+        reportedByName: userProfile?.displayName || currentUser.displayName || 'User',
+        reason: String(reason || 'other').toLowerCase(),
+        comment,
+        meta: { authorId: post?.authorId || null, groupId: post?.groupId || null, title: post?.title || '' },
+      });
+      alert('Thanks for your report. Our moderators will review it.');
+    } catch (err) {
+      console.error('Failed to submit report', err);
+      alert('Failed to submit report. Please try again.');
     }
   };
 
@@ -597,6 +618,13 @@ const CampaignDetail = () => {
                   >
                     <ShareIcon fontSize="small" />
                     <span className="text-sm font-medium">{sharesCount}</span>
+                  </button>
+                  <button
+                    onClick={handleReport}
+                    className="flex items-center gap-2 text-themed-secondary px-4 py-2 rounded-lg bg-transparent hover:bg-transparent focus:bg-transparent transition-colors hover:text-red-600 dark:hover:text-red-400"
+                    title="Report campaign"
+                  >
+                    <FlagIcon fontSize="small" />
                   </button>
                 </div>
               </div>

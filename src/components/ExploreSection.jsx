@@ -36,7 +36,7 @@ const ExploreSection = ({ onSearchResults }) => {
         id: doc.id,
         ...doc.data(),
         type: 'post'
-      }));
+      })).filter(p => !p.hidden);
 
       // Search users by display name
       const usersQuery = query(

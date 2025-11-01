@@ -8,7 +8,7 @@ A modern social platform for fundraising that connects people in need with donor
 - React Router 7
 - Tailwind CSS 4
 - Material UI 7 (icons + components)
-- Firebase 12 (Auth, Firestore, Storage)
+- Firebase 12 (Auth, Firestore)
 - React Query (@tanstack/react-query) for server-state, caching, retries
 - Axios (HTTP utilities)
 - Recharts (charts)
@@ -61,16 +61,14 @@ src/
       CommunityPostDetail.jsx
       Profile.jsx
     admin/
-      AdminBackfill.jsx
+      AdminDashboard.jsx
   utils/
     groups.js
     savedItems.js
     notifications.js
 
 docs/
-  CLOUD_FUNCTIONS.md      # Safe server-side credits for donation recipients
-  FIRESTORE_RULES.md      # Security rules reference
-  FIRESTORE_INDEXES.md    # Composite indexes guide and fallback strategies
+  FIRESTORE_RULES.md      # Security rules reference (reference-only)
 ```
 
 ## ⚙️ React Query
@@ -111,7 +109,7 @@ Details and sample backend code: see `docs/CLOUD_FUNCTIONS.md`.
 - Profile friends list: View friends on user profiles with privacy controls (public/private toggle for your own list).
 - No composite index required; all queries that would need one have client-side fallbacks.
 
-## �🧱 CI/CD (GitHub Actions)
+## 🧱 CI/CD (GitHub Actions)
 
 Workflow: `.github/workflows/main.yml`
 - Triggers on pushes/PRs to `master`
@@ -119,28 +117,16 @@ Workflow: `.github/workflows/main.yml`
 - Production deploy to Vercel is gated behind a secrets check to avoid YAML parser issues and skipped safely when secrets are missing
 - Optional deploys: Firebase Hosting, GHCR image, Fly.io
 
-## 🗂️ Firestore Indexes
+## 🗂️ Firestore Indexes (optional)
 
-This app is designed to work **without** requiring any composite indexes. All queries have graceful fallbacks (client-side sorting/filtering) to ensure the app works out of the box.
+The app works without composite indexes thanks to client-side fallbacks. For scale, consider adding:
 
-For improved performance at scale, you can create optional composite indexes:
+- transactions: donorId asc, createdAt desc
+- transactions: recipientId asc, createdAt desc
+- friendships: status asc, users array-contains
+- updates (collection group): authorId asc, createdAt desc
 
-- transactions: `donorId` asc, `createdAt` desc
-- transactions: `recipientId` asc, `createdAt` desc
-- friendships: `status` asc, `users` array-contains
-- updates (collection group): `authorId` asc, `createdAt` desc
-
-**See `docs/FIRESTORE_INDEXES.md` for a complete guide on creating and deploying indexes.**
-
-With indexes present, the app will automatically use them when available; without them, it falls back to simpler queries.
-
-## 🧱 CI/CD (GitHub Actions)
-
-Workflow: `.github/workflows/main.yml`
-- Triggers on pushes/PRs to `master`
-- Steps: Install → Lint → Test (`npm test --if-present`) → Build → Upload artifact
-- Production deploy to Vercel when secrets are present
-- Optional deploys: Firebase Hosting, GHCR image, Fly.io
+<!-- duplicate CI/CD section removed -->
 
 ## 🧭 Notable UX & Stability Improvements
 
@@ -150,7 +136,17 @@ Workflow: `.github/workflows/main.yml`
 
 ## 🧪 Testing
 
-No tests are bundled yet. The CI workflow runs `npm test --if-present`, so you can add Jest/RTL later and it will execute automatically.
+This repo uses Vitest + React Testing Library.
+
+Scripts:
+
+```
+npm run test
+```
+
+Config:
+- Vitest is configured in `vite.config.js` with `jsdom` and `src/setupTests.js` (jest-dom matchers).
+- Example test at `src/utils/__tests__/numberFormat.test.js`.
 
 ## 🚀 Getting Started
 
@@ -160,7 +156,7 @@ No tests are bundled yet. The CI workflow runs `npm test --if-present`, so you c
 npm install
 ```
 
-2) Create a Firebase project and set environment variables (Vercel or `.env.local`). You’ll need config for Auth, Firestore, and Storage.
+2) Create a Firebase project and set environment variables (Vercel or `.env.local`). You’ll need config for Auth and Firestore.
 
 3) Start the dev server
 
@@ -170,13 +166,28 @@ npm run dev
 
 4) Optional: Deploy the Cloud Function in `docs/CLOUD_FUNCTIONS.md` to safely credit recipients on donations.
 
-### Media uploads (Firebase Storage)
+### Media uploads (Base64 in Firestore)
 
-- Enable Firebase Storage in your Firebase console and use the default bucket `<project-id>.appspot.com`.
-- Set `VITE_FIREBASE_STORAGE_BUCKET` accordingly. The SDK will not work if you use `firebasestorage.app` here.
-- Start with permissive Storage rules for development (public read, auth-only write), then harden as needed.
+- This project stores images as base64 data URLs inside Firestore documents (no Firebase Storage required).
+- Fields like `imageUrl`, `bannerUrl` contain data URLs (`data:image/...`).
+- Optionally store `imageSizeKB` on writes and enforce limits (e.g., <= 500 KB) in Firestore rules.
+- See `docs/FIRESTORE_RULES.md` for notes and examples on image constraints.
 
-See `docs/MEDIA_UPLOADS.md` for a step-by-step setup and troubleshooting guide.
+## 🛡️ Admin & Moderation
+
+- A minimal Admin Dashboard is available at `/admin` (requires `userProfile.role === 'admin'`).
+- Reports: user-submitted content reports are listed and can be marked resolved; basic moderation hides content by setting a `hidden: true` flag.
+- See `docs/FIRESTORE_RULES.md` for an optional `isAdmin()` helper and a suggested `reports` collection rule.
+
+### First admin (bootstrap)
+
+Use a trusted environment to set a user's role to `admin`:
+
+```
+node .\scripts\make-admin.cjs <USER_UID> --role=admin --serviceAccount=E:\secrets\serviceAccountKey.json
+```
+
+Alternatively, set `role = "admin"` on `/users/<uid>` in the Firebase Console.
 
 ## 📝 License
 

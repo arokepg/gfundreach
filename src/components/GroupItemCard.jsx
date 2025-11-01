@@ -13,6 +13,9 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
 import { saveItem, unsaveItem, isItemSaved } from '../utils/savedItems';
 import { createNotification, createOrGroupLikeNotification } from '../utils/notifications';
+import FlagIcon from '@mui/icons-material/Flag';
+import { formatCurrencyShort } from '../utils/numberFormat';
+import { reportContent } from '../utils/reports';
 
 /**
  * Unified card for group posts and group campaign shares
@@ -192,6 +195,40 @@ const GroupItemCard = ({ item }) => {
     } catch (e) { console.error(e); }
   };
 
+  const handleReport = async () => {
+    if (!currentUser) { alert('Please log in to report'); return; }
+    const reason = window.prompt('Report reason (spam, inappropriate, misleading, other):', 'spam');
+    if (reason === null) return;
+    const comment = window.prompt('Optional details (leave blank if none):', '') || '';
+    try {
+      if (isCampaignShare && campaign) {
+        await reportContent({
+          targetType: 'campaign',
+          targetId: campaign.id,
+          reportedById: currentUser.uid,
+          reportedByName: currentUser.displayName || 'User',
+          reason: String(reason || 'other').toLowerCase(),
+          comment,
+          meta: { authorId: campaign.authorId || null, groupId: item.groupId || null, title: campaign.title || '' },
+        });
+      } else {
+        await reportContent({
+          targetType: 'group_post',
+          targetId: item.id,
+          reportedById: currentUser.uid,
+          reportedByName: currentUser.displayName || 'User',
+          reason: String(reason || 'other').toLowerCase(),
+          comment,
+          meta: { authorId: item.authorId || null, groupId: item.groupId || null },
+        });
+      }
+      alert('Thanks for your report. Our moderators will review it.');
+    } catch (err) {
+      console.error('Failed to submit report', err);
+      alert('Failed to submit report. Please try again.');
+    }
+  };
+
   // Campaign share rendering
   if (isCampaignShare) {
     if (!campaign) return null;
@@ -218,8 +255,8 @@ const GroupItemCard = ({ item }) => {
             <div className="absolute top-0 left-0 h-full bg-green-500 rounded-full transition-all duration-700" style={{ width: `${Math.min(progress, 100)}%` }} />
           </div>
           <div className="flex justify-between items-center mt-2 text-xs md:text-sm">
-            <span className="font-semibold text-green-600 dark:text-green-400">${campaign.currentAmount?.toLocaleString() || 0}</span>
-            <span className="text-themed-muted">${campaign.goalAmount?.toLocaleString() || 0}</span>
+            <span className="font-semibold text-green-600 dark:text-green-400">{formatCurrencyShort(campaign.currentAmount || 0, { maxDigits: 5 })}</span>
+            <span className="text-themed-muted">{formatCurrencyShort(campaign.goalAmount || 0, { maxDigits: 5 })}</span>
           </div>
         </div>
         <div className="px-3 md:px-4 py-3 border-t border-surface flex items-center justify-between">
@@ -238,6 +275,9 @@ const GroupItemCard = ({ item }) => {
             </button>
             <button onClick={handleSave} className={`flex items-center space-x-1 ${isSaved ? 'text-yellow-500' : 'text-themed-secondary hover:text-yellow-500'}`}>
               {isSaved ? <BookmarkIcon className="text-sm md:text-base" /> : <BookmarkBorderIcon className="text-sm md:text-base" />}
+            </button>
+            <button onClick={handleReport} className="flex items-center space-x-1 text-themed-secondary hover:text-red-600">
+              <FlagIcon className="text-sm md:text-base" />
             </button>
           </div>
           <Link to={`/post/${campaign.id}`} className="px-4 md:px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-full text-xs md:text-sm font-medium">
@@ -290,6 +330,9 @@ const GroupItemCard = ({ item }) => {
           <button onClick={handleSave} className={`flex items-center space-x-1 ${isSaved ? 'text-yellow-500' : 'text-themed-secondary hover:text-yellow-500'}`}>
             {isSaved ? <BookmarkIcon className="text-sm md:text-base" /> : <BookmarkBorderIcon className="text-sm md:text-base" />}
           </button>
+            <button onClick={handleReport} className="flex items-center space-x-1 text-themed-secondary hover:text-red-600">
+              <FlagIcon className="text-sm md:text-base" />
+            </button>
         </div>
         <Link to={`/group/${item.groupId}`} className="px-4 md:px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-full text-xs md:text-sm font-medium">
           View Group

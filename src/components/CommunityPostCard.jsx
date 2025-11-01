@@ -19,6 +19,8 @@ import VerifiedIcon from '@mui/icons-material/Verified';
 import { db } from '../config/firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { saveItem, unsaveItem, isItemSaved } from '../utils/savedItems';
+import FlagIcon from '@mui/icons-material/Flag';
+import { reportContent } from '../utils/reports';
 
 // Contract
 // props.post: {
@@ -162,6 +164,29 @@ const CommunityPostCard = ({ post }) => {
     }
   };
 
+  const handleReport = async (e) => {
+    if (e) e.stopPropagation();
+    if (!currentUser) { alert('Please log in to report'); return; }
+    const reason = window.prompt('Report reason (spam, inappropriate, misleading, other):', 'spam');
+    if (reason === null) return;
+    const comment = window.prompt('Optional details (leave blank if none):', '') || '';
+    try {
+      await reportContent({
+        targetType: 'community_post',
+        targetId: post.id,
+        reportedById: currentUser.uid,
+        reportedByName: currentUser.displayName || 'User',
+        reason: String(reason || 'other').toLowerCase(),
+        comment,
+        meta: { campaignId: post.campaignId || null, authorId: post.authorId || null },
+      });
+      alert('Thanks for your report. Our moderators will review it.');
+    } catch (err) {
+      console.error('Failed to submit report', err);
+      alert('Failed to submit report. Please try again.');
+    }
+  };
+
   return (
     <div
       className="card overflow-hidden hover:shadow-lg transition-all duration-300 md:hover:-translate-y-1 animate-fade-in cursor-pointer"
@@ -262,6 +287,12 @@ const CommunityPostCard = ({ post }) => {
             }`}
           >
             {isSaved ? <BookmarkIcon className="text-sm md:text-base" /> : <BookmarkBorderIcon className="text-sm md:text-base" />}
+          </button>
+          <button
+            onClick={handleReport}
+            className="flex items-center space-x-1 text-themed-secondary hover:text-red-600 dark:hover:text-red-400 transition-all duration-300 active:scale-110 md:hover:scale-110 md:active:scale-95"
+          >
+            <FlagIcon className="text-sm md:text-base" />
           </button>
         </div>
         <Link

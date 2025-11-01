@@ -24,7 +24,8 @@ import Group from './pages/user/Group';
 import GroupDetail from './pages/user/GroupDetail';
 import EditCampaign from './pages/user/EditCampaign';
 import CampaignStats from './pages/user/CampaignStats';
-import AdminBackfill from './pages/admin/AdminBackfill';
+import AdminDashboard from './pages/admin/AdminDashboard';
+import TopDonors from './pages/user/TopDonors';
 
 function App() {
   return (
@@ -163,10 +164,18 @@ function App() {
             }
           />
           <Route
-            path="/admin/backfill"
+            path="/admin"
             element={
               <ProtectedRoute>
-                <AdminBackfill />
+                <AdminDashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/top-donors"
+            element={
+              <ProtectedRoute>
+                <TopDonors />
               </ProtectedRoute>
             }
           />

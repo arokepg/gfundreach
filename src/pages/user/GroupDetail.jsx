@@ -98,7 +98,7 @@ const GroupDetail = () => {
           // Avoid composite index requirement: query by equality then sort client-side
           const q = query(collection(db, 'posts'), where('groupId', '==', id));
           const snap = await getDocs(q);
-          const items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+          const items = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(p => !p.hidden);
           items.sort((a, b) => {
             const ta = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : new Date(a.createdAt || 0).getTime();
             const tb = b.createdAt?.toDate ? b.createdAt.toDate().getTime() : new Date(b.createdAt || 0).getTime();
@@ -375,7 +375,7 @@ const GroupDetail = () => {
                 {members.map(m => (
                   <div key={m.id} className="flex items-center justify-between px-2 py-2 rounded-lg" style={{ backgroundColor: 'var(--hover-bg)' }}>
                     <div className="flex items-center gap-2 min-w-0 flex-1">
-                      <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-800 flex items-center justify-center overflow-hidden flex-shrink-0">
+                      <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-800 flex items-center justify-center overflow-hidden shrink-0">
                         {m.photoURL ? (
                           <img src={m.photoURL} alt={m.displayName || m.id} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                         ) : (
@@ -388,7 +388,7 @@ const GroupDetail = () => {
                       </div>
                     </div>
                     {(isAdmin || isModerator) && currentUser?.uid !== m.id && (
-                      <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
+                      <div className="flex items-center gap-1 sm:gap-2 shrink-0">
                         <RoleSelect value={m.role} onChange={(role)=> changeRole(m.id, role)} disabled={!isAdmin && m.role === 'admin'} />
                         <button onClick={()=> kickMember(m.id)} className="px-2 py-1 rounded bg-red-600 hover:bg-red-700 text-white text-xs transition-all duration-300 active:scale-95">Remove</button>
                       </div>

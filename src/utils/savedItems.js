@@ -8,6 +8,15 @@ import { db } from '../config/firebase';
  * @param {string} itemType - 'post' or 'campaign'
  * @param {object} itemData - Basic data about the item (title, image, etc.)
  */
+// Avoid storing huge base64 images in saved items to prevent Firestore doc size limits
+const safeImageUrl = (value) => {
+  if (!value || typeof value !== 'string') return '';
+  // If it's a data URL (base64), skip storing to keep savedItems lightweight
+  // Alternatively, you could store a tiny preview if you have one
+  if (value.startsWith('data:image/')) return '';
+  return value;
+};
+
 export const saveItem = async (userId, itemId, itemType, itemData) => {
   try {
     const savedItemRef = doc(db, 'savedItems', `${userId}_${itemId}`);
@@ -18,7 +27,8 @@ export const saveItem = async (userId, itemId, itemType, itemData) => {
       itemType,
       title: itemData.title || '',
       description: itemData.description || itemData.summary || '',
-      imageUrl: itemData.imageUrl || itemData.image || '',
+      // Only keep non-base64 URLs to avoid exceeding Firestore 1MB doc limit
+      imageUrl: safeImageUrl(itemData.imageUrl) || safeImageUrl(itemData.image) || '',
       authorId: itemData.authorId || itemData.userId || '',
       authorName: itemData.authorName || itemData.displayName || '',
       campaignId: itemData.campaignId || null, // Store campaign ID for community posts

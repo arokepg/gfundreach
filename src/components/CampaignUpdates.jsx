@@ -18,6 +18,8 @@ import BookmarkBorderIcon from '@mui/icons-material/BookmarkBorder';
 import FavoriteIcon from '@mui/icons-material/Favorite';
 import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
 import ShareIcon from '@mui/icons-material/Share';
+import FlagIcon from '@mui/icons-material/Flag';
+import { reportContent } from '../utils/reports';
 
 const CampaignUpdates = ({ campaignId, onUpdateCountChange }) => {
   const { currentUser, userProfile } = useAuth();
@@ -71,7 +73,7 @@ const CampaignUpdates = ({ campaignId, onUpdateCountChange }) => {
         orderBy('createdAt', 'desc')
       );
       const snap = await getDocs(q);
-      const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  const list = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(u => !u.hidden);
       setUpdates(list);
 
       // Initialize reaction state maps
@@ -465,6 +467,28 @@ const CampaignUpdates = ({ campaignId, onUpdateCountChange }) => {
     }
   };
 
+  const handleReport = async (post) => {
+    if (!currentUser) { alert('Please log in to report'); return; }
+    const reason = window.prompt('Report reason (spam, inappropriate, misleading, other):', 'spam');
+    if (reason === null) return;
+    const comment = window.prompt('Optional details (leave blank if none):', '') || '';
+    try {
+      await reportContent({
+        targetType: 'community_post',
+        targetId: post.id,
+        reportedById: currentUser.uid,
+        reportedByName: userProfile?.displayName || currentUser.displayName || 'User',
+        reason: String(reason || 'other').toLowerCase(),
+        comment,
+        meta: { campaignId, authorId: post.authorId || null },
+      });
+      alert('Thanks for your report. Our moderators will review it.');
+    } catch (err) {
+      console.error('Failed to submit report', err);
+      alert('Failed to submit report. Please try again.');
+    }
+  };
+
   return (
     <div className="card p-6">
       <div className="flex items-center justify-between mb-4">
@@ -717,6 +741,14 @@ const CampaignUpdates = ({ campaignId, onUpdateCountChange }) => {
                           </button>
                         </>
                       )}
+                      {/* Report button */}
+                      <button
+                        onClick={() => handleReport(upd)}
+                        className="p-2 text-themed-secondary hover:text-red-600 dark:hover:text-red-400 rounded-lg transition-colors"
+                        title="Report post"
+                      >
+                        <FlagIcon fontSize="small" />
+                      </button>
                     </div>
                   </div>
                   
