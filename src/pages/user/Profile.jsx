@@ -633,7 +633,7 @@ const Profile = () => {
               className={`relative px-3 sm:px-6 py-2.5 sm:py-3 font-medium whitespace-nowrap transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500/40 text-xs sm:text-base border-b-2 ${
                 activeTab === 'personal'
                   ? 'text-green-700 dark:text-green-400 border-green-600 dark:border-green-500 bg-green-50 dark:bg-green-900/20'
-                  : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100 border-transparent'
+                  : 'text-gray-600 dark:text-gray-400 hover:bg-[var(--hover-bg)] hover:text-[var(--text)] border-transparent'
               }`}
               role="tab"
               aria-selected={activeTab === 'personal'}
@@ -646,7 +646,7 @@ const Profile = () => {
               className={`relative px-3 sm:px-6 py-2.5 sm:py-3 font-medium whitespace-nowrap transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500/40 text-xs sm:text-base border-b-2 ${
                 activeTab === 'campaigns'
                   ? 'text-green-700 dark:text-green-400 border-green-600 dark:border-green-500 bg-green-50 dark:bg-green-900/20'
-                  : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100 border-transparent'
+                  : 'text-gray-600 dark:text-gray-400 hover:bg-[var(--hover-bg)] hover:text-[var(--text)] border-transparent'
               }`}
               role="tab"
               aria-selected={activeTab === 'campaigns'}
@@ -658,7 +658,7 @@ const Profile = () => {
               className={`relative px-3 sm:px-6 py-2.5 sm:py-3 font-medium whitespace-nowrap transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500/40 text-xs sm:text-base border-b-2 ${
                 activeTab === 'community'
                   ? 'text-green-700 dark:text-green-400 border-green-600 dark:border-green-500 bg-green-50 dark:bg-green-900/20'
-                  : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100 border-transparent'
+                  : 'text-gray-600 dark:text-gray-400 hover:bg-[var(--hover-bg)] hover:text-[var(--text)] border-transparent'
               }`}
               role="tab"
               aria-selected={activeTab === 'community'}
@@ -672,7 +672,7 @@ const Profile = () => {
                 className={`relative px-3 sm:px-6 py-2.5 sm:py-3 font-medium whitespace-nowrap transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500/40 text-xs sm:text-base border-b-2 ${
                   activeTab === 'donations'
                     ? 'text-green-700 dark:text-green-400 border-green-600 dark:border-green-500 bg-green-50 dark:bg-green-900/20'
-                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100 border-transparent'
+                    : 'text-gray-600 dark:text-gray-400 hover:bg-[var(--hover-bg)] hover:text-[var(--text)] border-transparent'
                 }`}
                 role="tab"
                 aria-selected={activeTab === 'donations'}
@@ -687,7 +687,7 @@ const Profile = () => {
                 className={`relative px-3 sm:px-6 py-2.5 sm:py-3 font-medium whitespace-nowrap transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500/40 text-xs sm:text-base border-b-2 ${
                   activeTab === 'received'
                     ? 'text-green-700 dark:text-green-400 border-green-600 dark:border-green-500 bg-green-50 dark:bg-green-900/20'
-                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100 border-transparent'
+                    : 'text-gray-600 dark:text-gray-400 hover:bg-[var(--hover-bg)] hover:text-[var(--text)] border-transparent'
                 }`}
                 role="tab"
                 aria-selected={activeTab === 'received'}
@@ -701,7 +701,7 @@ const Profile = () => {
               className={`relative px-3 sm:px-6 py-2.5 sm:py-3 font-medium whitespace-nowrap transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500/40 text-xs sm:text-base border-b-2 ${
                 activeTab === 'friends'
                   ? 'text-green-700 dark:text-green-400 border-green-600 dark:border-green-500 bg-green-50 dark:bg-green-900/20'
-                  : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100 border-transparent'
+                  : 'text-gray-600 dark:text-gray-400 hover:bg-[var(--hover-bg)] hover:text-[var(--text)] border-transparent'
               }`}
               role="tab"
               aria-selected={activeTab === 'friends'}

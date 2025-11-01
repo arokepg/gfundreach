@@ -1,6 +1,7 @@
 import { db, storage } from '../config/firebase';
 import { collection, doc, addDoc, setDoc, getDoc, getDocs, updateDoc, deleteDoc, serverTimestamp, query, orderBy, increment } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { uploadImage } from './uploadHelpers';
 import { createNotification } from './notifications';
 
 // Create a group with name, description and optional banner file
@@ -23,12 +24,11 @@ export const createGroup = async (ownerId, { name, description = '', bannerFile 
 
     groupRef = await addDoc(collection(db, 'groups'), groupData);
 
-    // Upload banner if provided
+    // Upload banner if provided (compress + retry with robust helper)
     if (bannerFile) {
       try {
-        const bannerRef = ref(storage, `groups/${groupRef.id}/banner_${Date.now()}`);
-        await uploadBytes(bannerRef, bannerFile);
-        const url = await getDownloadURL(bannerRef);
+        const storagePath = `groups/${groupRef.id}/banner_${Date.now()}.jpg`;
+        const url = await uploadImage(bannerFile, storagePath);
         await updateDoc(groupRef, { bannerUrl: url });
       } catch (uploadErr) {
         console.error('Banner upload failed, continuing without banner:', uploadErr);
@@ -266,10 +266,13 @@ export const updateGroup = async (groupId, { name, description, bannerFile }) =>
   if (typeof name === 'string') updates.name = name;
   if (typeof description === 'string') updates.description = description;
   if (bannerFile) {
-    const bannerRef = ref(storage, `groups/${groupId}/banner_${Date.now()}`);
-    await uploadBytes(bannerRef, bannerFile);
-    const url = await getDownloadURL(bannerRef);
-    updates.bannerUrl = url;
+    try {
+      const storagePath = `groups/${groupId}/banner_${Date.now()}.jpg`;
+      const url = await uploadImage(bannerFile, storagePath);
+      updates.bannerUrl = url;
+    } catch (e) {
+      console.error('Failed updating banner, keeping old one:', e);
+    }
   }
   if (Object.keys(updates).length > 0) {
     await updateDoc(doc(db, 'groups', groupId), updates);

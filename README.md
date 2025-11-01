@@ -170,6 +170,14 @@ npm run dev
 
 4) Optional: Deploy the Cloud Function in `docs/CLOUD_FUNCTIONS.md` to safely credit recipients on donations.
 
+### Media uploads (Firebase Storage)
+
+- Enable Firebase Storage in your Firebase console and use the default bucket `<project-id>.appspot.com`.
+- Set `VITE_FIREBASE_STORAGE_BUCKET` accordingly. The SDK will not work if you use `firebasestorage.app` here.
+- Start with permissive Storage rules for development (public read, auth-only write), then harden as needed.
+
+See `docs/MEDIA_UPLOADS.md` for a step-by-step setup and troubleshooting guide.
+
 ## 📝 License
 
 MIT
