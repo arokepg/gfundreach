@@ -267,7 +267,10 @@ const CampaignDetail = () => {
   };
 
   const calculateProgress = (current, goal) => {
-    return Math.min((current / goal) * 100, 100);
+    const g = Number(goal) || 0;
+    const c = Number(current) || 0;
+    if (g <= 0) return 0;
+    return Math.min((c / g) * 100, 100);
   };
 
   const daysLeft = () => {
@@ -633,12 +636,19 @@ const CampaignDetail = () => {
                   raised of {formatCurrency(post.goalAmount)} goal
                 </p>
                 <div className="relative w-full h-3 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden mb-2">
-                  <div
-                    className={`absolute top-0 left-0 h-full rounded-full transition-all ${
-                      (post.currentAmount || 0) >= (post.goalAmount || Infinity) ? 'bg-blue-600' : 'bg-green-500'
-                    }`}
-                    style={{ width: `${Math.min(calculateProgress(post.currentAmount || 0, post.goalAmount), 100)}%` }}
-                  />
+                  {(() => {
+                    const pct = Math.min(calculateProgress(post.currentAmount || 0, post.goalAmount), 100);
+                    // Ensure a sliver is visible for very small but non-zero progress
+                    const width = pct <= 0 ? '0%' : (pct < 1 ? `calc(${pct}% + 4px)` : `${pct}%`);
+                    return (
+                      <div
+                        className={`absolute top-0 left-0 h-full rounded-full transition-all ${
+                          (post.currentAmount || 0) >= (post.goalAmount || Infinity) ? 'bg-blue-600' : 'bg-green-500'
+                        }`}
+                        style={{ width }}
+                      />
+                    );
+                  })()}
                 </div>
                 <p className="text-sm text-themed-secondary mt-2">
                   {Math.round(calculateProgress(post.currentAmount || 0, post.goalAmount))}% funded { (post.currentAmount||0) >= (post.goalAmount||Infinity) && <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300">Completed</span> }

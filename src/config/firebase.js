@@ -22,4 +22,9 @@ export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const storage = getStorage(app);
 
+// Feature flag: enable/disable Firebase Storage uploads.
+// Set VITE_STORAGE_ENABLED=true in your .env to use Firebase Storage.
+// Defaults to false to support deployments without Storage; image uploads will use base64 in Firestore.
+export const STORAGE_ENABLED = import.meta.env.VITE_STORAGE_ENABLED === 'true';
+
 export default app;

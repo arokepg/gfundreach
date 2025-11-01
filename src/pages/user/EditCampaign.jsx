@@ -2,8 +2,8 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { getMember } from '../../utils/groups';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { db, storage } from '../../config/firebase';
+import { db } from '../../config/firebase';
+import { uploadImage } from '../../utils/uploadHelpers';
 import { useAuth } from '../../contexts/AuthContext';
 import Layout from '../../components/Layout';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
@@ -105,9 +105,8 @@ const EditCampaign = () => {
 
 			// Upload new image if selected
 			if (image) {
-				const imageRef = ref(storage, `campaigns/${id}/${Date.now()}_${image.name}`);
-				await uploadBytes(imageRef, image);
-				imageUrl = await getDownloadURL(imageRef);
+				const storagePath = `campaigns/${id}/${Date.now()}_${image.name || 'image.jpg'}`;
+				imageUrl = await uploadImage(image, storagePath);
 			}
 
 			const docRef = doc(db, 'posts', id);

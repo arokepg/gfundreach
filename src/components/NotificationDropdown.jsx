@@ -165,6 +165,40 @@ const NotificationDropdown = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, unreadCount]);
 
+  const routeForNotification = (n) => {
+    const postId = n.postId || n.campaignId;
+    const groupId = n.groupId;
+    const senderId = n.senderId;
+
+    switch (n.type) {
+      case 'donation':
+      case 'donation_receipt':
+      case 'comment':
+      case 'community_post':
+      case 'like':
+      case 'like_grouped':
+      case 'share':
+      case 'share_grouped':
+      case 'campaign_update':
+        return postId ? `/post/${postId}` : null;
+      case 'group_campaign_created':
+        return (n.campaignId ? `/post/${n.campaignId}` : (groupId ? `/group/${groupId}` : null));
+      case 'group_post_created':
+      case 'group_join_success':
+      case 'group_leave_success':
+      case 'group_kicked':
+      case 'group_member_joined':
+        return groupId ? `/group/${groupId}` : null;
+      case 'follow':
+      case 'friend_accepted':
+        return senderId ? `/profile/${senderId}` : '/profile';
+      case 'friend_request':
+        return '/profile'; // handled specially to open requests
+      default:
+        return null;
+    }
+  };
+
   const handleNotificationClick = async (notification) => {
     try {
       await markAsRead(notification.id);
@@ -172,15 +206,17 @@ const NotificationDropdown = () => {
       // ignore
     }
 
-    // If this is a friend request, navigate to own profile Requests sub-tab
+    // Close dropdown before navigating
+    setIsOpen(false);
+
+    // Friend request: open profile requests sub-tab
     if (notification.type === 'friend_request') {
-      // Close dropdown then navigate
-      setIsOpen(false);
       navigate('/profile', { state: { friendsSubTab: 'requests' } });
       return;
     }
 
-    // For other notification types we currently just mark as read
+    const route = routeForNotification(notification);
+    if (route) navigate(route);
   };
 
   return (

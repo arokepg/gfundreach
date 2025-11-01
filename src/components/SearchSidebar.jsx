@@ -10,6 +10,8 @@ import ArticleIcon from '@mui/icons-material/Article';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import { Link } from 'react-router-dom';
 import { useSearch } from '../contexts/SearchContext';
+import { useAuth } from '../contexts/AuthContext';
+import { listFriendIds } from '../utils/friends';
 
 const storeKey = 'gfr_recent_searches';
 const historyKey = 'gfr_search_history';
@@ -32,12 +34,14 @@ const SectionHeader = ({ icon, title }) => (
 
 const SearchSidebar = () => {
   const { isOpen, close, query: q, setQuery } = useSearch();
+  const { currentUser } = useAuth();
   const [people, setPeople] = useState([]);
   const [campaigns, setCampaigns] = useState([]);
   const [loading, setLoading] = useState(false);
   const [recent, setRecent] = useState([]);
   const [history, setHistory] = useState([]);
   const [showFilters, setShowFilters] = useState(false);
+  const [friendIds, setFriendIds] = useState([]);
   
   // Advanced Filters
   const [selectedCategory, setSelectedCategory] = useState('');
@@ -70,6 +74,20 @@ const SearchSidebar = () => {
   useEffect(() => {
     if (isOpen) setTimeout(() => inputRef.current?.focus(), 50);
   }, [isOpen]);
+
+  // Load friend ids for current user to show Friend indicator
+  useEffect(() => {
+    const loadFriends = async () => {
+      if (!currentUser) { setFriendIds([]); return; }
+      try {
+        const ids = await listFriendIds(currentUser.uid);
+        setFriendIds(ids || []);
+      } catch (err) {
+        console.warn('Failed to load friends:', err);
+      }
+    };
+    if (isOpen) loadFriends();
+  }, [isOpen, currentUser]);
 
   const saveRecent = (term) => {
     if (!term) return;
@@ -139,14 +157,24 @@ const SearchSidebar = () => {
       }
       setLoading(true);
       try {
-        const term = debounced.trim().toLowerCase();
+        const raw = debounced.trim();
+        const term = raw.toLowerCase();
+        const isTagSearch = raw.startsWith('#');
 
-        // People: Search by displayName and email
+        // People: Search by displayName, username, and email
         const usersByNameSnap = await getDocs(
           query(
             collection(db, 'users'),
             where('displayNameLower', '>=', term),
             where('displayNameLower', '<=', term + '\uf8ff'),
+            limit(5)
+          )
+        );
+        const usersByUsernameSnap = await getDocs(
+          query(
+            collection(db, 'users'),
+            where('usernameLower', '>=', term),
+            where('usernameLower', '<=', term + '\uf8ff'),
             limit(5)
           )
         );
@@ -162,13 +190,13 @@ const SearchSidebar = () => {
         
         // Combine and deduplicate people results
         const peopleMap = new Map();
-        [...usersByNameSnap.docs, ...usersByEmailSnap.docs].forEach((d) => {
+        [...usersByNameSnap.docs, ...usersByUsernameSnap.docs, ...usersByEmailSnap.docs].forEach((d) => {
           peopleMap.set(d.id, { id: d.id, ...d.data() });
         });
         const peopleRes = Array.from(peopleMap.values()).slice(0, 5);
 
         // Campaigns: Search by title, tags, and category
-        const campaignsByTitleSnap = await getDocs(
+        const campaignsByTitleSnap = isTagSearch ? { docs: [] } : await getDocs(
           query(
             collection(db, 'posts'),
             where('titleLower', '>=', term),
@@ -177,16 +205,17 @@ const SearchSidebar = () => {
           )
         );
         
+        const tagToken = isTagSearch ? term.replace(/^#/, '') : term;
         const campaignsByTagsSnap = await getDocs(
           query(
             collection(db, 'posts'),
-            where('tagsLower', 'array-contains', term),
+            where('tagsLower', 'array-contains', tagToken),
             limit(10)
           )
         );
 
         // Tokenized tags search (matches any token in tagsLower)
-        const tokens = term.split(/\s+/).filter(Boolean).slice(0, 10);
+  const tokens = (isTagSearch ? [tagToken] : term.split(/\s+/).filter(Boolean)).slice(0, 10);
         let campaignsByAnyTagsSnap = { docs: [] };
         if (tokens.length > 1) {
           campaignsByAnyTagsSnap = await getDocs(
@@ -332,7 +361,7 @@ const SearchSidebar = () => {
   };
 
   // Use CSS var --sidebar-width (set by Sidebar) on desktop so we sit just to its right
-  const containerCls = `fixed inset-y-0 left-[var(--sidebar-left)] z-[60] w-[320px] md:w-[380px] surface border-r border-surface transform transition-transform duration-300 ease-smooth ${
+  const containerCls = `fixed inset-y-0 left-(--sidebar-left) z-60 w-[320px] md:w-[380px] surface border-r border-surface transform transition-transform duration-300 ease-smooth ${
     isOpen ? 'translate-x-0' : '-translate-x-full'
   }`;
 
@@ -342,11 +371,11 @@ const SearchSidebar = () => {
     <>
       {/* Overlay - hidden on mobile (full screen), visible on desktop */}
       <div
-        className={`hidden lg:block fixed inset-0 left-[var(--sidebar-left)] z-[55] bg-black/20 transition-opacity duration-300 opacity-100`}
+        className={`hidden lg:block fixed inset-0 left-(--sidebar-left) z-55 bg-black/20 transition-opacity duration-300 opacity-100`}
         onClick={handleClose}
       />
       {/* Panel - Full screen on mobile, sidebar on desktop */}
-      <aside className={`${containerCls} fixed inset-0 lg:inset-y-0 lg:right-auto lg:left-[var(--sidebar-left)] lg:w-96`} aria-hidden={!isOpen}>
+      <aside className={`${containerCls} fixed inset-0 lg:inset-y-0 lg:right-auto lg:left-(--sidebar-left) lg:w-96`} aria-hidden={!isOpen}>
         <div className="h-[73px] border-b border-surface px-3 lg:px-3 flex items-center justify-between">
           <form onSubmit={handleSubmit} className="flex-1 flex items-center gap-2">
             <div className="relative flex-1">
@@ -442,7 +471,7 @@ const SearchSidebar = () => {
                     className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
                       selectedStatus === status
                         ? 'bg-green-600 text-white'
-                        : 'bg-gray-100 dark:bg-gray-800 text-themed-secondary hover:bg-gray-200 dark:hover:bg-gray-700'
+                        : 'bg-white border border-gray-200 text-themed-secondary hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-700 dark:hover:bg-gray-700'
                     }`}
                   >
                     {status.charAt(0).toUpperCase() + status.slice(1)}
@@ -499,7 +528,7 @@ const SearchSidebar = () => {
                   </div>
                   <div className="space-y-1">
                     {history.map((h) => (
-                      <div key={h.at} className="flex items-center justify-between px-2 py-2.5 lg:py-2 rounded-lg hover:[background-color:var(--hover-bg)] transition">
+                      <div key={h.at} className="flex items-center justify-between px-2 py-2.5 lg:py-2 rounded-lg hover:bg-(--hover-bg) transition">
                         <button className="flex items-center gap-2 flex-1 text-left" onClick={() => setQuery(h.term)} title={new Date(h.at).toLocaleString()}>
                           <SearchIcon className="text-themed-muted" sx={{ fontSize: 18 }} />
                           <div className="min-w-0">
@@ -528,12 +557,17 @@ const SearchSidebar = () => {
               <Link 
                 key={u.uid || u.id} 
                 to={`/profile/${u.uid || u.id}`} 
-                className="flex items-center gap-3 px-2 py-2 rounded-lg hover:[background-color:var(--hover-bg)] transition"
+                className="flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-(--hover-bg) transition"
                 onClick={() => { const term = q.trim(); saveRecent(term); saveHistory(term, people.length, campaigns.length); }}
               >
                 <img src={u.photoURL || ''} alt="" className="w-8 h-8 rounded-full object-cover bg-gray-200 dark:bg-gray-700" referrerPolicy="no-referrer" />
                 <div className="min-w-0 flex-1">
-                  <div className="font-medium truncate text-themed">{u.displayName || 'User'}</div>
+                  <div className="font-medium truncate text-themed flex items-center gap-2">
+                    <span className="truncate">{u.displayName || 'User'}</span>
+                    {currentUser && (u.uid || u.id) !== currentUser.uid && friendIds.includes(u.uid || u.id) && (
+                      <span className="px-2 py-0.5 rounded-full bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 text-[10px] font-semibold shrink-0">Friend</span>
+                    )}
+                  </div>
                   <div className="text-xs text-themed-muted truncate">{u.email}</div>
                 </div>
               </Link>
@@ -549,7 +583,7 @@ const SearchSidebar = () => {
               <Link 
                 key={c.id} 
                 to={`/post/${c.id}`} 
-                className="block px-2 py-2 rounded-lg hover:[background-color:var(--hover-bg)] transition"
+                className="block px-2 py-2 rounded-lg hover:bg-(--hover-bg) transition"
                 onClick={() => { const term = q.trim(); saveRecent(term); saveHistory(term, people.length, campaigns.length); }}
               >
                 <div className="flex items-start gap-2">
@@ -557,7 +591,7 @@ const SearchSidebar = () => {
                     <img 
                       src={c.imageUrl} 
                       alt="" 
-                      className="w-12 h-12 rounded object-cover flex-shrink-0"
+                      className="w-12 h-12 rounded object-cover shrink-0"
                     />
                   )}
                   <div className="min-w-0 flex-1">

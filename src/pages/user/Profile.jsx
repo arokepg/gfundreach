@@ -117,6 +117,22 @@ const Profile = () => {
     }
   };
 
+  // When viewing another user's profile, load their basic user data
+  const fetchViewedUserProfile = async () => {
+    try {
+      if (!userId) return;
+      const snap = await getDoc(doc(db, 'users', userId));
+      if (snap.exists()) {
+        setViewedUserProfile({ id: userId, ...snap.data() });
+      } else {
+        setViewedUserProfile(null);
+      }
+    } catch (err) {
+      console.error('Failed to load viewed user profile:', err);
+      setViewedUserProfile(null);
+    }
+  };
+
   const fetchFriendsList = async () => {
     setFriendsLoading(true);
     try {
@@ -135,9 +151,10 @@ const Profile = () => {
             if (userDoc.exists()) {
               return { id, ...userDoc.data() };
             }
-            return null;
+            // Keep a minimal placeholder entry so the friend still appears
+            return { id };
           } catch {
-            return null;
+            return { id };
           }
         })
       );
@@ -267,14 +284,72 @@ const Profile = () => {
     }
   };
 
-  const fetchViewedUserProfile = async () => {
+  const fetchDonationHistory = async () => {
     try {
-      const userDoc = await getDoc(doc(db, 'users', userId));
-      if (userDoc.exists()) {
-        setViewedUserProfile(userDoc.data());
+      setDonationsLoading(true);
+      let docs = [];
+      try {
+        const q1 = query(
+          collection(db, 'transactions'),
+          where('type', '==', 'donation'),
+          where('donorId', '==', profileUserId),
+          orderBy('createdAt', 'desc')
+        );
+        const snap1 = await getDocs(q1);
+        docs = snap1.docs;
+      } catch (primaryErr) {
+        console.warn('Primary donations query failed (likely missing index); using fallback:', primaryErr?.message);
+        // Fallback: only donorId filter, no orderBy (sort client-side); also accept legacy docs without type
+        const q2 = query(
+          collection(db, 'transactions'),
+          where('donorId', '==', profileUserId)
+        );
+        const snap2 = await getDocs(q2);
+        docs = snap2.docs.filter(d => (d.data()?.type || 'donation') === 'donation');
       }
+      const donationData = await Promise.all(
+        docs.map(async (donationDoc) => {
+          const donation = donationDoc.data();
+          
+          const campaignTitle = donation.postTitle || 'Campaign';
+          // Fetch recipient details (simple doc read)
+          let recipientName = 'Unknown';
+          let recipientPhoto = null;
+          if (donation.recipientId) {
+            try {
+              const recipientSnap = await getDoc(doc(db, 'users', donation.recipientId));
+              if (recipientSnap.exists()) {
+                const recipient = recipientSnap.data();
+                recipientName = recipient.displayName || recipient.email || 'Unknown';
+                recipientPhoto = recipient.photoURL || null;
+              }
+            } catch (err) {
+              console.error('Error fetching recipient:', err);
+            }
+          }
+          
+          return {
+            id: donationDoc.id,
+            ...donation,
+            campaignTitle,
+            recipientName,
+            recipientPhoto
+          };
+        })
+      );
+      
+      // Client-side sort by createdAt (fallback safe)
+      donationData.sort((a, b) => {
+        const ta = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : new Date(a.createdAt || 0).getTime();
+        const tb = b.createdAt?.toDate ? b.createdAt.toDate().getTime() : new Date(b.createdAt || 0).getTime();
+        return tb - ta;
+      });
+      
+      setDonations(donationData);
     } catch (error) {
-      console.error('Error fetching user profile:', error);
+      console.error('Error fetching donation history:', error);
+    } finally {
+      setDonationsLoading(false);
     }
   };
 
@@ -306,138 +381,54 @@ const Profile = () => {
       );
       const snap = await getDocs(q);
       const items = snap.docs.map(d => ({ id: d.id, ...d.data(), campaignId: d.ref.parent.parent.id }));
-      // Sort by createdAt desc on client if needed
+      // Client-side sort by createdAt desc (safe if timestamp or ISO string)
       items.sort((a, b) => {
         const ta = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : new Date(a.createdAt || 0).getTime();
         const tb = b.createdAt?.toDate ? b.createdAt.toDate().getTime() : new Date(b.createdAt || 0).getTime();
         return tb - ta;
       });
-      // Fallback: if collection group is empty, try per-campaign scan (non-fatal best-effort)
-      if (items.length === 0) {
-        try {
-          const postsQ = query(collection(db, 'posts'), where('authorId', '==', profileUserId));
-          const postsSnap = await getDocs(postsQ);
-          const nested = [];
-          for (const p of postsSnap.docs) {
-            const updatesSnap = await getDocs(query(collection(db, 'posts', p.id, 'updates'), orderBy('createdAt', 'desc')));
-            nested.push(
-              ...updatesSnap.docs
-                .map(u => ({ id: u.id, ...u.data(), campaignId: p.id }))
-                .filter(u => u.authorId === profileUserId)
-            );
-          }
-          nested.sort((a, b) => {
-            const ta = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : new Date(a.createdAt || 0).getTime();
-            const tb = b.createdAt?.toDate ? b.createdAt.toDate().getTime() : new Date(b.createdAt || 0).getTime();
-            return tb - ta;
-          });
-          setUserCommunityPosts(nested);
-          return;
-        } catch {/* ignore */}
-      }
       setUserCommunityPosts(items);
     } catch (e) {
       console.error('Error fetching user community posts:', e);
-    }
-  };
-
-  const fetchDonationHistory = async () => {
-    try {
-      setDonationsLoading(true);
-      const q = query(
-        collection(db, 'transactions'),
-        where('donorId', '==', profileUserId),
-        orderBy('createdAt', 'desc')
-      );
-      const querySnapshot = await getDocs(q);
-      const donationData = await Promise.all(
-        querySnapshot.docs.map(async (donationDoc) => {
-          const donation = donationDoc.data();
-          
-          // Fetch campaign details
-          let campaignTitle = 'Unknown Campaign';
-          let recipientName = 'Unknown';
-          let recipientPhoto = null;
-          
-          if (donation.campaignId) {
-            try {
-              const campaignDoc = await getDocs(query(collection(db, 'posts'), where('__name__', '==', donation.campaignId)));
-              if (!campaignDoc.empty) {
-                const campaign = campaignDoc.docs[0].data();
-                campaignTitle = campaign.title || 'Unknown Campaign';
-              }
-            } catch (err) {
-              console.error('Error fetching campaign:', err);
-            }
-          }
-          
-          // Fetch recipient details
-          if (donation.recipientId) {
-            try {
-              const recipientDoc = await getDocs(query(collection(db, 'users'), where('__name__', '==', donation.recipientId)));
-              if (!recipientDoc.empty) {
-                const recipient = recipientDoc.docs[0].data();
-                recipientName = recipient.displayName || recipient.email || 'Unknown';
-                recipientPhoto = recipient.photoURL || null;
-              }
-            } catch (err) {
-              console.error('Error fetching recipient:', err);
-            }
-          }
-          
-          return {
-            id: donationDoc.id,
-            ...donation,
-            campaignTitle,
-            recipientName,
-            recipientPhoto
-          };
-        })
-      );
-      
-      setDonations(donationData);
-    } catch (error) {
-      console.error('Error fetching donation history:', error);
-    } finally {
-      setDonationsLoading(false);
+      setUserCommunityPosts([]);
     }
   };
 
   const fetchReceivedHistory = async () => {
     try {
       setReceivedLoading(true);
-      const q = query(
-        collection(db, 'transactions'),
-        where('recipientId', '==', profileUserId),
-        orderBy('createdAt', 'desc')
-      );
-      const querySnapshot = await getDocs(q);
+      let docs = [];
+      try {
+        const q1 = query(
+          collection(db, 'transactions'),
+          where('type', '==', 'donation'),
+          where('recipientId', '==', profileUserId),
+          orderBy('createdAt', 'desc')
+        );
+        const snap1 = await getDocs(q1);
+        docs = snap1.docs;
+      } catch (primaryErr) {
+        console.warn('Primary received query failed (likely missing index); using fallback:', primaryErr?.message);
+        // Fallback: only recipientId filter; accept legacy docs without type
+        const q2 = query(
+          collection(db, 'transactions'),
+          where('recipientId', '==', profileUserId)
+        );
+        const snap2 = await getDocs(q2);
+        docs = snap2.docs.filter(d => (d.data()?.type || 'donation') === 'donation');
+      }
       const receivedData = await Promise.all(
-        querySnapshot.docs.map(async (donationDoc) => {
+        docs.map(async (donationDoc) => {
           const donation = donationDoc.data();
-          
-          // Fetch campaign details
-          let campaignTitle = 'Unknown Campaign';
-          if (donation.campaignId) {
-            try {
-              const campaignDoc = await getDocs(query(collection(db, 'posts'), where('__name__', '==', donation.campaignId)));
-              if (!campaignDoc.empty) {
-                const campaign = campaignDoc.docs[0].data();
-                campaignTitle = campaign.title || 'Unknown Campaign';
-              }
-            } catch (err) {
-              console.error('Error fetching campaign:', err);
-            }
-          }
-          
+          const campaignTitle = donation.postTitle || 'Campaign';
           // Fetch donor details
           let donorName = 'Anonymous';
           let donorPhoto = null;
           if (donation.donorId) {
             try {
-              const donorDoc = await getDocs(query(collection(db, 'users'), where('__name__', '==', donation.donorId)));
-              if (!donorDoc.empty) {
-                const donor = donorDoc.docs[0].data();
+              const donorSnap = await getDoc(doc(db, 'users', donation.donorId));
+              if (donorSnap.exists()) {
+                const donor = donorSnap.data();
                 donorName = donor.displayName || donor.email || 'Anonymous';
                 donorPhoto = donor.photoURL || null;
               }
@@ -445,7 +436,6 @@ const Profile = () => {
               console.error('Error fetching donor:', err);
             }
           }
-          
           return {
             id: donationDoc.id,
             ...donation,
@@ -455,7 +445,12 @@ const Profile = () => {
           };
         })
       );
-      
+      // Client-side sort by createdAt (fallback safe)
+      receivedData.sort((a, b) => {
+        const ta = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : new Date(a.createdAt || 0).getTime();
+        const tb = b.createdAt?.toDate ? b.createdAt.toDate().getTime() : new Date(b.createdAt || 0).getTime();
+        return tb - ta;
+      });
       setReceivedDonations(receivedData);
     } catch (error) {
       console.error('Error fetching received history:', error);

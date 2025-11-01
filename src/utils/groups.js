@@ -1,6 +1,5 @@
-import { db, storage } from '../config/firebase';
+import { db } from '../config/firebase';
 import { collection, doc, addDoc, setDoc, getDoc, getDocs, updateDoc, deleteDoc, serverTimestamp, query, orderBy, increment } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { uploadImage } from './uploadHelpers';
 import { createNotification } from './notifications';
 
@@ -203,10 +202,13 @@ export const createGroupPost = async (groupId, user, { content, imageFile = null
   };
   const postRef = await addDoc(collection(db, 'groups', groupId, 'posts'), postData);
   if (imageFile && type === 'post') {
-    const imgRef = ref(storage, `groups/${groupId}/posts/${postRef.id}_${Date.now()}`);
-    await uploadBytes(imgRef, imageFile);
-    const url = await getDownloadURL(imgRef);
-    await updateDoc(postRef, { imageUrl: url });
+    try {
+      const storagePath = `groups/${groupId}/posts/${postRef.id}_${Date.now()}.jpg`;
+      const url = await uploadImage(imageFile, storagePath);
+      await updateDoc(postRef, { imageUrl: url });
+    } catch (e) {
+      console.error('Failed to attach image to group post, continuing without image:', e);
+    }
   }
   // Best-effort notifications:
   try {

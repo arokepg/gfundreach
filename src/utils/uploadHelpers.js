@@ -1,5 +1,5 @@
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
-import { storage } from '../config/firebase';
+import { storage, STORAGE_ENABLED } from '../config/firebase';
 
 /**
  * Upload file to Firebase Storage with retry mechanism and progress tracking
@@ -90,14 +90,20 @@ export async function uploadImage(file, storagePath, onProgress = null) {
     const compressed = await compressImageFile(file, 1000, 0.7, 400);
     console.log(`✅ Compressed to: ${(compressed.size / 1024).toFixed(0)}KB`);
     
-    // Try Firebase Storage upload with retry
+    // If storage is disabled, or explicitly requested off, use base64 directly
+    if (!STORAGE_ENABLED) {
+      const { uploadImageAsBase64 } = await import('./base64Upload');
+      const base64Url = await uploadImageAsBase64(compressed);
+      console.log('✅ Using base64 storage (Storage disabled)');
+      return base64Url;
+    }
+
+    // Otherwise, try Firebase Storage upload with retry; if it fails, fall back to base64
     try {
       const url = await uploadFileWithRetry(compressed, storagePath, onProgress, 2); // Reduced to 2 retries
       return url;
     } catch (storageError) {
       console.warn('⚠️ Firebase Storage upload failed, falling back to base64...', storageError.message);
-      
-      // Fallback to base64 storage
       const { uploadImageAsBase64 } = await import('./base64Upload');
       const base64Url = await uploadImageAsBase64(compressed);
       console.log('✅ Using base64 storage (fallback)');
