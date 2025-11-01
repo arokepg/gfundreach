@@ -51,6 +51,10 @@ service cloud.firestore {
       // Group admins/moderators can manage campaigns that belong to their group
       allow update, delete: if isSignedIn() && resource.data.groupId != null && isGroupAdminOrMod(resource.data.groupId);
 
+      // Platform admins can manage any campaign (needed for moderation delete/restore)
+      // Admins can also set verification status (verified, verifiedAt, verifiedBy fields)
+      allow update, delete: if isAdmin();
+
       // Public increments for donation and reactions only
       allow update: if isSignedIn() &&
         request.resource.data.diff(resource.data).changedKeys().hasOnly(["currentAmount","supporters","likesCount","sharesCount","likedBy","lastUpdateAt","lastUpdatePreview","updateCount"]);
@@ -64,6 +68,8 @@ service cloud.firestore {
         allow read: if true;
         allow create: if isSignedIn();
         allow update, delete: if isSignedIn() && request.auth.uid == resource.data.authorId;
+        // Platform admins can delete/restore any update during moderation
+        allow update, delete: if isAdmin();
         // Public reaction counters
         allow update: if isSignedIn() &&
           request.resource.data.diff(resource.data).changedKeys().hasOnly(["likesCount","sharesCount","likedBy"]);
@@ -82,6 +88,13 @@ service cloud.firestore {
     match /reports/{rid} {
       allow read, create: if isSignedIn(); // anyone can file a report; listing is admin-only in UI
       allow update, delete: if isAdmin();  // only admins can modify/delete reports
+    }
+
+    // Moderation trash (soft-deletes with 3-day undo)
+    // Structure: { refPath: string, targetType: string, createdAt: string, expireAt: string, original: map }
+    // Only admins can read/write/delete here.
+    match /moderationTrash/{tid} {
+      allow read, create, update, delete: if isAdmin();
     }
 
     // Saved items (bookmarks)

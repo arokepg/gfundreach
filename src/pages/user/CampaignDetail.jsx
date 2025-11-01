@@ -15,6 +15,7 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import BarChartIcon from '@mui/icons-material/BarChart';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
+import VerifiedIcon from '@mui/icons-material/Verified';
 import { recordCampaignView } from '../../utils/viewTracker';
 import { formatCurrencyShort } from '../../utils/numberFormat';
 import { getMember } from '../../utils/groups';
@@ -472,12 +473,17 @@ const CampaignDetail = () => {
                     )}
                   </Link>
                   <div>
-                    <Link 
-                      to={`/profile/${post.authorId}`}
-                      className="font-medium text-themed hover:underline"
-                    >
-                      {post.authorName}
-                    </Link>
+                    <div className="flex items-center gap-1">
+                      <Link 
+                        to={`/profile/${post.authorId}`}
+                        className="font-medium text-themed hover:underline"
+                      >
+                        {post.authorName}
+                      </Link>
+                      {post.verified && (
+                        <VerifiedIcon className="text-blue-500" style={{ fontSize: 18 }} titleAccess="Verified Creator" />
+                      )}
+                    </div>
                     <p className="text-sm text-themed-muted">
                       {new Date(post.createdAt).toLocaleDateString()}
                     </p>

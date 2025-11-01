@@ -279,7 +279,7 @@ const CommunityPostDetail = () => {
 
           {/* Post Content */}
           <div className="mb-6">
-            <p className="text-themed whitespace-pre-wrap text-lg leading-relaxed">{post.content}</p>
+            <p className="text-themed-muted whitespace-pre-wrap text-lg leading-relaxed">{post.content}</p>
           </div>
 
           {/* Post Image */}

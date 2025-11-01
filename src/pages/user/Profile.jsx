@@ -376,19 +376,63 @@ const Profile = () => {
 
   const fetchUserCommunityPosts = async () => {
     try {
-      const q = query(
-        collectionGroup(db, 'updates'),
-        where('authorId', '==', profileUserId)
-      );
-      const snap = await getDocs(q);
-      const items = snap.docs.map(d => ({ id: d.id, ...d.data(), campaignId: d.ref.parent.parent.id }));
-      // Client-side sort by createdAt desc (safe if timestamp or ISO string)
-      items.sort((a, b) => {
+      // Try index-based query first
+      try {
+        const q1 = query(collectionGroup(db, 'updates'), where('authorId', '==', profileUserId));
+        const snap1 = await getDocs(q1);
+        const items1 = snap1.docs.map(d => ({ id: d.id, ...d.data(), campaignId: d.ref.parent.parent.id }));
+        if (items1.length > 0) {
+          const sorted = items1.sort((a, b) => {
+            const ta = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : new Date(a.createdAt || 0).getTime();
+            const tb = b.createdAt?.toDate ? b.createdAt.toDate().getTime() : new Date(b.createdAt || 0).getTime();
+            return tb - ta;
+          });
+          setUserCommunityPosts(sorted);
+          return;
+        }
+      } catch (primaryErr) {
+        console.warn('Primary community posts query failed (likely missing index); falling back:', primaryErr?.message);
+      }
+
+      // Fallback A: collectionGroup without filters then client-side filter (limit to avoid heavy reads)
+      let items = [];
+      try {
+        const snapA = await getDocs(collectionGroup(db, 'updates'));
+        items = snapA.docs
+          .map(d => ({ id: d.id, ...d.data(), campaignId: d.ref.parent.parent.id }))
+          .filter(u => (u.authorId || '') === profileUserId);
+      } catch (aErr) {
+        console.warn('CollectionGroup fallback failed; trying per-campaign fallback:', aErr?.message);
+      }
+
+      // Fallback B: if still empty, fetch campaigns by this user and then their updates filtered by authorId
+      if (items.length === 0) {
+        try {
+          const postsQ = query(collection(db, 'posts'), where('authorId', '==', profileUserId));
+          const postsSnap = await getDocs(postsQ);
+          const campaigns = postsSnap.docs.map(d => ({ id: d.id }));
+          const perCampaignFetches = campaigns.map(async (c) => {
+            try {
+              const upSnap = await getDocs(collection(db, 'posts', c.id, 'updates'));
+              return upSnap.docs
+                .map(u => ({ id: u.id, ...u.data(), campaignId: c.id }))
+                .filter(u => (u.authorId || '') === profileUserId);
+            } catch { return []; }
+          });
+          const all = await Promise.all(perCampaignFetches);
+          items = all.flat();
+        } catch (fallbackErr) {
+          console.warn('Per-campaign fallback failed:', fallbackErr);
+          items = [];
+        }
+      }
+
+      const sorted = items.sort((a, b) => {
         const ta = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : new Date(a.createdAt || 0).getTime();
         const tb = b.createdAt?.toDate ? b.createdAt.toDate().getTime() : new Date(b.createdAt || 0).getTime();
         return tb - ta;
       });
-      setUserCommunityPosts(items);
+      setUserCommunityPosts(sorted);
     } catch (e) {
       console.error('Error fetching user community posts:', e);
       setUserCommunityPosts([]);
@@ -461,7 +505,10 @@ const Profile = () => {
   };
 
   const calculateProgress = (current, goal) => {
-    return Math.min((current / goal) * 100, 100);
+    const curr = Number(current) || 0;
+    const g = Number(goal) || 0;
+    if (g <= 0) return 0;
+    return Math.min((curr / g) * 100, 100);
   };
 
   const formatCurrency = (amount) => formatCurrencyShort(amount, { maxDigits: 5 });
@@ -877,13 +924,13 @@ const Profile = () => {
                     >
                       {/* Management Actions - Only show for own profile */}
                       {isOwnProfile && (
-                        <div className="absolute top-4 right-4 flex gap-2 z-10">
+                        <div className="flex justify-end gap-2 mb-2">
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
                               handleViewStats(e, post.id);
                             }}
-                            className="p-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-all duration-300 hover:scale-110 active:scale-95 shadow-md"
+                            className="p-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors shadow-sm"
                             title="View Statistics"
                           >
                             <BarChartIcon style={{ fontSize: '20px' }} />
@@ -893,7 +940,7 @@ const Profile = () => {
                               e.stopPropagation();
                               handleEditCampaign(e, post.id);
                             }}
-                            className="p-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-all duration-300 hover:scale-110 active:scale-95 shadow-md"
+                            className="p-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors shadow-sm"
                             title="Edit Campaign"
                           >
                             <EditIcon style={{ fontSize: '20px' }} />
@@ -903,7 +950,7 @@ const Profile = () => {
                               e.stopPropagation();
                               handleDeleteCampaign(e, post.id);
                             }}
-                            className="p-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-all duration-300 hover:scale-110 active:scale-95 shadow-md"
+                            className="p-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors shadow-sm"
                             title="Delete Campaign"
                           >
                             <DeleteIcon style={{ fontSize: '20px' }} />
@@ -912,13 +959,18 @@ const Profile = () => {
                       )}
 
                       <div>
-                        {post.imageUrl && (
-                          <img
-                            src={post.imageUrl}
-                            alt={post.title}
-                            className="w-full h-48 object-cover rounded-xl mb-4"
-                          />
-                        )}
+                        <div className="w-full h-48 rounded-xl mb-3 overflow-hidden bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+                          {post.imageUrl ? (
+                            <img
+                              src={post.imageUrl}
+                              alt={post.title}
+                              className="w-full h-48 object-cover"
+                              loading="lazy"
+                            />
+                          ) : (
+                            <div className="text-sm text-themed-muted">No image</div>
+                          )}
+                        </div>
                         
                         <span className="inline-block bg-primary-50 text-primary px-3 py-1 rounded-full text-sm font-medium mb-3">
                           {post.category}
@@ -938,7 +990,7 @@ const Profile = () => {
                               {formatCurrency(post.currentAmount || 0)}
                             </span>
                             <span className="text-gray-600 text-sm">
-                              of {formatCurrency(post.goalAmount)}
+                              of {formatCurrency(post.goalAmount || 0)}
                             </span>
                           </div>
                           <div className="relative w-full h-3 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">

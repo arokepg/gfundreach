@@ -271,7 +271,9 @@ const PostCard = ({ post }) => {
               >
                 {post.authorName}
               </Link>
-              <VerifiedIcon className="text-blue-500 text-sm" />
+              {post.verified && (
+                <VerifiedIcon className="text-blue-500" style={{ fontSize: 18 }} titleAccess="Verified Creator" />
+              )}
             </div>
             <p className="text-xs text-themed-muted">
               {timeAgo(post.createdAt)}

@@ -24,22 +24,42 @@ export const ThemeProvider = ({ children }) => {
 
   useEffect(() => {
     const root = document.documentElement;
-    
-    if (isDarkMode) {
-      root.classList.add('theme-xfade');
-      root.classList.add('dark');
-      localStorage.setItem('theme', 'dark');
-    } else {
-      root.classList.add('theme-xfade');
-      root.classList.remove('dark');
-      localStorage.setItem('theme', 'light');
+
+    // Respect Reduced Motion users: no animated cross-fade
+    const prefersReduced = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
+
+    if (prefersReduced) {
+      if (isDarkMode) {
+        root.classList.add('dark');
+        localStorage.setItem('theme', 'dark');
+      } else {
+        root.classList.remove('dark');
+        localStorage.setItem('theme', 'light');
+      }
+      return; // No transition handling
     }
 
-    // Remove transition helper class after animation
+    // Add transition helper first, then toggle theme on next frame for smoother animation
+    root.classList.add('theme-xfade');
+    const frame = requestAnimationFrame(() => {
+      if (isDarkMode) {
+        root.classList.add('dark');
+        localStorage.setItem('theme', 'dark');
+      } else {
+        root.classList.remove('dark');
+        localStorage.setItem('theme', 'light');
+      }
+    });
+
+    // Remove transition helper class after animation ends
     const t = setTimeout(() => {
       root.classList.remove('theme-xfade');
-    }, 250);
-    return () => clearTimeout(t);
+    }, 420); // keep slightly longer than CSS transition
+
+    return () => {
+      cancelAnimationFrame(frame);
+      clearTimeout(t);
+    };
   }, [isDarkMode]);
 
   const toggleTheme = () => {

@@ -471,7 +471,7 @@ const SearchSidebar = () => {
                     className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
                       selectedStatus === status
                         ? 'bg-green-600 text-white'
-                        : 'bg-white border border-gray-200 text-themed-secondary hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-700 dark:hover:bg-gray-700'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700'
                     }`}
                   >
                     {status.charAt(0).toUpperCase() + status.slice(1)}

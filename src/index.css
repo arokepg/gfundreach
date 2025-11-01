@@ -49,12 +49,12 @@ html, body, #root {
 body {
   background-color: var(--bg);
   color: var(--text);
-  transition: background-color 200ms ease, color 200ms ease;
+  transition: background-color 360ms ease, color 360ms ease;
 }
 
 /* Smooth theme transitions when toggling dark/light */
 html.theme-xfade *, html.theme-xfade *::before, html.theme-xfade *::after {
-  transition: background-color 200ms ease, color 200ms ease, border-color 200ms ease, fill 200ms ease, stroke 200ms ease !important;
+  transition: background-color 360ms ease, color 360ms ease, border-color 360ms ease, fill 360ms ease, stroke 360ms ease !important;
 }
 
 .card {

@@ -753,7 +753,7 @@ const CampaignUpdates = ({ campaignId, onUpdateCountChange }) => {
                   </div>
                   
                   {/* Post content */}
-                  <p className="text-sm text-themed-secondary whitespace-pre-wrap">{upd.content}</p>
+                  <p className="text-sm text-themed-muted whitespace-pre-wrap">{upd.content}</p>
                   
                   {/* Post image */}
                   {upd.imageUrl && (
