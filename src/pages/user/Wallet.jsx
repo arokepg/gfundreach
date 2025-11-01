@@ -242,14 +242,14 @@ const Wallet = () => {
 
   // Derived totals
   const totalDonatedCalc = transactions
-    .filter((t) => t.role === 'donor')
+    .filter((t) => t.role === 'donor' && t.type === 'donation')
     .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
   const totalReceivedCalc = transactions
     .filter((t) => t.role === 'recipient')
     .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
   // Note: recipient credits are not applied to walletBalance by client due to security rules.
   // Show an effective balance that includes received donations for transparency.
-  const effectiveBalance = (Number(userProfile?.walletBalance) || 0) + totalReceivedCalc;
+  const effectiveBalance = (Number(userProfile?.walletBalance) || 0);
 
   return (
     <Layout>
