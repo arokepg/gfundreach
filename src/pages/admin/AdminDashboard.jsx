@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
-import { collection, getDocs, doc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { collection, getDocs, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import Layout from '../../components/Layout';
 import { useAuth } from '../../contexts/AuthContext';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 
 // Minimal admin gate: assumes userProfile.role === 'admin'
 export default function AdminDashboard() {

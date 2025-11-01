@@ -1,3 +1,2 @@
-// Deprecated: Use scripts/make-admin.cjs instead (CommonJS).
-console.error('Deprecated: use "node scripts/make-admin.cjs <UID> --role=admin --serviceAccount=..."');
-process.exit(1);
+// Deprecated stub: Use scripts/make-admin.cjs instead (CommonJS).
+// This file is intentionally inert to avoid lint errors in browser env.

@@ -8,12 +8,13 @@ const SUFFIXES = [
 ];
 
 export function formatAmountShort(value, opts = {}) {
-  const { maxDigits = 5, minFraction = 0, maxFraction = 2, useSuffix = true } = opts;
+  const { maxDigits = 5, minFraction = 0, maxFraction = 3, useSuffix = true } = opts;
   let num = Number(value || 0);
   if (!isFinite(num)) num = 0;
 
   // Handle negatives gracefully
-  const sign = num < 0 ? '-' : '';
+  const isNegative = num < 0;
+  const sign = isNegative ? '-' : '';
   num = Math.abs(num);
 
   let suffix = '';
@@ -35,7 +36,17 @@ export function formatAmountShort(value, opts = {}) {
   allowedFrac = Math.min(allowedFrac, maxFraction);
   allowedFrac = Math.max(allowedFrac, minFraction);
 
-  const rounded = scaled.toFixed(allowedFrac);
+  // Round values: standard rounding for positive, truncate toward 0 for negative
+  let numericRounded;
+  if (allowedFrac === 0) {
+    numericRounded = isNegative ? Math.floor(scaled) : Math.round(scaled);
+  } else {
+    const factor = Math.pow(10, allowedFrac);
+    numericRounded = isNegative
+      ? Math.floor(scaled * factor) / factor
+      : Number(scaled.toFixed(allowedFrac));
+  }
+  const rounded = numericRounded.toFixed(allowedFrac);
 
   // Remove trailing zeros if we exceeded minFraction
   let trimmed = rounded;
@@ -47,7 +58,7 @@ export function formatAmountShort(value, opts = {}) {
 }
 
 export function formatCurrencyShort(value, opts = {}) {
-  const { currency = 'USD', symbol = '$', ...rest } = opts;
+  const { symbol = '$', ...rest } = opts;
   // We prepend symbol and rely on formatAmountShort to keep digits <= maxDigits
   const numeric = formatAmountShort(value, rest);
   return `${symbol}${numeric}`;

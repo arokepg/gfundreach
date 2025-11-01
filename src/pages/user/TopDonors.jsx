@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import Layout from '../../components/Layout';
@@ -47,7 +47,7 @@ export default function TopDonors() {
             try {
               const snap = await getDoc(doc(db, 'users', uid));
               return { uid, profile: snap.exists() ? snap.data() : null };
-            } catch (e) {
+            } catch {
               return { uid, profile: null };
             }
           })
