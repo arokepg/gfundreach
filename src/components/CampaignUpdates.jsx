@@ -492,7 +492,7 @@ const CampaignUpdates = ({ campaignId, onUpdateCountChange }) => {
   return (
     <div className="card p-6">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-xl font-bold text-themed">Community posts</h3>
+        <h3 className="text-xl font-bold text-themed">Campaign Updates</h3>
         <span className="text-sm text-themed-muted">{updates.length} posts</span>
       </div>
 
@@ -519,7 +519,7 @@ const CampaignUpdates = ({ campaignId, onUpdateCountChange }) => {
             </div>
             <div className="flex-1 space-y-2">
               <textarea
-                className="input-field min-h-20"
+                className="input-field min-h-20 bg-white! text-gray-900! placeholder:text-gray-500 dark:placeholder:text-gray-400 dark:bg-(--input-bg)! dark:text-(--text)!"
                 placeholder="Share your thoughts about this campaign..."
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
@@ -623,7 +623,7 @@ const CampaignUpdates = ({ campaignId, onUpdateCountChange }) => {
                   </div>
                   
                   <textarea
-                    className="input-field min-h-20 w-full"
+                    className="input-field min-h-20 w-full bg-white! text-gray-900! placeholder:text-gray-500 dark:placeholder:text-gray-400 dark:bg-(--input-bg)! dark:text-(--text)!"
                     value={editContent}
                     onChange={(e) => setEditContent(e.target.value)}
                   />

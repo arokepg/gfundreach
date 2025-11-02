@@ -138,32 +138,26 @@ const Profile = () => {
     setFriendsLoading(true);
     try {
       const ids = await listFriendIds(profileUserId);
-      
       // Filter out the profile owner from the IDs list immediately
       const filteredIds = ids.filter(id => id !== profileUserId);
-      
       const friendsData = await Promise.all(
         filteredIds.map(async (id) => {
           // Extra safety: skip if id matches profileUserId
           if (id === profileUserId) return null;
-          
           try {
             const userDoc = await getDoc(doc(db, 'users', id));
             if (userDoc.exists()) {
               return { id, ...userDoc.data() };
             }
-            // Keep a minimal placeholder entry so the friend still appears
-            return { id };
+            return null;
           } catch {
-            return { id };
+            return null;
           }
         })
       );
       let allFriends = friendsData.filter(Boolean);
-      
       // Triple-check: Remove the profile owner from their own friends list display
       allFriends = allFriends.filter(friend => friend && friend.id && friend.id !== profileUserId);
-      
       // If viewing someone else's profile and their list is private, only show mutual friends
       if (!isOwnProfile && friendsPrivacy === 'private' && currentUser?.uid) {
         try {
@@ -175,7 +169,6 @@ const Profile = () => {
           allFriends = [];
         }
       }
-      
       setFriendsList(allFriends);
     } catch (error) {
       console.error('Error fetching friends list:', error);

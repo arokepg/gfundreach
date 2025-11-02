@@ -29,9 +29,16 @@ const RightSidebar = () => {
       const usersWithStats = await Promise.all(
         users.map(async (user) => {
           const stats = await calculateWalletStats(user.id);
+          // Derive number of unique recipients helped
+          const helped = new Set(
+            (stats.transactions || [])
+              .filter(t => t.role === 'donor' && t.type === 'donation' && t.recipientId)
+              .map(t => t.recipientId)
+          ).size;
           return {
             ...user,
-            totalDonated: stats.totalDonated
+            totalDonated: stats.totalDonated,
+            totalHelped: helped
           };
         })
       );

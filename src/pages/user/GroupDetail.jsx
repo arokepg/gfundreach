@@ -4,7 +4,7 @@ import Layout from '../../components/Layout';
 import PostCard from '../../components/PostCard';
 import GroupItemCard from '../../components/GroupItemCard';
 import { useAuth } from '../../contexts/AuthContext';
-import { createGroupPost, getGroup, getMember, joinGroup, leaveGroup, listGroupPosts, listPendingGroupPosts, listMembers, setMemberRole, approveGroupPost, rejectGroupPost, updateGroup, softDeleteGroup, removeMember } from '../../utils/groups';
+import { getGroup, getMember, joinGroup, leaveGroup, listGroupPosts, listPendingGroupPosts, listMembers, setMemberRole, approveGroupPost, rejectGroupPost, updateGroup, softDeleteGroup, removeMember } from '../../utils/groups';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import PersonIcon from '@mui/icons-material/Person';
@@ -397,12 +397,6 @@ const GroupDetail = () => {
                 ))}
               </div>
             </div>
-
-            <div className="card p-3 sm:p-4">
-              <h3 className="font-semibold text-themed mb-3 text-sm sm:text-base">Share a campaign</h3>
-              <p className="text-xs sm:text-sm text-themed-muted mb-3">Create campaigns as usual, then paste the campaign link here to share it to the group feed.</p>
-              <ShareCampaign groupId={id} onShared={async ()=> setPosts(await listGroupPosts(id))} />
-            </div>
           </div>
 
           {/* Pending Posts - Desktop shows in feed column, Mobile has dedicated tab */}
@@ -463,48 +457,6 @@ const GroupDetail = () => {
         </div>
       )}
     </Layout>
-  );
-};
-
-const ShareCampaign = ({ groupId, onShared }) => {
-  const { currentUser } = useAuth();
-  const [url, setUrl] = useState('');
-  const [sharing, setSharing] = useState(false);
-
-  const parseId = (u) => {
-    try {
-      // Accept /post/:id and full URL
-      const m = u.match(/\/post\/([A-Za-z0-9_-]+)/);
-      return m ? m[1] : u.trim();
-    } catch {
-      return '';
-    }
-  };
-
-  const handleShare = async () => {
-    const id = parseId(url);
-    if (!id) return;
-    if (!currentUser) return alert('Please log in');
-    setSharing(true);
-    try {
-      await createGroupPost(groupId, currentUser, { content: '', type: 'campaign', campaignId: id });
-      setUrl('');
-      onShared && onShared();
-    } finally {
-      setSharing(false);
-    }
-  };
-
-  return (
-    <div className="flex gap-2">
-      <input
-        value={url}
-        onChange={(e)=> setUrl(e.target.value)}
-        placeholder="Paste /post/:id link"
-        className="input-field flex-1"
-      />
-      <button onClick={handleShare} disabled={!url.trim() || sharing} className="px-4 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white">{sharing ? 'Sharing...' : 'Share'}</button>
-    </div>
   );
 };
 
