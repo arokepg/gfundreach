@@ -9,6 +9,7 @@ import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import AddCircleIcon from '@mui/icons-material/AddCircle';
 import PersonIcon from '@mui/icons-material/Person';
+import MessageIcon from '@mui/icons-material/Message';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { calculateWalletStats, formatCompactCurrency } from '../utils/walletHelpers';
@@ -33,6 +34,7 @@ const Sidebar = () => {
     { icon: <HomeIcon />, label: 'Home', path: '/' },
   { icon: <SearchIcon />, label: 'Search', path: '/explore' },
     { icon: <BookmarkIcon />, label: 'Saved', path: '/saved' },
+    { icon: <MessageIcon />, label: 'Messages', path: '/messages' },
     { icon: <GroupIcon />, label: 'Groups', path: '/groups' },
     { icon: <AccountBalanceWalletIcon />, label: 'Wallet', path: '/wallet' },
     { icon: <AccountCircleIcon />, label: 'Profile', path: '/profile' },

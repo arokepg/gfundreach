@@ -272,7 +272,7 @@ const PostCard = ({ post }) => {
                 {post.authorName}
               </Link>
               {post.verified && (
-                <VerifiedIcon className="text-blue-500" style={{ fontSize: 18 }} titleAccess="Verified Creator" />
+                <VerifiedIcon className="text-blue-500" style={{ fontSize: 18 }} titleAccess="Verified Campaign" />
               )}
             </div>
             <p className="text-xs text-themed-muted">
@@ -280,7 +280,13 @@ const PostCard = ({ post }) => {
             </p>
           </div>
         </div>
-        <div className="flex space-x-2">
+        <div className="flex flex-wrap gap-2">
+          {post.verified && (
+            <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800">
+              <VerifiedIcon className="text-blue-600" style={{ fontSize: 14 }} />
+              <span className="text-xs font-medium text-blue-600">Verified</span>
+            </div>
+          )}
           {post.priority && (
             <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getPriorityColor(post.priority)}`}>
               {post.priority === 'high' ? 'Need Help' : post.priority === 'low' ? 'Low Priority' : 'High Priority'}

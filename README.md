@@ -175,19 +175,45 @@ npm run dev
 
 ## 🛡️ Admin & Moderation
 
-- A minimal Admin Dashboard is available at `/admin` (requires `userProfile.role === 'admin'`).
-- Reports: user-submitted content reports are listed and can be marked resolved; basic moderation hides content by setting a `hidden: true` flag.
-- See `docs/FIRESTORE_RULES.md` for an optional `isAdmin()` helper and a suggested `reports` collection rule.
+- **Platform Admin Dashboard**: Available at `/admin` (requires `userProfile.role === 'admin'`)
+  - Overview with KPI cards and quick actions
+  - **User Verification**: Admin can verify users and campaigns with blue checkmark badges
+  - Campaign management with pause/activate controls
+  - Content moderation with soft-delete and 3-day undo
+  - Search functionality across all tabs
+- **Group Admin Dashboard**: Group owners/admins/moderators can manage their specific group
+  - Scoped moderation tools
+  - Member management
+  - Post approval workflow
+  - Group analytics
+- See `docs/FIRESTORE_RULES.md` for security rules and `docs/GROUP_ADMIN_DASHBOARD.md` for implementation details
+
+## 🤝 Team Fundraising
+
+- Multiple users can join a single campaign as a "Team"
+- Campaign page shows team leaderboard with individual contributions
+- Friendly competition between team members
+- Team leaders can manage team settings
+- See `docs/TEAM_FUNDRAISING.md` for full implementation guide
+
+## 💬 Direct Messaging (DMs)
+
+- Potential donors can send private messages to campaign creators
+- Real-time messaging with Firestore listeners
+- Unread count badges
+- Conversations list with search
+- See `docs/DIRECT_MESSAGING.md` for architecture and implementation tutorial
 
 ### First admin (bootstrap)
 
 Use a trusted environment to set a user's role to `admin`:
 
-```
-node .\scripts\make-admin.cjs <USER_UID> --role=admin --serviceAccount=E:\secrets\serviceAccountKey.json
+```bash
+# Using the admin script with service account
+node scripts/make-admin.cjs <USER_UID> --role=admin --serviceAccount=/path/to/serviceAccountKey.json
 ```
 
-Alternatively, set `role = "admin"` on `/users/<uid>` in the Firebase Console.
+Alternatively, manually set `role = "admin"` on `/users/<uid>` document in the Firebase Console.
 
 ## 📝 License
 

@@ -17,6 +17,8 @@ import {
   MonetizationOn as MoneyIcon,
   Visibility as VisibilityIcon,
   Block as BlockIcon,
+  Search as SearchIcon,
+  Verified as VerifiedBadgeIcon,
 } from '@mui/icons-material';
 import { formatCurrencyShort } from '../../utils/numberFormat';
 
@@ -29,6 +31,7 @@ export default function AdminDashboard() {
   const [usersList, setUsersList] = useState([]);
   const [campaignsList, setCampaignsList] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const [stats, setStats] = useState({
     totalCampaigns: 0,
     totalUsers: 0,
@@ -149,6 +152,38 @@ export default function AdminDashboard() {
     } catch (e) {
       console.error('Failed to revoke admin', e);
       alert('Failed to revoke admin role');
+    }
+  };
+
+  const verifyUser = async (uid) => {
+    if (!window.confirm('Verify this user? They will get a blue checkmark badge.')) return;
+    try {
+      await updateDoc(doc(db, 'users', uid), {
+        verified: true,
+        verifiedAt: new Date().toISOString(),
+        verifiedBy: currentUser.uid,
+      });
+      setUsersList(prev => prev.map(u => u.id === uid ? { ...u, verified: true } : u));
+      alert('User verified successfully');
+    } catch (e) {
+      console.error('Failed to verify user', e);
+      alert('Failed to verify user');
+    }
+  };
+
+  const unVerifyUser = async (uid) => {
+    if (!window.confirm('Remove verification badge from this user?')) return;
+    try {
+      await updateDoc(doc(db, 'users', uid), {
+        verified: false,
+        verifiedAt: null,
+        verifiedBy: null,
+      });
+      setUsersList(prev => prev.map(u => u.id === uid ? { ...u, verified: false } : u));
+      alert('Verification removed');
+    } catch (e) {
+      console.error('Failed to remove verification', e);
+      alert('Failed to remove verification');
     }
   };
 
@@ -647,26 +682,86 @@ export default function AdminDashboard() {
         )}
 
         {tab === 'users' && (
-          <div className="card p-4">
-            <h2 className="text-xl font-semibold mb-4" style={{ color: 'var(--text)' }}>Users</h2>
+          <div className="card p-6">
+            <h2 className="text-xl font-semibold text-themed mb-4">User Management</h2>
+            
+            {/* Search Bar */}
+            <div className="mb-6">
+              <div className="relative">
+                <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 text-themed-muted" />
+                <input
+                  type="text"
+                  placeholder="Search by name, email, or ID..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="input-field pl-10 w-full"
+                />
+              </div>
+            </div>
+
             {loading ? (
               <p className="text-themed-secondary">Loading users...</p>
             ) : usersList.length === 0 ? (
               <p className="text-themed-secondary">No users found</p>
             ) : (
-              <div className="space-y-2">
-                {usersList.map(u => (
-                  <div key={u.id} className="p-3 border border-outline-variant rounded-xl flex items-center justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="font-medium" style={{ color: 'var(--text)' }}>{u.displayName || u.email || u.id}</p>
-                      <p className="text-xs text-themed-muted">id: {u.id} • role: {u.role || 'member'}</p>
-                    </div>
-                    <div className="flex gap-2">
-                      {u.role !== 'admin' ? (
-                        <button onClick={() => promoteToAdmin(u.id)} className="btn-primary">Make admin</button>
-                      ) : (
-                        <button onClick={() => revokeAdmin(u.id)} className="btn-outline">Revoke admin</button>
-                      )}
+              <div className="space-y-3">
+                {usersList
+                  .filter(u => {
+                    if (!searchQuery) return true;
+                    const q = searchQuery.toLowerCase();
+                    return (
+                      (u.displayName || '').toLowerCase().includes(q) ||
+                      (u.email || '').toLowerCase().includes(q) ||
+                      (u.id || '').toLowerCase().includes(q)
+                    );
+                  })
+                  .map(u => (
+                  <div key={u.id} className="p-4 border border-outline-variant rounded-xl hover:shadow-md transition-shadow">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <div className="w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center shrink-0">
+                          {u.photoURL ? (
+                            <img src={u.photoURL} alt={u.displayName} className="w-12 h-12 rounded-full object-cover" />
+                          ) : (
+                            <PeopleIcon className="text-gray-400" />
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium text-themed">{u.displayName || u.email || u.id}</p>
+                            {u.verified && (
+                              <VerifiedBadgeIcon className="text-blue-500" style={{ fontSize: 18 }} titleAccess="Verified User" />
+                            )}
+                          </div>
+                          <p className="text-xs text-themed-muted truncate">
+                            {u.email || u.id} • {u.role || 'member'}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap gap-2 justify-end">
+                        {!u.verified ? (
+                          <button
+                            onClick={() => verifyUser(u.id)}
+                            className="flex items-center gap-1 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+                          >
+                            <VerifiedBadgeIcon fontSize="small" />
+                            Verify
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => unVerifyUser(u.id)}
+                            className="flex items-center gap-1 px-3 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors text-sm"
+                          >
+                            <CancelIcon fontSize="small" />
+                            Unverify
+                          </button>
+                        )}
+                        {u.role !== 'admin' ? (
+                          <button onClick={() => promoteToAdmin(u.id)} className="btn-primary text-sm px-3 py-2">Make admin</button>
+                        ) : (
+                          <button onClick={() => revokeAdmin(u.id)} className="btn-outline text-sm px-3 py-2">Revoke admin</button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 ))}

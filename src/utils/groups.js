@@ -1,5 +1,5 @@
 import { db } from '../config/firebase';
-import { collection, doc, addDoc, setDoc, getDoc, getDocs, updateDoc, deleteDoc, serverTimestamp, query, orderBy, increment } from 'firebase/firestore';
+import { collection, doc, addDoc, setDoc, getDoc, getDocs, updateDoc, deleteDoc, serverTimestamp, query, orderBy, increment, where } from 'firebase/firestore';
 import { uploadImage } from './uploadHelpers';
 import { createNotification } from './notifications';
 
@@ -137,7 +137,19 @@ export const joinGroup = async (groupId, userId) => {
 };
 
 export const leaveGroup = async (groupId, userId) => {
-  await deleteDoc(doc(db, 'groups', groupId, 'members', userId));
+  const memberDocRef = doc(db, 'groups', groupId, 'members', userId);
+  const snap = await getDoc(memberDocRef);
+  if (snap.exists()) {
+    await deleteDoc(memberDocRef);
+  } else {
+    // Legacy fallback: member doc ID may not equal userId
+    try {
+      const qSnap = await getDocs(query(collection(db, 'groups', groupId, 'members'), where('userId', '==', userId)));
+      if (!qSnap.empty) {
+        await deleteDoc(qSnap.docs[0].ref);
+      }
+    } catch {/* ignore */}
+  }
   await updateDoc(doc(db, 'groups', groupId), { memberCount: increment(-1) });
   // Best-effort: notify user about successful leave
   try {
@@ -154,7 +166,20 @@ export const leaveGroup = async (groupId, userId) => {
 
 export const removeMember = async (groupId, userId) => {
   // Alias for kicking a member by an admin/moderator
-  await deleteDoc(doc(db, 'groups', groupId, 'members', userId));
+  const memberDocRef = doc(db, 'groups', groupId, 'members', userId);
+  const snap = await getDoc(memberDocRef);
+  if (snap.exists()) {
+    await deleteDoc(memberDocRef);
+  } else {
+    // Legacy fallback: member doc ID may not equal userId
+    const qSnap = await getDocs(query(collection(db, 'groups', groupId, 'members'), where('userId', '==', userId)));
+    if (!qSnap.empty) {
+      await deleteDoc(qSnap.docs[0].ref);
+    } else {
+      // If there's nothing to delete, just return
+      return true;
+    }
+  }
   await updateDoc(doc(db, 'groups', groupId), { memberCount: increment(-1) });
   // Notify the user that they were removed
   try {
@@ -172,7 +197,22 @@ export const removeMember = async (groupId, userId) => {
 };
 
 export const setMemberRole = async (groupId, userId, role) => {
-  await updateDoc(doc(db, 'groups', groupId, 'members', userId), { role });
+  // First try the canonical path where member doc ID == userId
+  const memberRef = doc(db, 'groups', groupId, 'members', userId);
+  const directSnap = await getDoc(memberRef);
+  if (directSnap.exists()) {
+    await updateDoc(memberRef, { role });
+    return true;
+  }
+  // Legacy support: some groups may have member docs with random IDs and a userId field
+  const colRef = collection(db, 'groups', groupId, 'members');
+  const qs = query(colRef, where('userId', '==', userId));
+  const qSnap = await getDocs(qs);
+  if (!qSnap.empty) {
+    await updateDoc(qSnap.docs[0].ref, { role });
+    return true;
+  }
+  throw new Error('Member not found');
 };
 
 export const listMembers = async (groupId) => {

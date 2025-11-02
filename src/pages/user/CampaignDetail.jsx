@@ -7,6 +7,7 @@ import { createNotification, createOrGroupLikeNotification, createOrGroupShareNo
 import Layout from '../../components/Layout';
 import CampaignUpdates from '../../components/CampaignUpdates';
 import CampaignMilestones from '../../components/CampaignMilestones';
+import MessageButton from '../../components/MessageButton';
 import PersonIcon from '@mui/icons-material/Person';
 import FavoriteIcon from '@mui/icons-material/Favorite';
 import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
@@ -455,6 +456,17 @@ const CampaignDetail = () => {
           <div className="lg:col-span-2 space-y-6">
             {/* Post Card */}
             <div className="card p-6">
+              {/* Verified Badge Banner */}
+              {post.verified && (
+                <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg flex items-center gap-2">
+                  <VerifiedIcon className="text-blue-600" style={{ fontSize: 24 }} />
+                  <div>
+                    <p className="font-semibold text-blue-900 dark:text-blue-100">Verified Campaign</p>
+                    <p className="text-xs text-blue-700 dark:text-blue-300">This campaign creator has been verified by our team</p>
+                  </div>
+                </div>
+              )}
+
               {/* Author Info */}
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
@@ -774,6 +786,15 @@ const CampaignDetail = () => {
                     </button>
                   </form>
                   );})()}
+
+                  {/* Message Creator Button */}
+                  <div className="mt-4 pt-4 border-t border-themed-border">
+                    <MessageButton 
+                      creatorId={post.authorId} 
+                      creatorName={post.authorName || 'Creator'}
+                      creatorPhoto={post.authorPhoto || ''}
+                    />
+                  </div>
                 </div>
               )}
 

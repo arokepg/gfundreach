@@ -137,12 +137,17 @@ const GroupDetail = () => {
   // Note: group feed composer removed in favor of creating campaigns; unused post composer code removed.
 
   const changeRole = async (uid, role) => {
-    await setMemberRole(id, uid, role);
-    const mem = await listMembers(id);
-    setMembers(mem);
-    if (uid === currentUser?.uid) {
-      const m = await getMember(id, currentUser.uid);
-      setMember(m);
+    try {
+      await setMemberRole(id, uid, role);
+      const mem = await listMembers(id);
+      setMembers(mem);
+      if (uid === currentUser?.uid) {
+        const m = await getMember(id, currentUser.uid);
+        setMember(m);
+      }
+    } catch (e) {
+      console.error('Failed to change role:', e);
+      alert('Failed to change role. You might not have permission or the group data is outdated.');
     }
   };
 
@@ -372,8 +377,10 @@ const GroupDetail = () => {
             <div className="card p-3 sm:p-4">
               <h3 className="font-semibold text-themed mb-3 text-sm sm:text-base">Members</h3>
               <div className="space-y-2 max-h-[420px] overflow-auto pr-1">
-                {members.map(m => (
-                  <div key={m.id} className="flex items-center justify-between px-2 py-2 rounded-lg" style={{ backgroundColor: 'var(--hover-bg)' }}>
+                {members.map(m => {
+                  const memberUserId = m.userId || m.id; // Support legacy docs where doc ID != userId
+                  return (
+                  <div key={memberUserId} className="flex items-center justify-between px-2 py-2 rounded-lg" style={{ backgroundColor: 'var(--hover-bg)' }}>
                     <div className="flex items-center gap-2 min-w-0 flex-1">
                       <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-800 flex items-center justify-center overflow-hidden shrink-0">
                         {m.photoURL ? (
@@ -383,18 +390,18 @@ const GroupDetail = () => {
                         )}
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="text-xs sm:text-sm text-themed truncate">{m.displayName || m.id}</p>
+                        <p className="text-xs sm:text-sm text-themed truncate">{m.displayName || memberUserId}</p>
                         <p className="text-xs text-themed-muted">{m.role}</p>
                       </div>
                     </div>
-                    {(isAdmin || isModerator) && currentUser?.uid !== m.id && (
+                    {(isAdmin || isModerator) && currentUser?.uid !== memberUserId && (
                       <div className="flex items-center gap-1 sm:gap-2 shrink-0">
-                        <RoleSelect value={m.role} onChange={(role)=> changeRole(m.id, role)} disabled={!isAdmin && m.role === 'admin'} />
-                        <button onClick={()=> kickMember(m.id)} className="px-2 py-1 rounded bg-red-600 hover:bg-red-700 text-white text-xs transition-all duration-300 active:scale-95">Remove</button>
+                        <RoleSelect value={m.role} onChange={(role)=> changeRole(memberUserId, role)} disabled={!isAdmin && m.role === 'admin'} />
+                        <button onClick={()=> kickMember(memberUserId)} className="px-2 py-1 rounded bg-red-600 hover:bg-red-700 text-white text-xs transition-all duration-300 active:scale-95">Remove</button>
                       </div>
                     )}
                   </div>
-                ))}
+                )})}
               </div>
             </div>
           </div>

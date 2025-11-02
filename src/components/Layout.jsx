@@ -3,7 +3,6 @@ import NotificationDropdown from './NotificationDropdown';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
-import ChatIcon from '@mui/icons-material/Chat';
 import PersonIcon from '@mui/icons-material/Person';
 import SearchIcon from '@mui/icons-material/Search';
 import LightModeIcon from '@mui/icons-material/LightMode';
@@ -62,11 +61,6 @@ const Layout = ({ children }) => {
                 <SearchIcon sx={{ fontSize: 24 }} className="text-themed-secondary" />
               </button>
               <NotificationDropdown />
-              <button className="p-2 rounded-full transition-all duration-300 hover:scale-110 active:scale-95" style={{ backgroundColor: 'transparent' }}
-                onMouseEnter={(e)=>{ e.currentTarget.style.backgroundColor = 'var(--hover-bg)'; }}
-                onMouseLeave={(e)=>{ e.currentTarget.style.backgroundColor = 'transparent'; }}>
-                <ChatIcon sx={{ fontSize: 24 }} className="text-themed-secondary" />
-              </button>
               <Link 
                 to="/profile" 
                 className="w-10 h-10 rounded-full flex items-center justify-center overflow-hidden transition-transform duration-300 hover:scale-110 active:scale-95 bg-gray-100 dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700"

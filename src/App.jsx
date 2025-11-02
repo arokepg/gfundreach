@@ -26,6 +26,8 @@ import EditCampaign from './pages/user/EditCampaign';
 import CampaignStats from './pages/user/CampaignStats';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import TopDonors from './pages/user/TopDonors';
+import Messages from './pages/user/Messages';
+import ChatWindow from './pages/user/ChatWindow';
 
 function App() {
   return (
@@ -176,6 +178,22 @@ function App() {
             element={
               <ProtectedRoute>
                 <TopDonors />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/messages"
+            element={
+              <ProtectedRoute>
+                <Messages />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/messages/:conversationId"
+            element={
+              <ProtectedRoute>
+                <ChatWindow />
               </ProtectedRoute>
             }
           />

@@ -36,15 +36,22 @@ service cloud.firestore {
 
     // Users collection
     match /users/{userId} {
-      allow read: if isSignedIn();
+      allow read: if isSignedIn(); // Allows user search for messaging
       allow create: if isSignedIn();
       allow update, delete: if isOwner(userId);
+      
+      // Note: For better search performance, consider:
+      // 1. Creating a composite index on displayName (ascending) 
+      // 2. Using Algolia/ElasticSearch for full-text search
+      // 3. Current implementation uses prefix matching which requires: 
+      //    - Index: displayName (ascending)
     }
 
     // Campaign posts
     match /posts/{postId} {
       allow read: if true;
-      allow create: if isSignedIn();
+      // Only the signed-in user may create a campaign with themself as the author
+      allow create: if isSignedIn() && request.resource.data.authorId == request.auth.uid;
       // Owner can update/delete their campaign
       allow update, delete: if isSignedIn() && request.auth.uid == resource.data.authorId;
 
@@ -66,7 +73,8 @@ service cloud.firestore {
       // Community updates subcollection
       match /updates/{updateId} {
         allow read: if true;
-        allow create: if isSignedIn();
+        // Only the signed-in user may create an update as themself
+        allow create: if isSignedIn() && request.resource.data.authorId == request.auth.uid;
         allow update, delete: if isSignedIn() && request.auth.uid == resource.data.authorId;
         // Platform admins can delete/restore any update during moderation
         allow update, delete: if isAdmin();
@@ -79,8 +87,13 @@ service cloud.firestore {
     // Transactions (donations/topups/withdrawals)
     match /transactions/{txId} {
       allow read: if isSignedIn();
-      allow create: if isSignedIn() && request.resource.data.donorId == request.auth.uid &&
-        request.resource.data.type in ['donation', 'topup', 'withdraw'];
+      // Accept either senderId or donorId as the actor field (legacy compatibility)
+      allow create: if isSignedIn() &&
+        request.resource.data.type in ['donation', 'topup', 'withdraw'] &&
+        (
+          (request.resource.data.senderId != null && request.resource.data.senderId == request.auth.uid) ||
+          (request.resource.data.donorId != null && request.resource.data.donorId == request.auth.uid)
+        );
     }
 
     // Reports (content moderation)
@@ -130,9 +143,17 @@ service cloud.firestore {
     match /groups/{groupId} {
       allow read: if true;
       allow create: if isSignedIn();
-      allow update, delete: if isSignedIn() && request.auth.uid == resource.data.ownerId;
-      // Optional: allow platform admins to manage any group
-      allow update, delete: if isAdmin();
+      // Group owner, group admins/moderators, and platform admins can manage a group
+      allow update: if isSignedIn() && (
+        request.auth.uid == resource.data.ownerId ||
+        isGroupAdminOrMod(groupId) ||
+        isAdmin()
+      );
+      allow delete: if isSignedIn() && (
+        request.auth.uid == resource.data.ownerId ||
+        isGroupAdminOrMod(groupId) ||
+        isAdmin()
+      );
 
       // Group posts
       match /posts/{postId} {
@@ -151,5 +172,55 @@ service cloud.firestore {
         allow update: if isSignedIn() && isGroupAdminOrMod(groupId);
       }
     }
+
+    // Direct Messaging (Conversations)
+    // Note: If you see "permission-denied" when starting a conversation,
+    // ensure these rules are DEPLOYED in Firebase console.
+    match /conversations/{conversationId} {
+      // Helpers within this match
+      function isConvParticipant() {
+        return isSignedIn() && request.auth.uid in resource.data.participants;
+      }
+      function isCreateValid() {
+        return isSignedIn()
+          && ('participants' in request.resource.data)
+          && request.resource.data.participants.size() == 2
+          && request.auth.uid in request.resource.data.participants;
+      }
+
+      // Users can read only their conversations
+      allow read: if isConvParticipant();
+
+      // Create when caller is one of exactly two participants
+      allow create: if isCreateValid();
+
+      // Updates (e.g., lastMessageAt, unreadCount) by conversation participants
+      allow update: if isConvParticipant();
+
+      // Messages subcollection
+      match /messages/{messageId} {
+        function parentParticipants() {
+          return get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants;
+        }
+        // Participants can read all messages in their conversations
+        allow read: if isSignedIn() && request.auth.uid in parentParticipants();
+
+        // Participants can send messages; sender must match
+        allow create: if isSignedIn()
+          && request.auth.uid in parentParticipants()
+          && request.auth.uid == request.resource.data.senderId;
+
+        // 1) Sender may update their own message (e.g., minor edits handled in UI)
+        // 2) Any participant may mark a message as read (read only field change)
+        allow update: if isSignedIn() && (
+          request.auth.uid == resource.data.senderId || (
+            request.auth.uid in parentParticipants() &&
+            request.resource.data.diff(resource.data).changedKeys().hasOnly(['read']) &&
+            request.resource.data.read == true
+          )
+        );
+      }
+    }
   }
 }
+
