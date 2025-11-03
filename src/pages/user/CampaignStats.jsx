@@ -5,6 +5,7 @@ import { db } from '../../config/firebase';
 import { useAuth } from '../../contexts/AuthContext';
 import Layout from '../../components/Layout';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import RefreshIcon from '@mui/icons-material/Refresh';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import PeopleIcon from '@mui/icons-material/People';
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
@@ -284,13 +285,23 @@ const CampaignStats = () => {
   return (
     <Layout>
       <div className="max-w-6xl mx-auto p-6 animate-fade-in">
-        <button
-          onClick={() => navigate('/profile')}
-          className="flex items-center gap-2 text-themed-secondary hover:text-themed mb-6 transition-colors animate-slide-in-up"
-        >
-          <ArrowBackIcon />
-          <span>Back to Profile</span>
-        </button>
+        <div className="flex items-center justify-between mb-6 animate-slide-in-up">
+          <button
+            onClick={() => navigate('/profile')}
+            className="flex items-center gap-2 text-themed-secondary hover:text-themed transition-colors"
+          >
+            <ArrowBackIcon />
+            <span>Back to Profile</span>
+          </button>
+          <button
+            onClick={() => { setLoading(true); fetchCampaignStats(); }}
+            className="btn-secondary flex items-center gap-2"
+            title="Refresh stats"
+          >
+            <RefreshIcon fontSize="small" />
+            Refresh
+          </button>
+        </div>
 
         <div className="space-y-6 animate-slide-in-up">
           {/* Campaign Header */}

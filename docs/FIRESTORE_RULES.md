@@ -40,6 +40,10 @@ service cloud.firestore {
       allow create: if isSignedIn();
       allow update, delete: if isOwner(userId);
       
+      // Allow users to update their own greeting message
+      allow update: if isSignedIn() && request.auth.uid == userId &&
+        request.resource.data.diff(resource.data).changedKeys().hasOnly(['greetingMessage']);
+      
       // Note: For better search performance, consider:
       // 1. Creating a composite index on displayName (ascending) 
       // 2. Using Algolia/ElasticSearch for full-text search
@@ -81,6 +85,31 @@ service cloud.firestore {
         // Public reaction counters
         allow update: if isSignedIn() &&
           request.resource.data.diff(resource.data).changedKeys().hasOnly(["likesCount","sharesCount","likedBy"]);
+      }
+
+      // View tracking subcollections
+      // 1) Views: one document per view (anonymous allowed). Structure suggestion:
+      //    { visitorId, visitorKey, userId?, dateKey, createdAt }
+      match /views/{viewId} {
+        // Anyone can create a view record; reads are public
+        allow create: if true;
+        allow read: if true;
+        // Disallow updates/deletes to keep events immutable
+        allow update, delete: if false;
+      }
+
+      // 2) Visitors: one document per unique person (userId) or per device if anonymous
+      //    { visitorId, userId?, keyType: 'user'|'device', lastViewedAt }
+      match /visitors/{key} {
+        // Anyone can upsert their own visit marker
+        allow create, update: if true;
+        // Only the campaign owner (or admin) should read unique visitor markers
+        allow read: if isSignedIn() && (
+          get(/databases/$(database)/documents/posts/$(postId)).data.authorId == request.auth.uid ||
+          isAdmin()
+        );
+        // No deletes from clients
+        allow delete: if false;
       }
     }
 
@@ -176,6 +205,9 @@ service cloud.firestore {
     // Direct Messaging (Conversations)
     // Note: If you see "permission-denied" when starting a conversation,
     // ensure these rules are DEPLOYED in Firebase console.
+    // 
+    // The isStranger field is computed client-side by checking friendship status.
+    // It's not stored in Firestore, so no special rules are needed for it.
     match /conversations/{conversationId} {
       // Helpers within this match
       function isConvParticipant() {
@@ -184,17 +216,17 @@ service cloud.firestore {
       function isCreateValid() {
         return isSignedIn()
           && ('participants' in request.resource.data)
-          && request.resource.data.participants.size() == 2
+          && request.resource.data.participants.size() >= 2
           && request.auth.uid in request.resource.data.participants;
       }
 
       // Users can read only their conversations
       allow read: if isConvParticipant();
 
-      // Create when caller is one of exactly two participants
+      // Create when caller is one of participants (supports 1-1 and groups)
       allow create: if isCreateValid();
 
-      // Updates (e.g., lastMessageAt, unreadCount) by conversation participants
+      // Updates (e.g., lastMessageAt, unreadCount, typing, firstMessageSent) by conversation participants
       allow update: if isConvParticipant();
 
       // Messages subcollection
@@ -206,17 +238,24 @@ service cloud.firestore {
         allow read: if isSignedIn() && request.auth.uid in parentParticipants();
 
         // Participants can send messages; sender must match
+        // Support text, audio, image, campaign card types
         allow create: if isSignedIn()
           && request.auth.uid in parentParticipants()
           && request.auth.uid == request.resource.data.senderId;
 
         // 1) Sender may update their own message (e.g., minor edits handled in UI)
         // 2) Any participant may mark a message as read (read only field change)
+        // 3) Any participant may add/remove reactions (reactions field)
         allow update: if isSignedIn() && (
           request.auth.uid == resource.data.senderId || (
             request.auth.uid in parentParticipants() &&
-            request.resource.data.diff(resource.data).changedKeys().hasOnly(['read']) &&
-            request.resource.data.read == true
+            (
+              (
+                request.resource.data.diff(resource.data).changedKeys().hasOnly(['read']) &&
+                request.resource.data.read == true
+              ) ||
+              request.resource.data.diff(resource.data).changedKeys().hasOnly(['reactions'])
+            )
           )
         );
       }

@@ -2,15 +2,16 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MessageCircle } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { getOrCreateConversation } from '../utils/messaging';
+import { getOrCreateConversation, sendCampaignCard } from '../utils/messaging';
 
 /**
  * Button to start a conversation with a campaign creator
  * @param {string} creatorId - User ID of the campaign creator
  * @param {string} creatorName - Display name of the creator
  * @param {string} creatorPhoto - Profile photo URL of the creator (optional)
+ * @param {object} campaignContext - Campaign data to auto-attach as context card (optional)
  */
-const MessageButton = ({ creatorId, creatorName, creatorPhoto = '' }) => {
+const MessageButton = ({ creatorId, creatorName, creatorPhoto = '', campaignContext = null }) => {
   const { currentUser } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
@@ -42,6 +43,21 @@ const MessageButton = ({ creatorId, creatorName, creatorPhoto = '' }) => {
         currentUser.photoURL || '',
         creatorPhoto || ''
       );
+      
+      // Auto-send campaign context card if provided
+      if (campaignContext && campaignContext.id) {
+        try {
+          await sendCampaignCard(
+            conversationId,
+            currentUser.uid,
+            currentUser.displayName || 'Anonymous',
+            campaignContext
+          );
+        } catch (err) {
+          console.warn('Failed to send campaign context card:', err);
+          // Non-fatal; user can still chat
+        }
+      }
       
       navigate(`/messages/${conversationId}`);
     } catch (error) {

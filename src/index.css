@@ -629,3 +629,29 @@ html.dark .mobile-center-btn {
 }
 
 
+/* Reusable ripple effect for circular avatar links */
+.avatar-link {
+  position: relative;
+  overflow: hidden;
+  border-radius: 9999px; /* full */
+}
+.avatar-link::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 120%;
+  height: 120%;
+  transform: translate(-50%, -50%) scale(0);
+  background: rgba(34, 197, 94, 0.25); /* green-500 with opacity */
+  border-radius: 9999px;
+  pointer-events: none;
+  opacity: 0;
+  transition: transform 220ms ease, opacity 360ms ease;
+}
+.avatar-link:active::after {
+  transform: translate(-50%, -50%) scale(1);
+  opacity: 1;
+}
+
+

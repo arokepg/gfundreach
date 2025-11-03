@@ -257,11 +257,18 @@ const PostCard = ({ post }) => {
       {/* Header */}
       <div className="p-3 md:p-4 flex items-start justify-between">
         <div className="flex items-center space-x-3 flex-1">
-          <img
-            src={post.authorPhoto || 'https://via.placeholder.com/40'}
-            alt={post.authorName}
-            className="w-10 h-10 rounded-full object-cover transition-transform duration-300 hover:scale-110"
-          />
+          <Link
+            to={`/profile/${post.authorId}`}
+            onClick={(e) => e.stopPropagation()}
+            title={`View ${post.authorName || 'profile'}`}
+            className="avatar-link w-10 h-10 rounded-full overflow-hidden transition-transform duration-300 hover:scale-110 focus:outline-none focus:ring-2 focus:ring-green-500"
+          >
+            <img
+              src={post.authorPhoto || 'https://via.placeholder.com/40'}
+              alt={post.authorName}
+              className="w-10 h-10 object-cover"
+            />
+          </Link>
           <div className="flex-1 min-w-0">
             <div className="flex items-center space-x-1">
               <Link

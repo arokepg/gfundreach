@@ -1,10 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MessageCircle, Search, Clock, UserPlus } from 'lucide-react';
+import { MessageCircle, Search, Clock, Users } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
-import { subscribeToConversations, getOrCreateConversation } from '../../utils/messaging';
-import { collection, query, where, getDocs, limit, orderBy } from 'firebase/firestore';
-import { db } from '../../config/firebase';
+import { subscribeToConversations } from '../../utils/messaging';
 import Layout from '../../components/Layout';
 
 const Messages = () => {
@@ -13,9 +11,7 @@ const Messages = () => {
   const [conversations, setConversations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchMode, setSearchMode] = useState('conversations'); // 'conversations' or 'users'
-  const [userSearchResults, setUserSearchResults] = useState([]);
-  const [searchingUsers, setSearchingUsers] = useState(false);
+  const [conversationFilter, setConversationFilter] = useState('all'); // 'all' or 'unread'
 
   useEffect(() => {
     if (!currentUser) {
@@ -23,22 +19,46 @@ const Messages = () => {
       return;
     }
 
+    let unsubscribe;
     setLoading(true);
-    const unsubscribe = subscribeToConversations(currentUser.uid, (convs) => {
-      setConversations(convs);
-      setLoading(false);
-    });
+    
+    // subscribeToConversations is async, need to handle it properly
+    const setupSubscription = async () => {
+      unsubscribe = await subscribeToConversations(currentUser.uid, (convs) => {
+        setConversations(convs);
+        setLoading(false);
+      });
+    };
+    
+    setupSubscription();
 
     // Cleanup subscription on unmount
-    return () => unsubscribe();
+    return () => {
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
   }, [currentUser, navigate]);
 
   const getOtherParticipant = (conversation) => {
+    // Check if it's a group
+    if (conversation.type === 'group') {
+      return {
+        id: null,
+        name: conversation.groupName || 'Group Chat',
+        photo: '',
+        isGroup: true,
+        participantCount: conversation.participants?.length || 0
+      };
+    }
+    
+    // 1-1 conversation
     const otherUserId = conversation.participants.find(id => id !== currentUser.uid);
     return {
       id: otherUserId,
       name: conversation.participantNames?.[otherUserId] || 'Unknown User',
-      photo: conversation.participantPhotos?.[otherUserId] || ''
+      photo: conversation.participantPhotos?.[otherUserId] || '',
+      isGroup: false
     };
   };
 
@@ -59,72 +79,29 @@ const Messages = () => {
     return date.toLocaleDateString();
   };
 
-  // Search for users in Firestore
-  const searchUsers = useCallback(async (searchText) => {
-    if (!searchText.trim()) {
-      setUserSearchResults([]);
-      return;
-    }
-
-    setSearchingUsers(true);
-    try {
-      const usersRef = collection(db, 'users');
-      const q = query(
-        usersRef,
-        where('displayName', '>=', searchText),
-        where('displayName', '<=', searchText + '\\uf8ff'),
-        orderBy('displayName'),
-        limit(10)
-      );
-      
-      const snapshot = await getDocs(q);
-      const users = snapshot.docs
-        .map(doc => ({ id: doc.id, ...doc.data() }))
-        .filter(user => user.id !== currentUser.uid); // Exclude current user
-      
-      setUserSearchResults(users);
-    } catch (error) {
-      console.error('Error searching users:', error);
-      setUserSearchResults([]);
-    } finally {
-      setSearchingUsers(false);
-    }
-  }, [currentUser]);
-
-  // Handle search query changes
-  useEffect(() => {
-    if (searchMode === 'users') {
-      const timeoutId = setTimeout(() => {
-        searchUsers(searchQuery);
-      }, 300); // Debounce search
-      
-      return () => clearTimeout(timeoutId);
-    }
-  }, [searchQuery, searchMode, searchUsers]);
-
-  const handleStartConversation = async (user) => {
-    try {
-      const conversationId = await getOrCreateConversation(
-        currentUser.uid,
-        user.id,
-        currentUser.displayName || 'Anonymous',
-        user.displayName || 'Unknown User',
-        currentUser.photoURL || '',
-        user.photoURL || ''
-      );
-      
-      navigate(`/messages/${conversationId}`);
-    } catch (error) {
-      console.error('Error creating conversation:', error);
-      alert('Failed to start conversation. Please try again.');
-    }
-  };
+  // No external user search; the search box filters existing conversations only.
 
   const filteredConversations = conversations.filter(conv => {
     const other = getOtherParticipant(conv);
-    return other.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-           conv.lastMessage.toLowerCase().includes(searchQuery.toLowerCase());
+    const lastMsg = (conv.lastMessage || '').toLowerCase();
+    const matchesSearch = (other.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+           lastMsg.includes(searchQuery.toLowerCase());
+    
+    // Apply unread filter if in 'unread' mode
+    // Unread tab shows: (1) messages others sent that you haven't read
+    if (conversationFilter === 'unread') {
+      const unreadForUser = (conv.unreadCount?.[currentUser.uid] || 0) > 0;
+      return matchesSearch && unreadForUser;
+    }
+    
+    return matchesSearch;
   });
+  
+  // Count unread conversations (including strangers)
+  const unreadConversationsCount = conversations.filter(conv => {
+    const unreadForUser = (conv.unreadCount?.[currentUser.uid] || 0) > 0;
+    return unreadForUser;
+  }).length;
 
   if (loading) {
     return (
@@ -152,109 +129,51 @@ const Messages = () => {
           </h1>
         </div>
 
-        {/* Toggle Search Mode */}
-        <div className="flex gap-2">
+        {/* Main Tabs: All Chats vs Unread */}
+        <div className="flex gap-2 bg-themed-secondary p-1 rounded-xl">
           <button
-            onClick={() => {
-              setSearchMode('conversations');
-              setSearchQuery('');
-              setUserSearchResults([]);
-            }}
-            className={`flex-1 px-4 py-2 rounded-xl font-medium transition-all ${
-              searchMode === 'conversations'
-                ? 'bg-green-600 text-white'
-                : 'bg-themed-secondary text-themed hover:bg-themed-tertiary'
+            onClick={() => setConversationFilter('all')}
+            className={`flex-1 px-4 py-2 rounded-lg font-medium transition-all ${
+              conversationFilter === 'all'
+                ? 'bg-white dark:bg-gray-700 text-themed shadow-sm border-2 border-green-600'
+                : 'text-themed-muted hover:text-themed hover:border-2 hover:border-green-600 hover:bg-white dark:hover:bg-gray-700'
             }`}
           >
-            My Conversations
+            All Chats
           </button>
           <button
-            onClick={() => {
-              setSearchMode('users');
-              setSearchQuery('');
-            }}
-            className={`flex-1 px-4 py-2 rounded-xl font-medium transition-all ${
-              searchMode === 'users'
-                ? 'bg-green-600 text-white'
-                : 'bg-themed-secondary text-themed hover:bg-themed-tertiary'
+            onClick={() => setConversationFilter('unread')}
+            className={`flex-1 px-4 py-2 rounded-lg font-medium transition-all flex items-center justify-center gap-2 ${
+              conversationFilter === 'unread'
+                ? 'bg-white dark:bg-gray-700 text-themed shadow-sm border-2 border-green-600'
+                : 'text-themed-muted hover:text-themed hover:border-2 hover:border-green-600 hover:bg-white dark:hover:bg-gray-700'
             }`}
           >
-            <UserPlus size={18} className="inline mr-2" />
-            New Message
+            Unread
+            {unreadConversationsCount > 0 && (
+              <span className="px-2 py-0.5 text-xs font-bold text-white bg-red-500 rounded-full">
+                {unreadConversationsCount}
+              </span>
+            )}
           </button>
         </div>
 
-        {/* Search Bar */}
+        {/* Search Bar (filters existing conversations only) */}
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-themed-muted" size={20} />
           <input
             type="text"
-            placeholder={searchMode === 'conversations' ? 'Search conversations...' : 'Search users by name...'}
+            placeholder="Search conversations..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-10 pr-4 py-3 rounded-xl bg-themed-secondary border border-themed-border text-themed placeholder-themed-muted focus:outline-none focus:ring-2 focus:ring-green-600"
           />
         </div>
 
-        {/* User Search Results */}
-        {searchMode === 'users' && (
-          <div className="space-y-2">
-            {searchingUsers && (
-              <div className="text-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600 mx-auto"></div>
-                <p className="text-themed-muted mt-2">Searching users...</p>
-              </div>
-            )}
-            
-            {!searchingUsers && searchQuery && userSearchResults.length === 0 && (
-              <div className="text-center py-8">
-                <UserPlus size={48} className="mx-auto text-themed-muted mb-2" />
-                <p className="text-themed-muted">No users found</p>
-              </div>
-            )}
-            
-            {!searchingUsers && !searchQuery && (
-              <div className="text-center py-8">
-                <UserPlus size={48} className="mx-auto text-themed-muted mb-2" />
-                <p className="text-themed-muted">Search for users to start a conversation</p>
-              </div>
-            )}
-
-            {!searchingUsers && userSearchResults.map((user) => (
-              <button
-                key={user.id}
-                onClick={() => handleStartConversation(user)}
-                className="w-full p-4 rounded-xl bg-themed-secondary border border-themed-border hover:bg-themed-tertiary transition-all text-left"
-              >
-                <div className="flex items-center gap-4">
-                  {user.photoURL ? (
-                    <img
-                      src={user.photoURL}
-                      alt={user.displayName}
-                      className="w-12 h-12 rounded-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-12 h-12 rounded-full bg-linear-to-br from-green-500 to-emerald-500 flex items-center justify-center text-white font-bold">
-                      {(user.displayName || 'U').charAt(0).toUpperCase()}
-                    </div>
-                  )}
-                  <div className="flex-1">
-                    <h3 className="font-semibold text-themed">{user.displayName || 'Unknown User'}</h3>
-                    {user.email && (
-                      <p className="text-sm text-themed-muted">{user.email}</p>
-                    )}
-                  </div>
-                  <MessageCircle size={20} className="text-green-600" />
-                </div>
-              </button>
-            ))}
-          </div>
-        )}
 
         {/* Conversations List */}
-        {searchMode === 'conversations' && (
-          <>
-            {filteredConversations.length === 0 ? (
+        <>
+          {filteredConversations.length === 0 ? (
               <div className="text-center py-16">
                 <MessageCircle size={64} className="mx-auto text-themed-muted mb-4" />
                 <h3 className="text-xl font-semibold text-themed mb-2">
@@ -273,51 +192,76 @@ const Messages = () => {
               const other = getOtherParticipant(conversation);
               const unreadCount = conversation.unreadCount?.[currentUser.uid] || 0;
               const hasUnread = unreadCount > 0;
+              const isStranger = conversation.isStranger || false;
+              const strangerFirst = isStranger && hasUnread; // only mark as New when unread and from stranger
+              const showHighlight = hasUnread; // highlight only when unread
 
               return (
                 <button
                   key={conversation.id}
                   onClick={() => navigate(`/messages/${conversation.id}`)}
-                  className={`w-full p-4 rounded-xl transition-all text-left hover:bg-themed-tertiary ${
-                    hasUnread ? 'bg-themed-secondary border-2 border-green-600' : 'bg-themed-secondary border border-themed-border'
+                  className={`w-full p-4 rounded-xl transition-all text-left hover:bg-themed-tertiary relative ${
+                    showHighlight ? 'bg-green-50 dark:bg-green-900/10 border-2 border-green-600' : 'bg-themed-secondary border border-themed-border'
                   }`}
                 >
+                  {/* Unread Dot Indicator */}
+                  {hasUnread && (
+                    <div className="absolute top-2 right-2 w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
+                  )}
+                  
                   <div className="flex items-start gap-4">
                     {/* Avatar */}
-                    <div className="shrink-0">
-                      {other.photo ? (
+                    <div className="shrink-0 relative">
+                      {other.photo && !other.isGroup ? (
                         <img
                           src={other.photo}
                           alt={other.name}
-                          className="w-12 h-12 rounded-full object-cover"
+                          className="w-12 h-12 rounded-full object-cover ring-2 ring-white dark:ring-gray-800"
                         />
                       ) : (
-                        <div className="w-12 h-12 rounded-full bg-linear-to-br from-green-500 to-emerald-500 flex items-center justify-center text-white font-bold">
-                          {other.name.charAt(0).toUpperCase()}
+                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center text-white font-bold ring-2 ring-white dark:ring-gray-800">
+                          {other.isGroup ? <Users size={24} /> : other.name.charAt(0).toUpperCase()}
                         </div>
+                      )}
+                      {/* Online/Unread status badge */}
+                      {hasUnread && (
+                        <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 bg-red-500 border-2 border-white dark:border-gray-800 rounded-full"></div>
                       )}
                     </div>
 
                     {/* Content */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between mb-1">
-                        <h3 className={`font-semibold ${hasUnread ? 'text-themed' : 'text-themed'}`}>
-                          {other.name}
-                        </h3>
                         <div className="flex items-center gap-2">
-                          <span className="text-xs text-themed-muted flex items-center gap-1">
+                          <h3 className={`${showHighlight ? 'font-bold text-themed' : 'font-semibold text-themed'}`}>
+                            {other.name}
+                          </h3>
+                          {other.isGroup && (
+                            <span className="text-xs text-themed-muted">
+                              ({other.participantCount} members)
+                            </span>
+                          )}
+                          {/* Stranger Badge */}
+                          {strangerFirst && !other.isGroup && (
+                            <span className="px-2 py-0.5 text-xs font-medium text-orange-600 bg-orange-100 dark:bg-orange-900/30 dark:text-orange-400 rounded-full">
+                              New
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className={`text-xs flex items-center gap-1 ${showHighlight ? 'text-green-600 dark:text-green-400 font-semibold' : 'text-themed-muted'}`}>
                             <Clock size={12} />
                             {formatTimestamp(conversation.lastMessageAt)}
                           </span>
                         </div>
                       </div>
                       <div className="flex items-center justify-between gap-2">
-                        <p className={`text-sm truncate ${hasUnread ? 'font-medium text-themed' : 'text-themed-muted'}`}>
+                        <p className={`text-sm truncate ${showHighlight ? 'font-semibold text-themed' : 'text-themed-muted'}`}>
                           {conversation.lastMessage || 'No messages yet'}
                         </p>
                         {hasUnread && (
-                          <span className="shrink-0 px-2 py-1 text-xs font-bold text-white bg-green-600 rounded-full">
-                            {unreadCount}
+                          <span className="shrink-0 px-2.5 py-1 text-xs font-bold text-white bg-red-500 rounded-full min-w-[24px] text-center">
+                            {unreadCount > 99 ? '99+' : unreadCount}
                           </span>
                         )}
                       </div>
@@ -329,7 +273,6 @@ const Messages = () => {
               </div>
             )}
           </>
-        )}
       </div>
     </Layout>
   );

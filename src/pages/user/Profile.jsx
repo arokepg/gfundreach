@@ -23,6 +23,7 @@ import AddIcon from '@mui/icons-material/Add';
 import LockIcon from '@mui/icons-material/Lock';
 import PublicIcon from '@mui/icons-material/Public';
 import AddFriendButton from '../../components/AddFriendButton';
+import GreetingSettings from '../../components/GreetingSettings';
 import { listFriendIds, getFriendshipStatus, acceptFriendRequest, cancelFriendRequest } from '../../utils/friends';
 import { calculateWalletStats } from '../../utils/walletHelpers';
 
@@ -47,10 +48,26 @@ const Profile = () => {
   const [profileFriendStatus, setProfileFriendStatus] = useState(''); // status vs profileUserId
   const [acceptedAnim, setAcceptedAnim] = useState(false);
   const [friendsPrivacy, setFriendsPrivacy] = useState('public'); // 'public' or 'private'
+  const [transactionsPrivacy, setTransactionsPrivacy] = useState('public'); // controls Donation/Received visibility
   const location = useLocation();
   // Sub-tab state for Friends area: 'friends' or 'requests'. Default to 'friends'
   const [friendsSubTab, setFriendsSubTab] = useState('friends');
   const [walletStats, setWalletStats] = useState({ totalDonated: 0, totalReceived: 0 });
+
+  // Allow deep-linking to a specific tab via navigation state, query (?tab=), or hash (#tab)
+  useEffect(() => {
+    try {
+      const stateTab = location?.state?.tab;
+      const queryTab = new URLSearchParams(location?.search || '').get('tab');
+      const hashTab = (location?.hash || '').replace('#', '') || '';
+      const candidate = stateTab || queryTab || hashTab;
+      const allowed = new Set(['personal', 'campaigns', 'community', 'donations', 'received', 'friends']);
+      if (candidate && allowed.has(candidate)) {
+        setActiveTab(candidate);
+      }
+    } catch {/* ignore */}
+    // Re-run on location changes
+  }, [location]);
 
   // If navigation provides a friendsSubTab in location.state or query, open Friends tab and set the sub-tab
   useEffect(() => {
@@ -112,6 +129,7 @@ const Profile = () => {
       if (userDoc.exists()) {
         const data = userDoc.data();
         setFriendsPrivacy(data?.profilePrivacy?.friendsList || 'public');
+        setTransactionsPrivacy(data?.profilePrivacy?.transactions || 'public');
       }
     } catch (error) {
       console.error('Error fetching privacy settings:', error);
@@ -124,13 +142,18 @@ const Profile = () => {
       if (!userId) return;
       const snap = await getDoc(doc(db, 'users', userId));
       if (snap.exists()) {
-        setViewedUserProfile({ id: userId, ...snap.data() });
+        const data = snap.data();
+        setViewedUserProfile({ id: userId, ...data });
+        // Sync privacy controls for viewing others (read-only)
+        setTransactionsPrivacy(data?.profilePrivacy?.transactions || 'public');
       } else {
         setViewedUserProfile(null);
+        setTransactionsPrivacy('public');
       }
     } catch (err) {
       console.error('Failed to load viewed user profile:', err);
       setViewedUserProfile(null);
+      setTransactionsPrivacy('public');
     }
   };
 
@@ -190,6 +213,19 @@ const Profile = () => {
     }
   };
 
+  const toggleTransactionsPrivacy = async () => {
+    const newPrivacy = transactionsPrivacy === 'public' ? 'private' : 'public';
+    try {
+      await updateDoc(doc(db, 'users', currentUser.uid), {
+        'profilePrivacy.transactions': newPrivacy
+      });
+      setTransactionsPrivacy(newPrivacy);
+    } catch (error) {
+      console.error('Error updating transactions privacy:', error);
+      alert('Failed to update privacy settings');
+    }
+  };
+
   useEffect(() => {
     if (activeTab === 'friends') {
       // When viewing others' profile, always show 'friends' tab (no Requests)
@@ -215,6 +251,13 @@ const Profile = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, profileUserId, friendsPrivacy]);
+
+  // If viewing another user's profile and their transactions are private, prevent showing those tabs
+  useEffect(() => {
+    if (!isOwnProfile && transactionsPrivacy === 'private' && (activeTab === 'donations' || activeTab === 'received')) {
+      setActiveTab('personal');
+    }
+  }, [isOwnProfile, transactionsPrivacy, activeTab]);
 
   const fetchFriendRequests = async () => {
     if (!currentUser?.uid) return;
@@ -697,7 +740,7 @@ const Profile = () => {
               <span className="hidden sm:inline">Community Posts</span>
               <span className="sm:hidden">Posts</span>
             </button>
-            {isOwnProfile && (
+            {(isOwnProfile || transactionsPrivacy === 'public') && (
               <button
                 onClick={() => setActiveTab('donations')}
                 className={`relative px-3 sm:px-6 py-2.5 sm:py-3 font-medium whitespace-nowrap transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500/40 text-xs sm:text-base border-b-2 ${
@@ -712,7 +755,7 @@ const Profile = () => {
                 <span className="sm:hidden">Sent</span>
               </button>
             )}
-            {isOwnProfile && (
+            {(isOwnProfile || transactionsPrivacy === 'public') && (
               <button
                 onClick={() => setActiveTab('received')}
                 className={`relative px-3 sm:px-6 py-2.5 sm:py-3 font-medium whitespace-nowrap transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500/40 text-xs sm:text-base border-b-2 ${
@@ -880,6 +923,13 @@ const Profile = () => {
                     </div>
                   </div>
                 </div>
+                
+                {/* Greeting Settings - Only visible on own profile */}
+                {isOwnProfile && (
+                  <div className="mt-8">
+                    <GreetingSettings userId={currentUser.uid} />
+                  </div>
+                )}
               </div>
             )}
 
@@ -1041,6 +1091,29 @@ const Profile = () => {
             {/* Donations Tab */}
             {activeTab === 'donations' && (
               <div className="card p-6">
+                {/* Visibility toggle for Donations/Received (controls both) */}
+                {isOwnProfile && (
+                  <div className="flex items-center justify-end mb-4">
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); toggleTransactionsPrivacy(); }}
+                      className="flex items-center gap-2 px-3 py-2 rounded-lg transition-colors bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700"
+                      title={`Donations visibility: ${transactionsPrivacy}`}
+                    >
+                      {transactionsPrivacy === 'public' ? (
+                        <>
+                          <PublicIcon className="text-green-600 dark:text-green-400" fontSize="small" />
+                          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Public</span>
+                        </>
+                      ) : (
+                        <>
+                          <LockIcon className="text-gray-600 dark:text-gray-400" fontSize="small" />
+                          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Private</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                )}
                 {/* Filter Buttons */}
                 <div className="flex gap-2 mb-6">
                   <button
@@ -1124,18 +1197,23 @@ const Profile = () => {
                               >
                                 <td className="py-4 px-4">
                                   <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center shrink-0">
+                                    <Link
+                                      to={`/profile/${donation.recipientId || ''}`}
+                                      state={{ tab: 'personal' }}
+                                      className="avatar-link w-10 h-10 rounded-full overflow-hidden bg-gray-200 dark:bg-gray-700 flex items-center justify-center shrink-0 transition-transform duration-200 hover:scale-110 focus:outline-none focus:ring-2 focus:ring-green-500"
+                                      title={`View ${donation.recipientName || 'profile'}`}
+                                    >
                                       {donation.recipientPhoto ? (
                                         <img
                                           src={donation.recipientPhoto}
                                           alt={donation.recipientName}
-                                          className="w-10 h-10 rounded-full object-cover"
+                                          className="w-10 h-10 object-cover"
                                         />
                                       ) : (
                                         <PersonIcon className="text-gray-400" />
                                       )}
-                                    </div>
-                                    <Link to={`/profile/${donation.recipientId || ''}`} className="font-medium hover:underline" style={{ color: 'var(--text)' }}>
+                                    </Link>
+                                    <Link to={`/profile/${donation.recipientId || ''}`} state={{ tab: 'personal' }} className="font-medium hover:underline" style={{ color: 'var(--text)' }}>
                                       {donation.recipientName}
                                     </Link>
                                   </div>
@@ -1172,6 +1250,29 @@ const Profile = () => {
             {/* Received History Tab */}
             {activeTab === 'received' && (
               <div className="card p-6">
+                {/* Visibility toggle for Donations/Received (controls both) */}
+                {isOwnProfile && (
+                  <div className="flex items-center justify-end mb-4">
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); toggleTransactionsPrivacy(); }}
+                      className="flex items-center gap-2 px-3 py-2 rounded-lg transition-colors bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700"
+                      title={`Donations visibility: ${transactionsPrivacy}`}
+                    >
+                      {transactionsPrivacy === 'public' ? (
+                        <>
+                          <PublicIcon className="text-green-600 dark:text-green-400" fontSize="small" />
+                          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Public</span>
+                        </>
+                      ) : (
+                        <>
+                          <LockIcon className="text-gray-600 dark:text-gray-400" fontSize="small" />
+                          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Private</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                )}
                 {/* Filter Buttons */}
                 <div className="flex gap-2 mb-6">
                   <button
@@ -1255,18 +1356,23 @@ const Profile = () => {
                               >
                                 <td className="py-4 px-4">
                                   <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center shrink-0">
+                                    <Link
+                                      to={`/profile/${donation.donorId || ''}`}
+                                      state={{ tab: 'personal' }}
+                                      className="avatar-link w-10 h-10 rounded-full overflow-hidden bg-gray-200 dark:bg-gray-700 flex items-center justify-center shrink-0 transition-transform duration-200 hover:scale-110 focus:outline-none focus:ring-2 focus:ring-green-500"
+                                      title={`View ${donation.donorName || 'profile'}`}
+                                    >
                                       {donation.donorPhoto ? (
                                         <img
                                           src={donation.donorPhoto}
                                           alt={donation.donorName}
-                                          className="w-10 h-10 rounded-full object-cover"
+                                          className="w-10 h-10 object-cover"
                                         />
                                       ) : (
                                         <PersonIcon className="text-gray-400" />
                                       )}
-                                    </div>
-                                    <Link to={`/profile/${donation.donorId || ''}`} className="font-medium hover:underline" style={{ color: 'var(--text)' }}>
+                                    </Link>
+                                    <Link to={`/profile/${donation.donorId || ''}`} state={{ tab: 'personal' }} className="font-medium hover:underline" style={{ color: 'var(--text)' }}>
                                       {donation.donorName}
                                     </Link>
                                   </div>

@@ -40,6 +40,8 @@ const GroupDetail = () => {
   const [editBanner, setEditBanner] = useState(null);
   const [savingGroup, setSavingGroup] = useState(false);
   const [activeTab, setActiveTab] = useState('feed'); // Mobile tab state
+  const [joining, setJoining] = useState(false);
+  const [justJoined, setJustJoined] = useState(false);
 
   const isAdmin = useMemo(() => member?.role === 'admin', [member]);
   const isModerator = useMemo(() => member?.role === 'moderator', [member]);
@@ -118,9 +120,40 @@ const GroupDetail = () => {
 
   const handleJoin = async () => {
     if (!currentUser) return alert('Please log in to join');
-    await joinGroup(id, currentUser.uid);
-    const m = await getMember(id, currentUser.uid);
-    setMember(m);
+    if (joining) return;
+    setJoining(true);
+    // Optimistic UI: show yourself as member immediately
+    const optimistic = {
+      userId: currentUser.uid,
+      id: currentUser.uid,
+      role: 'member',
+      displayName: currentUser.displayName || currentUser.email || 'You',
+      photoURL: currentUser.photoURL || '',
+    };
+    setMember(optimistic);
+    setMembers((prev) => {
+      const exists = prev.some((m) => (m.userId || m.id) === currentUser.uid);
+      return exists ? prev : [optimistic, ...prev];
+    });
+    setJustJoined(true);
+    setTimeout(() => setJustJoined(false), 1500);
+
+    try {
+      await joinGroup(id, currentUser.uid);
+      // Replace optimistic with server state (role might differ)
+      try {
+        const m = await getMember(id, currentUser.uid);
+        if (m) setMember(m);
+      } catch {/* non-fatal */}
+    } catch (e) {
+      // Revert on failure
+      console.error('Join failed:', e);
+      alert('Failed to join group. Please try again.');
+      setMember(null);
+      setMembers((prev) => prev.filter((m) => (m.userId || m.id) !== currentUser.uid));
+    } finally {
+      setJoining(false);
+    }
   };
 
   const handleLeave = async () => {
@@ -130,8 +163,26 @@ const GroupDetail = () => {
       alert('Admins cannot leave their own group. Transfer ownership or delete the group instead.');
       return;
     }
-    await leaveGroup(id, currentUser.uid);
+    // Optimistic remove
+    setMembers((prev) => prev.filter((m) => (m.userId || m.id) !== currentUser.uid));
     setMember(null);
+    try {
+      await leaveGroup(id, currentUser.uid);
+    } catch (e) {
+      console.error('Leave failed:', e);
+      // Best-effort restore membership view on failure
+      try {
+        const m = await getMember(id, currentUser.uid);
+        if (m) {
+          setMember(m);
+          setMembers((prev) => {
+            const exists = prev.some((x) => (x.userId || x.id) === currentUser.uid);
+            return exists ? prev : [m, ...prev];
+          });
+        }
+      } catch {/* ignore */}
+      alert('Failed to leave group. Please try again.');
+    }
   };
 
   // Note: group feed composer removed in favor of creating campaigns; unused post composer code removed.
@@ -274,7 +325,7 @@ const GroupDetail = () => {
           )}
           <div className="mt-3 flex items-center gap-2 flex-wrap">
             {!isMember ? (
-              <button onClick={handleJoin} className="px-3 sm:px-4 py-2 rounded-full bg-green-600 hover:bg-green-700 text-white text-sm sm:text-base transition-all duration-300 hover:shadow-lg active:scale-95">Join</button>
+              <button onClick={handleJoin} disabled={joining} className="px-3 sm:px-4 py-2 rounded-full bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white text-sm sm:text-base transition-all duration-300 hover:shadow-lg active:scale-95">{joining ? 'Joining…' : 'Join'}</button>
             ) : isAdmin ? (
               <>
                 <button onClick={handleDeleteGroup} disabled={savingGroup} className="px-3 sm:px-4 py-2 rounded-full bg-red-600 hover:bg-red-700 disabled:opacity-60 text-white text-sm sm:text-base transition-all duration-300 hover:shadow-lg active:scale-95">{savingGroup ? 'Deleting…' : 'Delete Group'}</button>
@@ -380,17 +431,23 @@ const GroupDetail = () => {
                 {members.map(m => {
                   const memberUserId = m.userId || m.id; // Support legacy docs where doc ID != userId
                   return (
-                  <div key={memberUserId} className="flex items-center justify-between px-2 py-2 rounded-lg" style={{ backgroundColor: 'var(--hover-bg)' }}>
+                  <div key={memberUserId} className={`flex items-center justify-between px-2 py-2 rounded-lg ${justJoined && memberUserId === currentUser?.uid ? 'animate-fade-in ring-1 ring-green-500/60' : ''}`} style={{ backgroundColor: 'var(--hover-bg)' }}>
                     <div className="flex items-center gap-2 min-w-0 flex-1">
-                      <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-800 flex items-center justify-center overflow-hidden shrink-0">
-                        {m.photoURL ? (
-                          <img src={m.photoURL} alt={m.displayName || m.id} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                        ) : (
-                          <PersonIcon className="text-gray-500" fontSize="small" />
-                        )}
-                      </div>
+                      <Link
+                        to={`/profile/${memberUserId}`}
+                        className={`avatar-link w-8 h-8 rounded-full overflow-hidden shrink-0 ring-0 hover:ring-2 hover:ring-green-500 transition focus:outline-none focus:ring-2 focus:ring-green-500 ${memberUserId === currentUser?.uid ? 'ring-1 ring-green-400' : ''}`}
+                        title={m.displayName || memberUserId}
+                      >
+                        <div className="w-full h-full bg-gray-200 dark:bg-gray-800 flex items-center justify-center">
+                          {m.photoURL ? (
+                            <img src={m.photoURL} alt={m.displayName || m.id} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                          ) : (
+                            <PersonIcon className="text-gray-500" fontSize="small" />
+                          )}
+                        </div>
+                      </Link>
                       <div className="min-w-0 flex-1">
-                        <p className="text-xs sm:text-sm text-themed truncate">{m.displayName || memberUserId}</p>
+                        <p className="text-xs sm:text-sm text-themed truncate">{m.displayName || memberUserId}{memberUserId === currentUser?.uid ? ' (You)' : ''}</p>
                         <p className="text-xs text-themed-muted">{m.role}</p>
                       </div>
                     </div>
