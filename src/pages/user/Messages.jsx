@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MessageCircle, Search, Clock, Users } from 'lucide-react';
+import { MessageCircle, Search, Clock, Users, UserPlus } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
-import { subscribeToConversations } from '../../utils/messaging';
+import { subscribeToConversations, getOrCreateConversation } from '../../utils/messaging';
+import { collection, query, where, getDocs, limit } from 'firebase/firestore';
+import { db } from '../../config/firebase';
 import Layout from '../../components/Layout';
 import { useTheme } from '../../contexts/ThemeContext';
 
@@ -14,6 +16,8 @@ const Messages = () => {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [conversationFilter, setConversationFilter] = useState('all'); // 'all' or 'unread'
+  const [searchResults, setSearchResults] = useState([]);
+  const [searching, setSearching] = useState(false);
 
   useEffect(() => {
     if (!currentUser) {
@@ -81,7 +85,74 @@ const Messages = () => {
     return date.toLocaleDateString();
   };
 
-  // No external user search; the search box filters existing conversations only.
+  // Search for new users in Firestore
+  useEffect(() => {
+    const searchUsers = async () => {
+      if (!searchQuery.trim() || searchQuery.length < 2) {
+        setSearchResults([]);
+        setSearching(false);
+        return;
+      }
+
+      setSearching(true);
+      try {
+        const usersRef = collection(db, 'users');
+        const searchLower = searchQuery.toLowerCase();
+        
+        // Search by displayName or email
+        const q = query(
+          usersRef,
+          where('displayName', '>=', searchLower),
+          where('displayName', '<=', searchLower + '\uf8ff'),
+          limit(10)
+        );
+        
+        const snapshot = await getDocs(q);
+        const users = [];
+        
+        snapshot.forEach(doc => {
+          const userData = doc.data();
+          // Exclude current user from results
+          if (doc.id !== currentUser.uid) {
+            users.push({
+              id: doc.id,
+              displayName: userData.displayName || 'Unknown User',
+              photoURL: userData.photoURL || '',
+              email: userData.email || ''
+            });
+          }
+        });
+        
+        setSearchResults(users);
+      } catch (error) {
+        console.error('Error searching users:', error);
+        setSearchResults([]);
+      } finally {
+        setSearching(false);
+      }
+    };
+
+    const debounce = setTimeout(searchUsers, 300);
+    return () => clearTimeout(debounce);
+  }, [searchQuery, currentUser.uid]);
+
+  // Start a conversation with a user
+  const handleStartConversation = async (userId, userName, userPhoto) => {
+    try {
+      const conversationId = await getOrCreateConversation(
+        currentUser.uid,
+        userId,
+        currentUser.displayName || 'You',
+        userName,
+        currentUser.photoURL || '',
+        userPhoto || ''
+      );
+      navigate(`/messages/${conversationId}`);
+    } catch (error) {
+      console.error('Error starting conversation:', error);
+      alert('Failed to start conversation. Please try again.');
+    }
+  };
 
   const filteredConversations = conversations.filter(conv => {
     const other = getOtherParticipant(conv);
@@ -164,12 +235,12 @@ const Messages = () => {
           </button>
         </div>
 
-        {/* Search Bar (filters existing conversations only) */}
+        {/* Search Bar */}
         <div className="relative animate-slide-in-up">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-themed-muted" size={20} />
           <input
             type="text"
-            placeholder="Search conversations..."
+            placeholder="Search conversations or find new people..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className={`w-full pl-10 pr-4 py-3 rounded-xl placeholder-gray-500 focus:outline-none focus:ring-2 transition-colors ${
@@ -178,12 +249,63 @@ const Messages = () => {
                 : 'bg-white text-gray-900 border border-gray-200 hover:border-gray-300 focus:ring-green-600'
             }`}
           />
+          {searching && (
+            <div className="absolute right-3 top-1/2 -translate-y-1/2">
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-green-600"></div>
+            </div>
+          )}
         </div>
 
+        {/* New Users Search Results */}
+        {searchQuery.trim() && searchResults.length > 0 && (
+          <div className="space-y-2 animate-slide-in-up">
+            <h3 className="text-sm font-semibold text-themed-muted px-2">New People</h3>
+            {searchResults.map((user) => (
+              <button
+                key={user.id}
+                onClick={() => handleStartConversation(user.id, user.displayName, user.photoURL)}
+                className={`w-full p-4 rounded-xl transition-all text-left hover:shadow-md hover:-translate-y-px animate-fade-in ${
+                  isDarkMode ? 'bg-gray-800 border border-gray-700 text-gray-100 hover:bg-gray-700' : 'bg-white border border-gray-200 hover:bg-gray-50'
+                }`}
+              >
+                <div className="flex items-center gap-4">
+                  {/* Avatar */}
+                  <div className="shrink-0 relative">
+                    {user.photoURL ? (
+                      <img
+                        src={user.photoURL}
+                        alt={user.displayName}
+                        className="w-12 h-12 rounded-full object-cover ring-2 ring-white dark:ring-gray-800"
+                      />
+                    ) : (
+                      <div className="w-12 h-12 rounded-full bg-linear-to-br from-green-500 to-emerald-500 flex items-center justify-center text-white font-bold ring-2 ring-white dark:ring-gray-800">
+                        {user.displayName.charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Content */}
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-themed flex items-center gap-2">
+                      {user.displayName}
+                      <span className="px-2 py-0.5 text-xs font-medium text-blue-600 bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400 rounded-full flex items-center gap-1">
+                        <UserPlus size={12} />
+                        New
+                      </span>
+                    </h3>
+                    <p className="text-sm text-themed-muted">{user.email}</p>
+                  </div>
+                  
+                  <MessageCircle size={20} className="text-green-600 shrink-0" />
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Conversations List */}
         <>
-          {filteredConversations.length === 0 ? (
+          {filteredConversations.length === 0 && searchResults.length === 0 ? (
               <div className="text-center py-16">
                 <MessageCircle size={64} className="mx-auto text-themed-muted mb-4" />
                 <h3 className="text-xl font-semibold text-themed mb-2">
@@ -191,13 +313,14 @@ const Messages = () => {
                 </h3>
                 <p className="text-themed-muted">
                   {searchQuery 
-                    ? 'Try searching for something else'
-                    : 'Start a conversation by visiting a campaign and clicking "Message Creator"'
+                    ? 'No results found. Try a different search term.'
+                    : 'Start a conversation by searching for people or visiting a campaign'
                   }
                 </p>
               </div>
-            ) : (
+            ) : filteredConversations.length > 0 ? (
               <div className="space-y-2 animate-slide-in-up">
+                {searchQuery.trim() && <h3 className="text-sm font-semibold text-themed-muted px-2">Your Conversations</h3>}
                 {filteredConversations.map((conversation) => {
               const other = getOtherParticipant(conversation);
               const unreadCount = conversation.unreadCount?.[currentUser.uid] || 0;
@@ -287,7 +410,7 @@ const Messages = () => {
               );
             })}
               </div>
-            )}
+            ) : null}
           </>
       </div>
     </Layout>

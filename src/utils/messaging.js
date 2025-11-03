@@ -13,7 +13,9 @@ import {
   updateDoc,
   increment,
   limit,
-  startAfter
+  startAfter,
+  deleteDoc,
+  writeBatch
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { listFriendIds } from './friends';
@@ -738,4 +740,46 @@ export const getSharedMedia = async (conversationId, max = 200) => {
     }
   });
   return { images, audios, campaigns, links };
+};
+
+/**
+ * Delete a conversation and all its messages
+ * @param {string} conversationId - The conversation ID to delete
+ */
+export const deleteConversation = async (conversationId) => {
+  try {
+    const convRef = doc(db, 'conversations', conversationId);
+    const messagesRef = collection(convRef, 'messages');
+    
+    // Get all messages in the conversation
+    const messagesSnapshot = await getDocs(messagesRef);
+    
+    // Use batch to delete messages (max 500 per batch)
+    const batch = writeBatch(db);
+    let batchCount = 0;
+    
+    for (const messageDoc of messagesSnapshot.docs) {
+      batch.delete(messageDoc.ref);
+      batchCount++;
+      
+      // Commit batch if we reach 500 operations
+      if (batchCount >= 500) {
+        await batch.commit();
+        batchCount = 0;
+      }
+    }
+    
+    // Commit any remaining operations
+    if (batchCount > 0) {
+      await batch.commit();
+    }
+    
+    // Finally, delete the conversation document
+    await deleteDoc(convRef);
+    
+    return true;
+  } catch (error) {
+    console.error('Error deleting conversation:', error);
+    throw error;
+  }
 };

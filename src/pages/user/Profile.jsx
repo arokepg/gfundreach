@@ -26,6 +26,8 @@ import AddFriendButton from '../../components/AddFriendButton';
 import GreetingSettings from '../../components/GreetingSettings';
 import { listFriendIds, getFriendshipStatus, acceptFriendRequest, cancelFriendRequest } from '../../utils/friends';
 import { calculateWalletStats } from '../../utils/walletHelpers';
+import { getOrCreateConversation } from '../../utils/messaging';
+import MessageIcon from '@mui/icons-material/Message';
 
 const Profile = () => {
   const { currentUser, userProfile: currentUserProfile, logout } = useAuth();
@@ -667,6 +669,31 @@ const Profile = () => {
                     hideInlineActions={true}
                     onStatusChange={(newStatus) => setProfileFriendStatus(newStatus)}
                   />
+
+                  {/* Message Button */}
+                  <button
+                    onClick={async () => {
+                      try {
+                        const conversationId = await getOrCreateConversation(
+                          currentUser.uid,
+                          profileUserId,
+                          currentUser.displayName || 'You',
+                          userProfile?.displayName || 'User',
+                          currentUser.photoURL || '',
+                          userProfile?.photoURL || ''
+                        );
+                        navigate(`/messages/${conversationId}`);
+                      } catch (error) {
+                        console.error('Error starting conversation:', error);
+                        alert('Failed to start conversation. Please try again.');
+                      }
+                    }}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-full font-medium transition-colors shadow-sm"
+                    title="Send Message"
+                  >
+                    <MessageIcon style={{ fontSize: '20px' }} />
+                    <span>Message</span>
+                  </button>
                 </div>
               )}
             </div>

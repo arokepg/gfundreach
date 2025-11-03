@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Send, Loader2, Mic, StopCircle, Image as ImageIcon, Smile, TrendingUp, ChevronUp, Users } from 'lucide-react';
+import { ArrowLeft, Send, Loader2, Mic, StopCircle, Image as ImageIcon, Smile, TrendingUp, ChevronUp, Users, Trash2 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { 
   subscribeToMessages, 
@@ -10,7 +10,8 @@ import {
   sendImageMessage,
   addReaction,
   removeReaction,
-  loadMoreMessages
+  loadMoreMessages,
+  deleteConversation
 } from '../../utils/messaging';
 import Layout from '../../components/Layout';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -36,6 +37,7 @@ const ChatWindow = () => {
   const [hasMoreMessages, setHasMoreMessages] = useState(true);
   const [lastDocRef, setLastDocRef] = useState(null);
   const [showGroupInfo, setShowGroupInfo] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const { isDarkMode } = useTheme();
   const mediaRecorderRef = useRef(null);
   const chunksRef = useRef([]);
@@ -45,6 +47,23 @@ const ChatWindow = () => {
   const imageInputRef = useRef(null);
   const inputRef = useRef(null); // For text input focus
   const lastMessageCountRef = useRef(0); // Track message count for smart scroll
+
+  // Handle delete conversation
+  const handleDeleteConversation = async () => {
+    if (!confirm('Are you sure you want to delete this conversation? This action cannot be undone.')) {
+      return;
+    }
+
+    setDeleting(true);
+    try {
+      await deleteConversation(conversationId);
+      navigate('/messages');
+    } catch (error) {
+      console.error('Error deleting conversation:', error);
+      alert('Failed to delete conversation. Please try again.');
+      setDeleting(false);
+    }
+  };
 
   // Load conversation details
   useEffect(() => {
@@ -131,9 +150,9 @@ const ChatWindow = () => {
     } finally {
       setSending(false);
       // Keep input focused after sending so user can continue typing
-      setTimeout(() => {
+      requestAnimationFrame(() => {
         inputRef.current?.focus();
-      }, 0);
+      });
     }
   };
 
@@ -370,39 +389,66 @@ const ChatWindow = () => {
     <Layout>
       <div className="max-w-4xl mx-auto h-[calc(100vh-120px)] flex flex-col">
         {/* Header */}
-  <div className={`shrink-0 p-4 flex items-center gap-4 border-b ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
-          <button
-            onClick={() => navigate('/messages')}
-            className={`p-2 rounded-lg transition-colors ${isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-themed-tertiary'}`}
-            aria-label="Back to messages"
-          >
-            <ArrowLeft size={24} className={`${isDarkMode ? 'text-gray-100' : 'text-themed'}`} />
-          </button>
-          
-          <button
-            type="button"
-            onClick={() => other.isGroup && setShowGroupInfo(true)}
-            className={`flex items-center gap-3 rounded-lg px-2 py-1 ${isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-themed-tertiary'}`}
-            title={other.isGroup ? 'View group info' : other.name}
-          >
-            {other.photo && !other.isGroup ? (
-              <img
-                src={other.photo}
-                alt={other.name}
-                className="w-10 h-10 rounded-full object-cover"
-              />
-            ) : (
-              <div className="w-10 h-10 rounded-full bg-linear-to-br from-green-500 to-emerald-500 flex items-center justify-center text-white font-bold">
-                {other.isGroup ? <Users size={20} /> : other.name.charAt(0).toUpperCase()}
-              </div>
-            )}
+  <div className={`shrink-0 p-4 flex items-center justify-between gap-4 border-b ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => navigate('/messages')}
+              className={`p-2 rounded-lg transition-colors ${isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-themed-tertiary'}`}
+              aria-label="Back to messages"
+            >
+              <ArrowLeft size={24} className={`${isDarkMode ? 'text-gray-100' : 'text-themed'}`} />
+            </button>
             
-            <div className="text-left">
-              <h2 className={`font-semibold ${isDarkMode ? 'text-gray-100' : 'text-themed'}`}>{other.name}</h2>
-              <p className={`text-xs ${isDarkMode ? 'text-gray-300' : 'text-themed-muted'}`}>
-                {other.isGroup ? `${other.participantCount} members` : 'Online'}
-              </p>
-            </div>
+            <button
+              type="button"
+              onClick={() => {
+                if (other.isGroup) {
+                  setShowGroupInfo(true);
+                } else if (other.id) {
+                  navigate(`/profile/${other.id}`);
+                }
+              }}
+              className={`flex items-center gap-3 rounded-lg px-2 py-1 ${isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-themed-tertiary'}`}
+              title={other.isGroup ? 'View group info' : `View ${other.name}'s profile`}
+            >
+              {other.photo && !other.isGroup ? (
+                <img
+                  src={other.photo}
+                  alt={other.name}
+                  className="w-10 h-10 rounded-full object-cover"
+                />
+              ) : (
+                <div className="w-10 h-10 rounded-full bg-linear-to-br from-green-500 to-emerald-500 flex items-center justify-center text-white font-bold">
+                  {other.isGroup ? <Users size={20} /> : other.name.charAt(0).toUpperCase()}
+                </div>
+              )}
+              
+              <div className="text-left">
+                <h2 className={`font-semibold ${isDarkMode ? 'text-gray-100' : 'text-themed'}`}>{other.name}</h2>
+                <p className={`text-xs ${isDarkMode ? 'text-gray-300' : 'text-themed-muted'}`}>
+                  {other.isGroup ? `${other.participantCount} members` : 'Online'}
+                </p>
+              </div>
+            </button>
+          </div>
+
+          {/* Delete Conversation Button */}
+          <button
+            onClick={handleDeleteConversation}
+            disabled={deleting}
+            className={`p-2 rounded-lg transition-colors ${
+              deleting 
+                ? 'opacity-50 cursor-not-allowed' 
+                : 'hover:bg-red-50 dark:hover:bg-red-900/20'
+            }`}
+            title="Delete conversation"
+            aria-label="Delete conversation"
+          >
+            {deleting ? (
+              <Loader2 size={20} className="animate-spin text-red-600 dark:text-red-400" />
+            ) : (
+              <Trash2 size={20} className="text-red-600 dark:text-red-400" />
+            )}
           </button>
         </div>
 
@@ -472,8 +518,8 @@ const ChatWindow = () => {
                       const bubbleTone = isAttachment
                         ? ''
                         : (isCurrentUser
-                            ? 'bg-white text-gray-900 border border-emerald-300 dark:bg-emerald-900/20 dark:text-gray-100 dark:border-emerald-800 rounded-br-sm'
-                            : 'bg-white text-gray-900 border border-gray-300 dark:bg-gray-800 dark:text-gray-100 dark:border-gray-700 rounded-bl-sm');
+                            ? 'bg-white text-gray-800 border border-emerald-300 dark:bg-emerald-900/20 dark:text-gray-100 dark:border-emerald-800 rounded-br-sm'
+                            : 'bg-white text-gray-800 border border-gray-300 dark:bg-gray-800 dark:text-gray-100 dark:border-gray-700 rounded-bl-sm');
                       return (
                         <div className={`${bubbleBase} ${bubbleTone}`}>
                           {/* Render different message types */}
@@ -490,13 +536,13 @@ const ChatWindow = () => {
                                 onError={(e) => { e.target.src = ''; e.target.alt = '[Image failed to load]'; }}
                               />
                               {message.caption && (
-                                <p className="mt-2 px-2 text-sm text-gray-900 dark:text-gray-100">{message.caption}</p>
+                                <p className="mt-2 px-2 text-sm text-gray-800 dark:text-gray-100">{message.caption}</p>
                               )}
                             </div>
                           ) : message.type === 'campaign' && message.campaign ? (
                             <CampaignContextCard campaign={message.campaign} compact={false} />
                           ) : (
-                            <p className="whitespace-pre-wrap wrap-break-word text-gray-900 dark:text-gray-100">{message.content}</p>
+                            <p className="whitespace-pre-wrap wrap-break-word text-gray-800 dark:text-gray-100">{message.content}</p>
                           )}
                           {/* Emoji picker button (appears on hover) */}
                           <button
