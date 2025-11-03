@@ -22,7 +22,6 @@ const GroupInfoPanel = ({ conversationId, open, onClose }) => {
   const [name, setName] = useState('');
   const [imageUrl, setImageUrl] = useState('');
   const [invitePermission, setInvitePermission] = useState('approval');
-  const [inviteId, setInviteId] = useState('');
   const [saving, setSaving] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [media, setMedia] = useState({ images: [], audios: [], campaigns: [], links: [] });
@@ -127,8 +126,13 @@ const GroupInfoPanel = ({ conversationId, open, onClose }) => {
         groupImageUrl: imageUrl,
         invitePermission,
       });
-      // update local immediately
-      setConv(prev => ({ ...prev, settings: { ...(prev?.settings || {}), name, groupImageUrl: imageUrl, invitePermission } }));
+      // update local immediately (both settings and groupName for backward compatibility)
+      setConv(prev => ({ 
+        ...prev, 
+        settings: { ...(prev?.settings || {}), name, groupImageUrl: imageUrl, invitePermission },
+        groupName: name // Also update groupName for backward compatibility
+      }));
+      alert('Group settings updated successfully!');
     } catch (e) {
       alert(e.message || 'Failed to save settings');
     } finally {

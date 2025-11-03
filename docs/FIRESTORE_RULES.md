@@ -246,20 +246,27 @@ service cloud.firestore {
       allow create: if isCreateValid();
 
       // Updates depend on what's being changed:
-      // - Participants can update: lastMessageAt, unreadCount, typing, firstMessageSent
+      // - Participants can update: lastMessageAt, lastMessage, lastSenderId, unreadCount, typing, firstMessageSent, hasReplied
       // - Only group admins can update: settings (name, groupImageUrl, invitePermission), roles
       // - Group admins can approve/reject invites (pendingInvites)
       allow update: if isConvParticipant() && (
         // Regular conversation updates (messaging activity)
-        request.resource.data.diff(resource.data).changedKeys().hasOnly(['lastMessageAt', 'unreadCount', 'typing', 'firstMessageSent', 'participantNames', 'participantPhotos']) ||
+        request.resource.data.diff(resource.data).changedKeys().hasOnly(['lastMessageAt', 'lastMessage', 'lastSenderId', 'unreadCount', 'typing', 'firstMessageSent', 'participantNames', 'participantPhotos', 'hasReplied']) ||
         // Admin-only: settings, roles, and invite management
         (isGroupAdmin() && resource.data.type == 'group')
       );
 
-      // Delete conversation: any participant can delete the entire conversation
+      // Delete conversation:
+      // - 1-1 conversations: any participant can delete
+      // - Group conversations: only group admins (creator or assigned admin) can delete
       // Note: Client must handle message deletion separately using batch operations
       // Implementation in messaging.js uses writeBatch to delete messages first, then conversation
-      allow delete: if isConvParticipant();
+      allow delete: if isConvParticipant() && (
+        // 1-1 conversations: any participant can delete
+        resource.data.type != 'group' ||
+        // Group conversations: only admins can delete
+        (resource.data.type == 'group' && isGroupAdmin())
+      );
 
       // Messages subcollection
       match /messages/{messageId} {

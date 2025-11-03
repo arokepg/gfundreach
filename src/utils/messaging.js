@@ -623,7 +623,11 @@ export const updateGroupSettings = async (conversationId, actorId, patch) => {
   if (role !== 'admin') throw new Error('Only admins can update group settings');
 
   const next = {};
-  if (typeof patch.name === 'string') next['settings.name'] = patch.name;
+  if (typeof patch.name === 'string') {
+    next['settings.name'] = patch.name;
+    // Also update groupName for backward compatibility
+    next['groupName'] = patch.name;
+  }
   if (typeof patch.groupImageUrl === 'string') next['settings.groupImageUrl'] = patch.groupImageUrl;
   if (patch.invitePermission === 'auto' || patch.invitePermission === 'approval') {
     next['settings.invitePermission'] = patch.invitePermission;

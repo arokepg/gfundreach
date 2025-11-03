@@ -348,8 +348,8 @@ const ChatWindow = () => {
     // Check if it's a group conversation
     if (conversation.type === 'group') {
       return {
-        name: conversation.groupName || 'Group Chat',
-        photo: '',
+        name: conversation.settings?.name || conversation.groupName || 'Group Chat',
+        photo: conversation.settings?.groupImageUrl || '',
         isGroup: true,
         participantCount: conversation.participants?.length || 0
       };
