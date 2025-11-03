@@ -4,9 +4,11 @@ import { MessageCircle, Search, Clock, Users } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { subscribeToConversations } from '../../utils/messaging';
 import Layout from '../../components/Layout';
+import { useTheme } from '../../contexts/ThemeContext';
 
 const Messages = () => {
   const { currentUser } = useAuth();
+  const { isDarkMode } = useTheme();
   const navigate = useNavigate();
   const [conversations, setConversations] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -120,9 +122,9 @@ const Messages = () => {
 
   return (
     <Layout>
-      <div className="max-w-4xl mx-auto p-4 space-y-4">
+      <div className="max-w-4xl mx-auto p-4 space-y-4 animate-fade-in">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between animate-slide-in-up">
           <h1 className="text-2xl font-bold text-themed flex items-center gap-2">
             <MessageCircle size={28} />
             Messages
@@ -130,23 +132,27 @@ const Messages = () => {
         </div>
 
         {/* Main Tabs: All Chats vs Unread */}
-        <div className="flex gap-2 bg-themed-secondary p-1 rounded-xl">
+  <div className={`flex gap-2 p-1 rounded-xl animate-slide-in-up ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
           <button
             onClick={() => setConversationFilter('all')}
-            className={`flex-1 px-4 py-2 rounded-lg font-medium transition-all ${
+            className={`flex-1 px-4 py-2 rounded-lg font-medium transition-all border outline-none focus-visible:ring-2 focus-visible:ring-green-500/50 ${
               conversationFilter === 'all'
-                ? 'bg-white dark:bg-gray-700 text-themed shadow-sm border-2 border-green-600'
-                : 'text-themed-muted hover:text-themed hover:border-2 hover:border-green-600 hover:bg-white dark:hover:bg-gray-700'
+                ? 'bg-green-600 text-white border-green-600 shadow-sm'
+                : isDarkMode
+                  ? 'bg-gray-800 text-gray-100 border-gray-700 hover:border-green-500 hover:bg-gray-700'
+                  : 'bg-white text-gray-800 border-gray-200 hover:text-gray-900 hover:border-green-400 hover:bg-gray-50'
             }`}
           >
             All Chats
           </button>
           <button
             onClick={() => setConversationFilter('unread')}
-            className={`flex-1 px-4 py-2 rounded-lg font-medium transition-all flex items-center justify-center gap-2 ${
+            className={`flex-1 px-4 py-2 rounded-lg font-medium transition-all flex items-center justify-center gap-2 border outline-none focus-visible:ring-2 focus-visible:ring-green-500/50 ${
               conversationFilter === 'unread'
-                ? 'bg-white dark:bg-gray-700 text-themed shadow-sm border-2 border-green-600'
-                : 'text-themed-muted hover:text-themed hover:border-2 hover:border-green-600 hover:bg-white dark:hover:bg-gray-700'
+                ? 'bg-green-600 text-white border-green-600 shadow-sm'
+                : isDarkMode
+                  ? 'bg-gray-800 text-gray-100 border-gray-700 hover:border-green-500 hover:bg-gray-700'
+                  : 'bg-white text-gray-800 border-gray-200 hover:text-gray-900 hover:border-green-400 hover:bg-gray-50'
             }`}
           >
             Unread
@@ -159,14 +165,18 @@ const Messages = () => {
         </div>
 
         {/* Search Bar (filters existing conversations only) */}
-        <div className="relative">
+        <div className="relative animate-slide-in-up">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-themed-muted" size={20} />
           <input
             type="text"
             placeholder="Search conversations..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-3 rounded-xl bg-themed-secondary border border-themed-border text-themed placeholder-themed-muted focus:outline-none focus:ring-2 focus:ring-green-600"
+            className={`w-full pl-10 pr-4 py-3 rounded-xl placeholder-gray-500 focus:outline-none focus:ring-2 transition-colors ${
+              isDarkMode
+                ? 'bg-gray-800 text-gray-100 placeholder-gray-400 border border-gray-700 hover:border-gray-600 focus:ring-green-500'
+                : 'bg-white text-gray-900 border border-gray-200 hover:border-gray-300 focus:ring-green-600'
+            }`}
           />
         </div>
 
@@ -187,7 +197,7 @@ const Messages = () => {
                 </p>
               </div>
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-2 animate-slide-in-up">
                 {filteredConversations.map((conversation) => {
               const other = getOtherParticipant(conversation);
               const unreadCount = conversation.unreadCount?.[currentUser.uid] || 0;
@@ -200,8 +210,14 @@ const Messages = () => {
                 <button
                   key={conversation.id}
                   onClick={() => navigate(`/messages/${conversation.id}`)}
-                  className={`w-full p-4 rounded-xl transition-all text-left hover:bg-themed-tertiary relative ${
-                    showHighlight ? 'bg-green-50 dark:bg-green-900/10 border-2 border-green-600' : 'bg-themed-secondary border border-themed-border'
+                  className={`w-full p-4 rounded-xl transition-all text-left hover:shadow-md hover:-translate-y-px relative animate-fade-in ${
+                    showHighlight
+                      ? isDarkMode
+                        ? 'bg-green-900/10 border-2 border-green-600 text-gray-100'
+                        : 'bg-green-50 border-2 border-green-600'
+                      : isDarkMode
+                        ? 'bg-gray-800 border border-gray-700 text-gray-100'
+                        : 'bg-white border border-gray-200'
                   }`}
                 >
                   {/* Unread Dot Indicator */}
@@ -219,7 +235,7 @@ const Messages = () => {
                           className="w-12 h-12 rounded-full object-cover ring-2 ring-white dark:ring-gray-800"
                         />
                       ) : (
-                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center text-white font-bold ring-2 ring-white dark:ring-gray-800">
+                        <div className="w-12 h-12 rounded-full bg-linear-to-br from-green-500 to-emerald-500 flex items-center justify-center text-white font-bold ring-2 ring-white dark:ring-gray-800">
                           {other.isGroup ? <Users size={24} /> : other.name.charAt(0).toUpperCase()}
                         </div>
                       )}
@@ -260,7 +276,7 @@ const Messages = () => {
                           {conversation.lastMessage || 'No messages yet'}
                         </p>
                         {hasUnread && (
-                          <span className="shrink-0 px-2.5 py-1 text-xs font-bold text-white bg-red-500 rounded-full min-w-[24px] text-center">
+                          <span className="shrink-0 px-2.5 py-1 text-xs font-bold text-white bg-red-500 rounded-full min-w-6 text-center">
                             {unreadCount > 99 ? '99+' : unreadCount}
                           </span>
                         )}

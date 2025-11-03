@@ -13,6 +13,7 @@ import {
   loadMoreMessages
 } from '../../utils/messaging';
 import Layout from '../../components/Layout';
+import { useTheme } from '../../contexts/ThemeContext';
 import CampaignContextCard from '../../components/CampaignContextCard';
 import GroupInfoPanel from '../../components/GroupInfoPanel';
 
@@ -35,6 +36,7 @@ const ChatWindow = () => {
   const [hasMoreMessages, setHasMoreMessages] = useState(true);
   const [lastDocRef, setLastDocRef] = useState(null);
   const [showGroupInfo, setShowGroupInfo] = useState(false);
+  const { isDarkMode } = useTheme();
   const mediaRecorderRef = useRef(null);
   const chunksRef = useRef([]);
   const recordStartRef = useRef(0);
@@ -99,8 +101,8 @@ const ChatWindow = () => {
     if (!newMessage.trim() || sending) return;
 
     const messageContent = newMessage.trim();
-    setNewMessage('');
     setSending(true);
+    setNewMessage(''); // Clear immediately for better UX
 
     try {
       // Check if it's a group conversation
@@ -122,13 +124,16 @@ const ChatWindow = () => {
           messageContent
         );
       }
-      inputRef.current?.focus();
     } catch (error) {
       console.error('Error sending message:', error);
       alert('Failed to send message. Please try again.');
       setNewMessage(messageContent); // Restore message on error
     } finally {
       setSending(false);
+      // Keep input focused after sending so user can continue typing
+      setTimeout(() => {
+        inputRef.current?.focus();
+      }, 0);
     }
   };
 
@@ -365,19 +370,19 @@ const ChatWindow = () => {
     <Layout>
       <div className="max-w-4xl mx-auto h-[calc(100vh-120px)] flex flex-col">
         {/* Header */}
-        <div className="shrink-0 p-4 bg-themed-secondary border-b border-themed-border flex items-center gap-4">
+  <div className={`shrink-0 p-4 flex items-center gap-4 border-b ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
           <button
             onClick={() => navigate('/messages')}
-            className="p-2 rounded-lg hover:bg-themed-tertiary transition-colors"
+            className={`p-2 rounded-lg transition-colors ${isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-themed-tertiary'}`}
             aria-label="Back to messages"
           >
-            <ArrowLeft size={24} className="text-themed" />
+            <ArrowLeft size={24} className={`${isDarkMode ? 'text-gray-100' : 'text-themed'}`} />
           </button>
           
           <button
             type="button"
             onClick={() => other.isGroup && setShowGroupInfo(true)}
-            className="flex items-center gap-3 hover:bg-themed-tertiary rounded-lg px-2 py-1"
+            className={`flex items-center gap-3 rounded-lg px-2 py-1 ${isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-themed-tertiary'}`}
             title={other.isGroup ? 'View group info' : other.name}
           >
             {other.photo && !other.isGroup ? (
@@ -393,23 +398,23 @@ const ChatWindow = () => {
             )}
             
             <div className="text-left">
-              <h2 className="font-semibold text-themed">{other.name}</h2>
-              <p className="text-xs text-themed-muted">
+              <h2 className={`font-semibold ${isDarkMode ? 'text-gray-100' : 'text-themed'}`}>{other.name}</h2>
+              <p className={`text-xs ${isDarkMode ? 'text-gray-300' : 'text-themed-muted'}`}>
                 {other.isGroup ? `${other.participantCount} members` : 'Online'}
               </p>
             </div>
           </button>
         </div>
 
-        {/* Messages Area */}
-        <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-4 space-y-4">
+  {/* Messages Area */}
+  <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-themed">
           {/* Load More Button */}
           {hasMoreMessages && messages.length > 0 && (
             <div className="flex justify-center mb-4">
               <button
                 onClick={handleLoadMore}
                 disabled={loadingMore}
-                className="px-4 py-2 bg-themed-secondary hover:bg-themed-tertiary border border-themed-border rounded-lg text-sm font-medium text-themed flex items-center gap-2 transition-all disabled:opacity-50"
+                className={`px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-all disabled:opacity-50 border ${isDarkMode ? 'bg-gray-800 text-gray-100 border-gray-700 hover:bg-gray-700' : 'bg-white text-gray-900 border-gray-200 hover:bg-gray-100'}`}
               >
                 {loadingMore ? (
                   <>
@@ -427,7 +432,7 @@ const ChatWindow = () => {
           )}
           
           {messages.length === 0 ? (
-            <div className="text-center py-8 text-themed-muted">
+            <div className="text-center py-8 text-gray-500 dark:text-gray-400">
               <p>No messages yet. Start the conversation!</p>
             </div>
           ) : (
@@ -463,12 +468,12 @@ const ChatWindow = () => {
                   <div className={`max-w-[70%] ${isCurrentUser ? 'items-end' : 'items-start'} flex flex-col emoji-picker-wrapper`}>
                     {(() => {
                       const isAttachment = message.type === 'image' || message.type === 'audio' || message.type === 'campaign';
-                      const bubbleBase = `relative group rounded-2xl ${isAttachment ? 'p-0 bg-transparent' : 'px-4 py-2'}`;
+                      const bubbleBase = `relative group rounded-2xl ${isAttachment ? 'p-0 bg-transparent' : 'px-4 py-2'} animate-chat-bubble`;
                       const bubbleTone = isAttachment
                         ? ''
                         : (isCurrentUser
-                            ? 'bg-emerald-50 dark:bg-emerald-900/20 text-themed border border-emerald-200 dark:border-emerald-800 rounded-br-sm'
-                            : 'bg-white dark:bg-gray-800 text-themed border border-themed-border rounded-bl-sm');
+                            ? 'bg-white text-gray-900 border border-emerald-300 dark:bg-emerald-900/20 dark:text-gray-100 dark:border-emerald-800 rounded-br-sm'
+                            : 'bg-white text-gray-900 border border-gray-300 dark:bg-gray-800 dark:text-gray-100 dark:border-gray-700 rounded-bl-sm');
                       return (
                         <div className={`${bubbleBase} ${bubbleTone}`}>
                           {/* Render different message types */}
@@ -481,26 +486,26 @@ const ChatWindow = () => {
                               <img 
                                 src={message.imageUrl} 
                                 alt="Shared" 
-                                className="max-w-full rounded-xl border border-themed-border"
+                                className="max-w-full rounded-xl border border-gray-300 dark:border-gray-700"
                                 onError={(e) => { e.target.src = ''; e.target.alt = '[Image failed to load]'; }}
                               />
                               {message.caption && (
-                                <p className="mt-2 px-2 text-sm text-themed">{message.caption}</p>
+                                <p className="mt-2 px-2 text-sm text-gray-900 dark:text-gray-100">{message.caption}</p>
                               )}
                             </div>
                           ) : message.type === 'campaign' && message.campaign ? (
                             <CampaignContextCard campaign={message.campaign} compact={false} />
                           ) : (
-                            <p className="whitespace-pre-wrap break-words text-themed">{message.content}</p>
+                            <p className="whitespace-pre-wrap wrap-break-word text-gray-900 dark:text-gray-100">{message.content}</p>
                           )}
                           {/* Emoji picker button (appears on hover) */}
                           <button
                             onClick={(e) => toggleEmojiPicker(message.id, e)}
-                            className="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 bg-themed-secondary border border-themed-border rounded-full p-1 transition-opacity hover:scale-110"
+                            className="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-full p-1 transition-opacity hover:scale-110"
                             title="React"
                             type="button"
                           >
-                            <Smile size={14} className="text-themed" />
+                            <Smile size={14} className="text-gray-700 dark:text-gray-300" />
                           </button>
                         </div>
                       );
@@ -519,7 +524,7 @@ const ChatWindow = () => {
                               className={`text-xs px-2 py-0.5 rounded-full border transition-all ${
                                 userReacted 
                                   ? 'bg-green-100 dark:bg-green-900/30 border-green-500' 
-                                  : 'bg-themed-secondary border-themed-border hover:border-green-500'
+                                  : 'bg-gray-50 border-gray-200 hover:border-green-500'
                               }`}
                               type="button"
                             >
@@ -532,7 +537,7 @@ const ChatWindow = () => {
                     
                     {/* Emoji picker popup */}
                     {showEmojiPicker === message.id && (
-                      <div className="mt-1 flex gap-1 p-2 bg-themed-secondary border border-themed-border rounded-lg shadow-lg z-10">
+                      <div className="mt-1 flex gap-1 p-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg shadow-lg z-10">
                         {COMMON_EMOJIS.map(emoji => (
                           <button
                             key={emoji}
@@ -546,7 +551,7 @@ const ChatWindow = () => {
                       </div>
                     )}
                     
-                    <span className="text-xs text-themed-muted mt-1 px-2">
+                    <span className="text-xs text-gray-500 dark:text-gray-400 mt-1 px-2">
                       {formatMessageTime(message.createdAt)}
                     </span>
                   </div>
@@ -557,8 +562,9 @@ const ChatWindow = () => {
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Input Area */}
-        <form onSubmit={handleSendMessage} className="shrink-0 p-4 bg-themed-secondary border-t border-themed-border">
+  {/* Input Area */}
+  {/* Force light/dark styles explicitly */}
+  <form onSubmit={handleSendMessage} className={`shrink-0 p-4 border-t ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
           <div className="flex gap-2">
             {/* Image upload button */}
             <input
@@ -571,7 +577,7 @@ const ChatWindow = () => {
             <button
               type="button"
               onClick={() => imageInputRef.current?.click()}
-              className="px-3 rounded-xl font-medium transition-colors flex items-center justify-center bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/30"
+              className={`px-3 rounded-xl font-medium transition-colors flex items-center justify-center ${isDarkMode ? 'bg-blue-900/20 text-blue-400 hover:bg-blue-900/30' : 'bg-blue-50 text-blue-700 hover:bg-blue-100'}`}
               title="Send image"
               disabled={sending || sendingVoice || sendingImage}
             >
@@ -582,7 +588,7 @@ const ChatWindow = () => {
             <button
               type="button"
               onClick={isRecording ? stopRecording : startRecording}
-              className={`px-3 rounded-xl font-medium transition-colors flex items-center justify-center ${isRecording ? 'bg-red-600 hover:bg-red-700 text-white' : 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/30'}`}
+              className={`px-3 rounded-xl font-medium transition-colors flex items-center justify-center ${isRecording ? 'bg-red-600 hover:bg-red-700 text-white' : (isDarkMode ? 'bg-green-900/20 text-green-400 hover:bg-green-900/30' : 'bg-green-50 text-green-700 hover:bg-green-100')}`}
               title={isRecording ? 'Stop recording' : 'Record voice message'}
               disabled={sending || sendingVoice || sendingImage}
             >
@@ -595,7 +601,7 @@ const ChatWindow = () => {
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
               placeholder="Type a message..."
-              className="flex-1 px-4 py-3 rounded-xl bg-themed border border-themed-border text-themed placeholder-themed-muted focus:outline-none focus:ring-2 focus:ring-green-600"
+              className={`flex-1 px-4 py-3 rounded-xl placeholder-gray-500 focus:outline-none focus:ring-2 focus:border-transparent ${isDarkMode ? 'bg-gray-800 text-gray-100 border border-gray-700 focus:ring-green-500' : 'bg-white text-gray-900 border border-gray-200 focus:ring-green-600'}`}
               disabled={sending || sendingImage}
             />
             <button
@@ -612,7 +618,7 @@ const ChatWindow = () => {
             </button>
           </div>
           {(isRecording || sendingVoice || sendingImage) && (
-            <div className="mt-2 text-xs text-themed-muted flex items-center gap-2">
+            <div className="mt-2 text-xs text-gray-600 dark:text-gray-400 flex items-center gap-2">
               {isRecording ? 'Recording… tap stop to send' : sendingVoice ? 'Sending voice message…' : 'Uploading image…'}
             </div>
           )}
