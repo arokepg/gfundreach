@@ -12,6 +12,7 @@ import {
 import FavoriteIcon from '@mui/icons-material/Favorite';
 import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
 import ShareIcon from '@mui/icons-material/Share';
+import ShareToChatModal from './ShareToChatModal';
 import BookmarkIcon from '@mui/icons-material/Bookmark';
 import BookmarkBorderIcon from '@mui/icons-material/BookmarkBorder';
 import PersonIcon from '@mui/icons-material/Person';
@@ -39,9 +40,10 @@ const CommunityPostCard = ({ post }) => {
 
   const [isLiked, setIsLiked] = useState(post.likedBy?.includes(currentUser?.uid) || false);
   const [likesCount, setLikesCount] = useState(post.likesCount || 0);
-  const [sharesCount, setSharesCount] = useState(post.sharesCount || 0);
+  const sharesCount = post.sharesCount || 0;
   const [isSaved, setIsSaved] = useState(false);
   const [campaignTitle, setCampaignTitle] = useState(post.campaignTitle || 'Campaign');
+  const [openShare, setOpenShare] = useState(false);
 
   // Ensure we have campaign title
   useEffect(() => {
@@ -121,21 +123,9 @@ const CommunityPostCard = ({ post }) => {
     }
   };
 
-  const handleShare = async (e) => {
+  const handleShare = (e) => {
     if (e) e.stopPropagation();
-    try {
-      await updateDoc(updateDocRef, { sharesCount: increment(1) });
-      setSharesCount((c) => c + 1);
-      const url = `${window.location.origin}/community-post/${post.campaignId}/${post.id}`;
-      if (navigator.share) {
-        await navigator.share({ title: campaignTitle, text: post.content, url });
-      } else {
-        await navigator.clipboard.writeText(url);
-        alert('Link copied to clipboard');
-      }
-    } catch (err) {
-      if (err.name !== 'AbortError') console.error('Share failed', err);
-    }
+    setOpenShare(true);
   };
 
   const handleSave = async (e) => {
@@ -188,6 +178,7 @@ const CommunityPostCard = ({ post }) => {
   };
 
   return (
+    <>
     <div
       className="card overflow-hidden hover:shadow-lg transition-all duration-300 md:hover:-translate-y-1 animate-fade-in cursor-pointer"
       onClick={navigateToDetail}
@@ -304,6 +295,13 @@ const CommunityPostCard = ({ post }) => {
         </Link>
       </div>
     </div>
+    <ShareToChatModal open={openShare} onClose={() => setOpenShare(false)} post={{
+      id: post.campaignId, // Share the campaign being discussed
+      title: campaignTitle,
+      description: post.content || '',
+      imageUrl: post.imageUrl || '',
+    }} />
+    </>
   );
 };
 

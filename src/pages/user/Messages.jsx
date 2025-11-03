@@ -212,7 +212,7 @@ const Messages = () => {
                   <div className="flex items-start gap-4">
                     {/* Avatar */}
                     <div className="shrink-0 relative">
-                      {other.photo && !other.isGroup ? (
+                      {other.photo ? (
                         <img
                           src={other.photo}
                           alt={other.name}

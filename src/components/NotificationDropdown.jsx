@@ -127,6 +127,8 @@ const NotificationDropdown = () => {
 
   const getNotificationIcon = (type) => {
     switch (type) {
+      case 'chat_mention':
+        return <CommentIcon className="text-purple-600" />;
       case 'donation':
         return <VolunteerActivismIcon className="text-green-500" />;
       case 'donation_receipt':
@@ -169,8 +171,11 @@ const NotificationDropdown = () => {
     const postId = n.postId || n.campaignId;
     const groupId = n.groupId;
     const senderId = n.senderId;
+    const conversationId = n.conversationId;
 
     switch (n.type) {
+      case 'chat_mention':
+        return conversationId ? `/messages/${conversationId}` : null;
       case 'donation':
       case 'donation_receipt':
       case 'comment':

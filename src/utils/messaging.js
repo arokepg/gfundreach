@@ -13,7 +13,10 @@ import {
   updateDoc,
   increment,
   limit,
-  startAfter
+  startAfter,
+  deleteDoc,
+  writeBatch,
+  deleteField
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { listFriendIds } from './friends';
@@ -461,13 +464,26 @@ export const sendCampaignCard = async (conversationId, senderId, senderName, cam
 
   const convSnap = await getDoc(convRef);
   if (!convSnap.exists()) return;
-  const participants = convSnap.data().participants;
-  const otherUserId = participants.find(id => id !== senderId);
-  await updateDoc(convRef, {
+  const data = convSnap.data() || {};
+  const participants = data.participants || [];
+  const isGroup = data.type === 'group' || participants.length > 2;
+
+  const updates = {
     lastMessage: `Shared campaign: ${campaignData.title}`,
     lastMessageAt: serverTimestamp(),
-    [`unreadCount.${otherUserId}`]: increment(1)
-  });
+    lastSenderId: senderId,
+  };
+
+  if (isGroup) {
+    participants.forEach((uid) => {
+      if (uid !== senderId) updates[`unreadCount.${uid}`] = increment(1);
+    });
+  } else {
+    const otherUserId = participants.find((id) => id !== senderId);
+    if (otherUserId) updates[`unreadCount.${otherUserId}`] = increment(1);
+  }
+
+  await updateDoc(convRef, updates);
 };
 
 /**
@@ -535,10 +551,27 @@ export const createGroupConversation = async (creatorId, creatorName, participan
 
   const allParticipants = Array.from(new Set([creatorId, ...participantIds]));
   
-  // Build participant names/photos maps
-  const participantNames = { [creatorId]: creatorName };
+  // Fetch creator info from Firestore
+  const participantNames = {};
   const participantPhotos = {};
   
+  try {
+    const creatorDoc = await getDoc(doc(db, 'users', creatorId));
+    if (creatorDoc.exists()) {
+      const creatorData = creatorDoc.data();
+      participantNames[creatorId] = creatorData.displayName || creatorData.email || creatorName || 'User';
+      participantPhotos[creatorId] = creatorData.photoURL || '';
+    } else {
+      participantNames[creatorId] = creatorName || 'User';
+      participantPhotos[creatorId] = '';
+    }
+  } catch (err) {
+    console.error('Error fetching creator info:', err);
+    participantNames[creatorId] = creatorName || 'User';
+    participantPhotos[creatorId] = '';
+  }
+  
+  // Add other participants
   participantData.forEach(p => {
     participantNames[p.id] = p.name || 'User';
     participantPhotos[p.id] = p.photo || '';
@@ -715,6 +748,31 @@ export const setGroupRole = async (conversationId, adminId, targetUserId, role) 
   await updateDoc(convRef, { [`roles.${targetUserId}`]: role });
 };
 
+/** Remove a member from group (admin only) */
+export const removeGroupMember = async (conversationId, adminId, targetUserId) => {
+  const convRef = doc(db, 'conversations', conversationId);
+  const snap = await getDoc(convRef);
+  if (!snap.exists()) throw new Error('Conversation not found');
+  const data = snap.data();
+  if (data.type !== 'group') throw new Error('Not a group conversation');
+  if (data.roles?.[adminId] !== 'admin') throw new Error('Only admins can remove members');
+  if (adminId === targetUserId) throw new Error('Admins cannot remove themselves');
+  // Prevent removing another admin
+  if (data.roles?.[targetUserId] === 'admin') throw new Error('Cannot remove another admin');
+
+  const nextParticipants = (data.participants || []).filter((id) => id !== targetUserId);
+  const updates = {
+    participants: nextParticipants,
+    [`participantNames.${targetUserId}`]: deleteField(),
+    [`participantPhotos.${targetUserId}`]: deleteField(),
+    [`roles.${targetUserId}`]: deleteField(),
+    [`unreadCount.${targetUserId}`]: deleteField(),
+  };
+
+  await updateDoc(convRef, updates);
+  return { status: 'removed' };
+};
+
 /**
  * Aggregate shared media/links from recent messages
  */
@@ -738,4 +796,77 @@ export const getSharedMedia = async (conversationId, max = 200) => {
     }
   });
   return { images, audios, campaigns, links };
+};
+
+/**
+ * Delete a conversation and all its messages
+ * @param {string} conversationId - The conversation ID to delete
+ */
+export const deleteConversation = async (conversationId) => {
+  try {
+    const convRef = doc(db, 'conversations', conversationId);
+    const messagesRef = collection(convRef, 'messages');
+    
+    // Get all messages in the conversation
+    const messagesSnapshot = await getDocs(messagesRef);
+    
+    // Use batch to delete messages (max 500 per batch)
+    const batch = writeBatch(db);
+    let batchCount = 0;
+    
+    for (const messageDoc of messagesSnapshot.docs) {
+      batch.delete(messageDoc.ref);
+      batchCount++;
+      
+      // Commit batch if we reach 500 operations
+      if (batchCount >= 500) {
+        await batch.commit();
+        batchCount = 0;
+      }
+    }
+    
+    // Commit any remaining operations
+    if (batchCount > 0) {
+      await batch.commit();
+    }
+    
+    // Finally, delete the conversation document
+    await deleteDoc(convRef);
+    
+    return true;
+  } catch (error) {
+    console.error('Error deleting conversation:', error);
+    throw error;
+  }
+};
+
+/** Leave a group (participant). Blocks if user is the sole admin. */
+export const leaveGroup = async (conversationId, userId) => {
+  const convRef = doc(db, 'conversations', conversationId);
+  const snap = await getDoc(convRef);
+  if (!snap.exists()) throw new Error('Conversation not found');
+  const data = snap.data();
+  if (data.type !== 'group') throw new Error('Not a group conversation');
+  if (!(data.participants || []).includes(userId)) throw new Error('You are not a participant');
+
+  // If user is admin, ensure there is at least one other admin remaining
+  const myRole = data.roles?.[userId] || 'member';
+  if (myRole === 'admin') {
+    const adminCount = Object.values(data.roles || {}).filter((r) => r === 'admin').length;
+    if (adminCount <= 1) {
+      throw new Error('You are the only admin. Please transfer admin role before leaving.');
+    }
+  }
+
+  const nextParticipants = (data.participants || []).filter((id) => id !== userId);
+  const updates = {
+    participants: nextParticipants,
+    [`participantNames.${userId}`]: deleteField(),
+    [`participantPhotos.${userId}`]: deleteField(),
+    [`roles.${userId}`]: deleteField(),
+    [`unreadCount.${userId}`]: deleteField(),
+  };
+
+  await updateDoc(convRef, updates);
+  return { status: 'left' };
 };

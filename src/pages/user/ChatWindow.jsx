@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Send, Loader2, Mic, StopCircle, Image as ImageIcon, Smile, TrendingUp, ChevronUp, Users } from 'lucide-react';
+import { ArrowLeft, Send, Loader2, Mic, StopCircle, Image as ImageIcon, Smile, ChevronUp, Users, Trash2, LogOut, Link as LinkIcon } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { 
   subscribeToMessages, 
@@ -12,9 +12,14 @@ import {
   removeReaction,
   loadMoreMessages
 } from '../../utils/messaging';
+import { leaveGroup, deleteConversation } from '../../utils/messaging';
+import { createNotification } from '../../utils/notifications';
 import Layout from '../../components/Layout';
 import CampaignContextCard from '../../components/CampaignContextCard';
-import GroupInfoPanel from '../../components/GroupInfoPanel';
+import GroupInfoPanel from '../../components/GroupInfoPanelClean';
+import ChatInfoPanel from '../../components/ChatInfoPanel';
+import ImageViewer from '../../components/ImageViewer';
+import { useTheme } from '../../contexts/ThemeContext';
 
 const COMMON_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
 
@@ -35,6 +40,9 @@ const ChatWindow = () => {
   const [hasMoreMessages, setHasMoreMessages] = useState(true);
   const [lastDocRef, setLastDocRef] = useState(null);
   const [showGroupInfo, setShowGroupInfo] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [showChatInfo, setShowChatInfo] = useState(false);
+  const { isDarkMode } = useTheme();
   const mediaRecorderRef = useRef(null);
   const chunksRef = useRef([]);
   const recordStartRef = useRef(0);
@@ -43,7 +51,57 @@ const ChatWindow = () => {
   const imageInputRef = useRef(null);
   const inputRef = useRef(null); // For text input focus
   const lastMessageCountRef = useRef(0); // Track message count for smart scroll
+  // Mentions state
+  const [mentionOpen, setMentionOpen] = useState(false);
+  const [mentionIndex, setMentionIndex] = useState(0);
+  const [mentionCandidates, setMentionCandidates] = useState([]);
+  const [mentionedUids, setMentionedUids] = useState([]);
+  const [imagePreview, setImagePreview] = useState({ open: false, src: '', alt: '' });
 
+  // Helpers to render mentions (@Name) in bold
+  const escapeRegExp = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const renderTextWithMentions = (text) => {
+    if (!text || typeof text !== 'string') return text;
+    const names = Object.values(conversation?.participantNames || {});
+    if (!names.length) return text;
+    const pattern = new RegExp(`(@(?:${names.map(n => escapeRegExp(n)).sort((a,b)=>b.length-a.length).join('|')}))`, 'gi');
+    const parts = text.split(pattern);
+    return parts.map((part, idx) => {
+      if (pattern.test(part)) {
+        return <strong key={`m-${idx}`} className="font-semibold">{part}</strong>;
+      }
+      return <span key={`t-${idx}`}>{part}</span>;
+    });
+  };
+
+  // Handle delete conversation
+  const handleDeleteConversation = async () => {
+    if (!confirm('Are you sure you want to delete this conversation? This action cannot be undone.')) {
+      return;
+    }
+
+    setDeleting(true);
+    try {
+      await deleteConversation(conversationId);
+      navigate('/messages');
+    } catch (error) {
+      console.error('Error deleting conversation:', error);
+      alert('Failed to delete conversation. Please try again.');
+      setDeleting(false);
+    }
+  };
+
+  // Handle leave group
+  const handleLeaveGroup = async () => {
+    if (conversation?.type !== 'group') return;
+    if (!confirm('Leave this group? You will no longer receive messages from it.')) return;
+    try {
+      await leaveGroup(conversationId, currentUser.uid);
+      navigate('/messages');
+    } catch (error) {
+      alert(error.message || 'Failed to leave group');
+    }
+  };
   // Load conversation details
   useEffect(() => {
     if (!currentUser || !conversationId) {
@@ -56,6 +114,56 @@ const ChatWindow = () => {
       if (!conv) {
         navigate('/messages');
         return;
+      }
+      // Ensure participant names/photos are populated (for early members or missing docs)
+      try {
+        const participants = conv.participants || [];
+        const missing = participants.filter(uid => {
+          const name = conv.participantNames?.[uid];
+          const photo = conv.participantPhotos?.[uid];
+          return !name || name === 'User' || name === uid || !photo;
+        });
+        if (missing.length > 0) {
+          const { db } = await import('../../config/firebase');
+          const { doc, getDoc, updateDoc } = await import('firebase/firestore');
+          const updates = {};
+          await Promise.all(missing.map(async (uid) => {
+            try {
+              const userDoc = await getDoc(doc(db, 'users', uid));
+              if (userDoc.exists()) {
+                const data = userDoc.data();
+                const displayName = data.displayName || data.email || uid;
+                const photoURL = data.photoURL || '';
+                updates[`participantNames.${uid}`] = displayName;
+                if (photoURL !== undefined) {
+                  updates[`participantPhotos.${uid}`] = photoURL;
+                }
+              }
+            } catch (e) {
+              console.warn('Failed to backfill user profile for conversation participant', uid, e);
+            }
+          }));
+          if (Object.keys(updates).length > 0) {
+            await updateDoc(doc(db, 'conversations', conversationId), updates);
+            // Reflect locally as well
+            const next = { ...conv };
+            next.participantNames = { ...(conv.participantNames || {}) };
+            next.participantPhotos = { ...(conv.participantPhotos || {}) };
+            Object.entries(updates).forEach(([k, v]) => {
+              if (k.startsWith('participantNames.')) {
+                const uid = k.split('.')[1];
+                next.participantNames[uid] = v;
+              } else if (k.startsWith('participantPhotos.')) {
+                const uid = k.split('.')[1];
+                next.participantPhotos[uid] = v;
+              }
+            });
+            setConversation(next);
+            return;
+          }
+        }
+      } catch (e) {
+        console.warn('Backfill participant profiles skipped due to error', e);
       }
       setConversation(conv);
     };
@@ -123,6 +231,21 @@ const ChatWindow = () => {
         );
       }
       inputRef.current?.focus();
+      // Send mention notifications (unique uids, exclude self)
+      const uniqueMentions = Array.from(new Set(mentionedUids)).filter(uid => uid && uid !== currentUser.uid);
+      if (uniqueMentions.length > 0) {
+        const convName = conversation?.settings?.name || conversation?.groupName || 'Chat';
+        const preview = messageContent.slice(0, 140);
+        await Promise.all(uniqueMentions.map(uid => createNotification(uid, 'chat_mention', {
+          senderId: currentUser.uid,
+          senderName: currentUser.displayName || 'Someone',
+          conversationId,
+          groupName: convName,
+          messagePreview: preview
+        })));
+      }
+      // Reset mentions after send
+      setMentionedUids([]);
     } catch (error) {
       console.error('Error sending message:', error);
       alert('Failed to send message. Please try again.');
@@ -172,15 +295,15 @@ const ChatWindow = () => {
         } catch (err) {
           console.error('Failed to send voice message', err);
           alert('Failed to send voice message. Please try again.');
-          } finally {
-            setSendingVoice(false);
-            // Stop all tracks
-            try {
-              rec.stream.getTracks().forEach((t) => t.stop());
-            } catch {
-              /* ignore */
-            }
+        } finally {
+          setSendingVoice(false);
+          // Stop all tracks
+          try {
+            rec.stream.getTracks().forEach((t) => t.stop());
+          } catch {
+            /* ignore */
           }
+        }
       };
       mediaRecorderRef.current = rec;
       recordStartRef.current = Date.now();
@@ -336,7 +459,8 @@ const ChatWindow = () => {
     return {
       name: conversation.participantNames?.[otherUserId] || 'Unknown User',
       photo: conversation.participantPhotos?.[otherUserId] || '',
-      isGroup: false
+      isGroup: false,
+      id: otherUserId
     };
   };
 
@@ -365,40 +489,113 @@ const ChatWindow = () => {
     <Layout>
       <div className="max-w-4xl mx-auto h-[calc(100vh-120px)] flex flex-col">
         {/* Header */}
-        <div className="shrink-0 p-4 bg-themed-secondary border-b border-themed-border flex items-center gap-4">
-          <button
-            onClick={() => navigate('/messages')}
-            className="p-2 rounded-lg hover:bg-themed-tertiary transition-colors"
-            aria-label="Back to messages"
-          >
-            <ArrowLeft size={24} className="text-themed" />
-          </button>
-          
-          <button
-            type="button"
-            onClick={() => other.isGroup && setShowGroupInfo(true)}
-            className="flex items-center gap-3 hover:bg-themed-tertiary rounded-lg px-2 py-1"
-            title={other.isGroup ? 'View group info' : other.name}
-          >
-            {other.photo && !other.isGroup ? (
-              <img
-                src={other.photo}
-                alt={other.name}
-                className="w-10 h-10 rounded-full object-cover"
-              />
-            ) : (
-              <div className="w-10 h-10 rounded-full bg-linear-to-br from-green-500 to-emerald-500 flex items-center justify-center text-white font-bold">
-                {other.isGroup ? <Users size={20} /> : other.name.charAt(0).toUpperCase()}
-              </div>
-            )}
+        <div className={`shrink-0 p-4 flex items-center justify-between gap-4 border-b ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => navigate('/messages')}
+              className={`p-2 rounded-lg transition-colors ${isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-themed-tertiary'}`}
+              aria-label="Back to messages"
+            >
+              <ArrowLeft size={24} className={`${isDarkMode ? 'text-gray-100' : 'text-themed'}`} />
+            </button>
             
-            <div className="text-left">
-              <h2 className="font-semibold text-themed">{other.name}</h2>
-              <p className="text-xs text-themed-muted">
-                {other.isGroup ? `${other.participantCount} members` : 'Online'}
-              </p>
-            </div>
-          </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (other.isGroup) {
+                  setShowGroupInfo(true);
+                } else if (other.id) {
+                  navigate(`/profile/${other.id}`);
+                }
+              }}
+              className={`flex items-center gap-3 rounded-lg px-2 py-1 ${isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-themed-tertiary'}`}
+              title={other.isGroup ? 'View group info' : `View ${other.name}'s profile`}
+            >
+              {other.isGroup ? (
+                // Group avatar - always show group icon or group image
+                other.photo ? (
+                  <img
+                    src={other.photo}
+                    alt={other.name}
+                    className="w-10 h-10 rounded-full object-cover ring-2 ring-white dark:ring-gray-800"
+                  />
+                ) : (
+                  <div className="w-10 h-10 rounded-full bg-linear-to-br from-green-500 to-emerald-500 flex items-center justify-center text-white font-bold ring-2 ring-white dark:ring-gray-800">
+                    <Users size={20} />
+                  </div>
+                )
+              ) : (
+                // 1-1 chat - show user avatar
+                other.photo ? (
+                  <img
+                    src={other.photo}
+                    alt={other.name}
+                    className="w-10 h-10 rounded-full object-cover ring-2 ring-white dark:ring-gray-800"
+                  />
+                ) : (
+                  <div className="w-10 h-10 rounded-full bg-linear-to-br from-green-500 to-emerald-500 flex items-center justify-center text-white font-bold ring-2 ring-white dark:ring-gray-800">
+                    {other.name.charAt(0).toUpperCase()}
+                  </div>
+                )
+              )}
+              
+              <div className="text-left">
+                {/* Ensure long names don't overflow header area */}
+                <h2 className={`font-semibold truncate max-w-[40vw] sm:max-w-[50%] ${isDarkMode ? 'text-gray-100' : 'text-themed'}`}>{other.name}</h2>
+                <p className={`text-xs ${isDarkMode ? 'text-gray-300' : 'text-themed-muted'}`}>
+                  {other.isGroup ? `${other.participantCount} members` : 'Online'}
+                </p>
+              </div>
+            </button>
+          </div>
+
+          <div className="flex items-center gap-1">
+            {/* Shared media & Links panel (direct chat) */}
+            <button
+              onClick={() => setShowChatInfo(true)}
+              className="p-2 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20"
+              title="Shared media & links"
+              aria-label="Shared media and links"
+            >
+              <LinkIcon size={20} className="text-blue-600 dark:text-blue-400" />
+            </button>
+            {/* Leave Group (only for group chats) */}
+            {conversation?.type === 'group' && (
+              <button
+                onClick={handleLeaveGroup}
+                className="p-2 rounded-lg hover:bg-orange-50 dark:hover:bg-orange-900/20"
+                title="Leave group"
+                aria-label="Leave group"
+              >
+                <LogOut size={20} className="text-orange-600 dark:text-orange-400" />
+              </button>
+            )}
+
+            {/* Delete Conversation Button */}
+            {(
+              // Show delete if not a group OR current user is group admin/creator
+              conversation?.type !== 'group' ||
+              (conversation?.type === 'group' && (conversation?.roles?.[currentUser.uid] === 'admin' || conversation?.createdBy === currentUser.uid))
+            ) && (
+              <button
+                onClick={handleDeleteConversation}
+                disabled={deleting}
+                className={`p-2 rounded-lg transition-colors ${
+                  deleting 
+                    ? 'opacity-50 cursor-not-allowed' 
+                    : 'hover:bg-red-50 dark:hover:bg-red-900/20'
+                }`}
+                title="Delete conversation"
+                aria-label="Delete conversation"
+              >
+                {deleting ? (
+                  <Loader2 size={20} className="animate-spin text-red-600 dark:text-red-400" />
+                ) : (
+                  <Trash2 size={20} className="text-red-600 dark:text-red-400" />
+                )}
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Messages Area */}
@@ -436,6 +633,10 @@ const ChatWindow = () => {
               const showAvatar = index === 0 || messages[index - 1].senderId !== message.senderId;
               const reactions = message.reactions || {};
               const hasReactions = Object.keys(reactions).length > 0;
+              
+              // Get sender info for group chats
+              const senderName = conversation?.participantNames?.[message.senderId] || message.senderName || 'User';
+              const senderPhoto = conversation?.participantPhotos?.[message.senderId] || '';
 
               return (
                 <div
@@ -445,22 +646,40 @@ const ChatWindow = () => {
                   {/* Avatar space */}
                   <div className="w-8 shrink-0">
                     {!isCurrentUser && showAvatar && (
-                      other.photo ? (
-                        <img
-                          src={other.photo}
-                          alt={other.name}
-                          className="w-8 h-8 rounded-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-8 h-8 rounded-full bg-linear-to-br from-green-500 to-emerald-500 flex items-center justify-center text-white text-xs font-bold">
-                          {other.name.charAt(0).toUpperCase()}
-                        </div>
-                      )
+                      <button
+                        onClick={() => {
+                          if (conversation?.type === 'group' && message.senderId) {
+                            navigate(`/profile/${message.senderId}`);
+                          }
+                        }}
+                        className="cursor-pointer hover:opacity-80 transition-opacity"
+                        title={conversation?.type === 'group' ? `View ${senderName}'s profile` : ''}
+                      >
+                        {senderPhoto ? (
+                          <img
+                            src={senderPhoto}
+                            alt={senderName}
+                            className="w-8 h-8 rounded-full object-cover ring-2 ring-white dark:ring-gray-800"
+                          />
+                        ) : (
+                          <div className="w-8 h-8 rounded-full bg-linear-to-br from-green-500 to-emerald-500 flex items-center justify-center text-white text-xs font-bold ring-2 ring-white dark:ring-gray-800">
+                            {senderName.charAt(0).toUpperCase()}
+                          </div>
+                        )}
+                      </button>
                     )}
                   </div>
 
                   {/* Message bubble */}
                   <div className={`max-w-[70%] ${isCurrentUser ? 'items-end' : 'items-start'} flex flex-col emoji-picker-wrapper`}>
+                    {/* Sender name for group chats */}
+                    {!isCurrentUser && conversation?.type === 'group' && showAvatar && (
+                      /* Constrain sender name to bubble width and ellipsize */
+                      <span className="text-xs text-gray-600 dark:text-gray-400 ml-2 mb-1 font-medium block w-full truncate">
+                        {senderName}
+                      </span>
+                    )}
+                    
                     {(() => {
                       const isAttachment = message.type === 'image' || message.type === 'audio' || message.type === 'campaign';
                       const bubbleBase = `relative group rounded-2xl ${isAttachment ? 'p-0 bg-transparent' : 'px-4 py-2'}`;
@@ -481,7 +700,8 @@ const ChatWindow = () => {
                               <img 
                                 src={message.imageUrl} 
                                 alt="Shared" 
-                                className="max-w-full rounded-xl border border-themed-border"
+                                className="max-w-full rounded-xl border border-gray-300 dark:border-gray-700 cursor-zoom-in"
+                                onClick={() => setImagePreview({ open: true, src: message.imageUrl, alt: 'Shared image' })}
                                 onError={(e) => { e.target.src = ''; e.target.alt = '[Image failed to load]'; }}
                               />
                               {message.caption && (
@@ -491,7 +711,7 @@ const ChatWindow = () => {
                           ) : message.type === 'campaign' && message.campaign ? (
                             <CampaignContextCard campaign={message.campaign} compact={false} />
                           ) : (
-                            <p className="whitespace-pre-wrap break-words text-themed">{message.content}</p>
+                            <p className="whitespace-pre-wrap break-words text-gray-800 dark:text-gray-100">{renderTextWithMentions(message.content)}</p>
                           )}
                           {/* Emoji picker button (appears on hover) */}
                           <button
@@ -589,15 +809,116 @@ const ChatWindow = () => {
               {isRecording ? <StopCircle size={22} /> : <Mic size={20} />}
             </button>
             
-            <input
-              ref={inputRef}
-              type="text"
-              value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value)}
-              placeholder="Type a message..."
-              className="flex-1 px-4 py-3 rounded-xl bg-themed border border-themed-border text-themed placeholder-themed-muted focus:outline-none focus:ring-2 focus:ring-green-600"
-              disabled={sending || sendingImage}
-            />
+            {/* Text input with anchored mention suggestions */}
+            <div className="relative flex-1 min-w-0">
+              <input
+                ref={inputRef}
+                type="text"
+                value={newMessage}
+                onChange={(e) => {
+                const value = e.target.value;
+                setNewMessage(value);
+                // Detect mentions: last token starting with '@' or '@('
+                const caretPos = e.target.selectionStart || value.length;
+                const uptoCaret = value.slice(0, caretPos);
+                const atIndex = Math.max(uptoCaret.lastIndexOf('@('), uptoCaret.lastIndexOf('@'));
+                if (atIndex >= 0) {
+                  const token = uptoCaret.slice(atIndex);
+                  // Stop token at first whitespace or closing parenthesis
+                  const match = token.match(/^@\(?([^\s)]{0,40})$/);
+                  if (match) {
+                    const q = match[1].toLowerCase();
+                    // Build candidates from participants
+                    const parts = Object.entries(conversation?.participantNames || {})
+                      .filter(([uid]) => uid !== currentUser.uid)
+                      .map(([uid, name]) => ({ uid, name, photo: conversation?.participantPhotos?.[uid] || '' }));
+                    const filtered = parts.filter(p => !q || p.name.toLowerCase().includes(q));
+                    setMentionCandidates(filtered.slice(0, 8));
+                    setMentionIndex(0);
+                    setMentionOpen(filtered.length > 0);
+                    return;
+                  }
+                }
+                setMentionOpen(false);
+              }}
+                placeholder="Type a message..."
+                className={`w-full px-4 py-3 rounded-xl placeholder-gray-500 focus:outline-none focus:ring-2 focus:border-transparent ${isDarkMode ? 'bg-gray-800 text-gray-100 border border-gray-700 focus:ring-green-500' : 'bg-white text-gray-900 border border-gray-200 focus:ring-green-600'}`}
+                disabled={sending || sendingImage}
+                onKeyDown={(e) => {
+                if (!mentionOpen) return;
+                if (e.key === 'ArrowDown') { e.preventDefault(); setMentionIndex(i => Math.min(i + 1, mentionCandidates.length - 1)); }
+                else if (e.key === 'ArrowUp') { e.preventDefault(); setMentionIndex(i => Math.max(i - 1, 0)); }
+                else if (e.key === 'Tab' || e.key === 'Enter') {
+                  const choice = mentionCandidates[mentionIndex];
+                  if (choice) {
+                    e.preventDefault();
+                    // Replace the current @ token with @Name
+                    const el = e.currentTarget;
+                    const caret = el.selectionStart || newMessage.length;
+                    const upto = newMessage.slice(0, caret);
+                    const from = Math.max(upto.lastIndexOf('@('), upto.lastIndexOf('@'));
+                    const before = newMessage.slice(0, from);
+                    const after = newMessage.slice(caret);
+                    const insert = `@${choice.name} `;
+                    const next = before + insert + after;
+                    setNewMessage(next);
+                    setMentionOpen(false);
+                    
+                    setMentionCandidates([]);
+                    setMentionIndex(0);
+                    setTimeout(() => {
+                      try { el.setSelectionRange((before + insert).length, (before + insert).length); } catch (_E) { void _E; /* ignore */ }
+                    }, 0);
+                    setMentionedUids(prev => prev.includes(choice.uid) ? prev : [...prev, choice.uid]);
+                  }
+                } else if (e.key === 'Escape') {
+                  setMentionOpen(false);
+                }
+                }}
+              />
+              {/* Mention suggestions dropdown anchored to input width */}
+              {mentionOpen && mentionCandidates.length > 0 && (
+                <div className={`absolute bottom-full mb-2 left-0 right-0 z-20`}>
+                  <div className={`${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} border rounded-xl shadow-lg overflow-hidden max-h-56 overflow-y-auto`}>
+                    {mentionCandidates.map((p, idx) => (
+                      <button
+                        key={p.uid}
+                        type="button"
+                        onClick={() => {
+                          const el = inputRef.current;
+                          if (!el) return;
+                          const caret = el.selectionStart || newMessage.length;
+                          const upto = newMessage.slice(0, caret);
+                          const from = Math.max(upto.lastIndexOf('@('), upto.lastIndexOf('@'));
+                          const before = newMessage.slice(0, from);
+                          const after = newMessage.slice(caret);
+                          const insert = `@${p.name} `;
+                          const next = before + insert + after;
+                          setNewMessage(next);
+                          setMentionOpen(false);
+                          setMentionCandidates([]);
+                          setMentionIndex(0);
+                          setTimeout(() => {
+                            try { el.focus(); el.setSelectionRange((before + insert).length, (before + insert).length); } catch (_E) { void _E; /* ignore */ }
+                          }, 0);
+                          setMentionedUids(prev => prev.includes(p.uid) ? prev : [...prev, p.uid]);
+                        }}
+                        className={`w-full flex items-center gap-3 px-3 py-2 text-left ${idx === mentionIndex ? (isDarkMode ? 'bg-gray-700' : 'bg-gray-100') : ''}`}
+                      >
+                        {p.photo ? (
+                          <img src={p.photo} alt={p.name} className="w-6 h-6 rounded-full object-cover" />
+                        ) : (
+                          <div className="w-6 h-6 rounded-full bg-linear-to-br from-green-500 to-emerald-500 text-white flex items-center justify-center text-xs font-bold">
+                            {p.name.charAt(0).toUpperCase()}
+                          </div>
+                        )}
+                        <span className={`${isDarkMode ? 'text-gray-100' : 'text-gray-800'} text-sm truncate`}>@{p.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
             <button
               type="submit"
               disabled={!newMessage.trim() || sending || sendingImage}
@@ -617,10 +938,18 @@ const ChatWindow = () => {
             </div>
           )}
         </form>
+        {/* Mention suggestions moved to be anchored to the input field above */}
       </div>
       {conversation?.type === 'group' && (
         <GroupInfoPanel conversationId={conversationId} open={showGroupInfo} onClose={() => setShowGroupInfo(false)} />
       )}
+      <ChatInfoPanel conversationId={conversationId} open={showChatInfo} onClose={() => setShowChatInfo(false)} />
+      <ImageViewer
+        open={imagePreview.open}
+        src={imagePreview.src}
+        alt={imagePreview.alt}
+        onClose={() => setImagePreview({ open: false, src: '', alt: '' })}
+      />
     </Layout>
   );
 };

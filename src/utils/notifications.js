@@ -154,6 +154,10 @@ export const formatNotificationMessage = (notification) => {
       return `${senderName} commented on your post${postTitle ? ` "${postTitle}"` : ''}`;
     case 'community_post':
       return `${senderName} posted a new community update${postTitle ? ` on "${postTitle}"` : ''}`;
+    case 'chat_mention': {
+      const where = notification.groupName ? ` in ${notification.groupName}` : '';
+      return `${senderName || 'Someone'} mentioned you${where}`;
+    }
     // Group-related
     case 'group_campaign_created':
       return `New campaign created in ${groupName}`;
