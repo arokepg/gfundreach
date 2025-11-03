@@ -15,6 +15,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { calculateWalletStats, formatCompactCurrency } from '../utils/walletHelpers';
 import { formatCurrencyShort } from '../utils/numberFormat';
 import logo from '../assets/logo.svg';
+import { subscribeToConversations } from '../utils/messaging';
 // no pin UI in hover-only mode
 
 const Sidebar = () => {
@@ -29,6 +30,7 @@ const Sidebar = () => {
   const { currentUser, userProfile } = useAuth();
   const { isDarkMode } = useTheme();
   const expanded = isHovered || isClickSticky;
+  const [unreadTotal, setUnreadTotal] = useState(0);
 
   const menuItems = [
     { icon: <HomeIcon />, label: 'Home', path: '/' },
@@ -64,6 +66,45 @@ const Sidebar = () => {
       document.documentElement.style.setProperty('--sidebar-width', '5rem');
     }
   }, []);
+
+  // Subscribe to conversations to compute total unread count and show a red dot on Messages
+  useEffect(() => {
+    let unsubscribe = null;
+    let cancelled = false;
+    if (!currentUser?.uid) {
+      setUnreadTotal(0);
+      return;
+    }
+    (async () => {
+      try {
+        unsubscribe = await subscribeToConversations(currentUser.uid, (conversations) => {
+          try {
+            const total = conversations.reduce((sum, c) => {
+              const myUnread = c?.unreadCount?.[currentUser.uid] || 0;
+              // Guard: only count if last sender isn't me (should already be the case)
+              if (myUnread > 0 && c?.lastSenderId !== currentUser.uid) {
+                return sum + myUnread;
+              }
+              return sum;
+            }, 0);
+            setUnreadTotal(total);
+          } catch (e) {
+            console.error('Error computing unread total:', e);
+            setUnreadTotal(0);
+          }
+        });
+      } catch (e) {
+        console.error('Failed to subscribe to conversations in Sidebar:', e);
+      }
+      if (cancelled && typeof unsubscribe === 'function') {
+        unsubscribe();
+      }
+    })();
+    return () => {
+      cancelled = true;
+      if (typeof unsubscribe === 'function') unsubscribe();
+    };
+  }, [currentUser?.uid]);
 
   const handleMouseEnter = () => {
     // Clear any existing timer
@@ -234,8 +275,11 @@ const Sidebar = () => {
               onMouseEnter={(e)=>{ if(!active){ e.currentTarget.style.backgroundColor = 'var(--hover-bg)'; e.currentTarget.style.color = 'var(--text)'; } }}
               onMouseLeave={(e)=>{ if(!active){ e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--text)'; } }}
             >
-              <span className={`shrink-0 transition-transform duration-300 ${active ? 'text-green-700 dark:text-green-400' : ''}`}>
+              <span className={`relative shrink-0 transition-transform duration-300 ${active ? 'text-green-700 dark:text-green-400' : ''}`}>
                 {item.icon}
+                {item.label === 'Messages' && unreadTotal > 0 && (
+                  <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full ring-2 ring-white dark:ring-gray-900" aria-label={`You have ${unreadTotal} unread messages`} />
+                )}
               </span>
               {expanded && (
                 <span className={`font-medium whitespace-nowrap animate-fade-in ${active ? 'text-green-700 dark:text-green-400' : ''}`}>

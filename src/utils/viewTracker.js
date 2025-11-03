@@ -1,4 +1,4 @@
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, setDoc, addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { db } from '../config/firebase';
 
 // Simple persistent visitor id using localStorage
@@ -32,41 +32,48 @@ export const recordCampaignView = async (postId, currentUser) => {
   if (!postId) return;
   const vid = getVisitorId();
   const dateKey = getDateKey();
+  const visitorKey = currentUser?.uid || vid; // person-level when logged-in
 
-  // Local guard to avoid duplicate writes in the same tab/day (and double effects in dev)
-  const localKey = `gfr_viewed:${postId}:${dateKey}`;
+  // Throttle guard to avoid immediate double-counts from React strict-mode double effects in dev
+  // Allows true additional views after a short interval
+  const throttleKey = `gfr_last_view_ts:${postId}`;
   try {
-    if (localStorage.getItem(localKey)) return;
-  } catch (err) {
-    // Ignore localStorage errors
-    console.warn('localStorage unavailable:', err);
+    const last = Number(sessionStorage.getItem(throttleKey) || '0');
+    const now = Date.now();
+    if (last && now - last < 1500) {
+      // Too soon since last view in this tab; skip counting this as a separate view
+      return;
+    }
+    sessionStorage.setItem(throttleKey, String(now));
+  } catch {
+    // ignore sessionStorage errors
   }
 
-  const viewDocId = `${vid}_${dateKey}`;
-  const viewRef = doc(db, 'posts', postId, 'views', viewDocId);
-  const visitorRef = doc(db, 'posts', postId, 'visitors', vid);
+  // Unique visitors: one doc per person (uid) or per device (vid) if anonymous
+  const visitorRef = doc(db, 'posts', postId, 'visitors', visitorKey);
 
   try {
-    // Best-effort writes; duplication is minimized by id scheme and local guard
-    await Promise.all([
-      setDoc(viewRef, {
-        visitorId: vid,
-        userId: currentUser?.uid || null,
-        dateKey,
-        createdAt: serverTimestamp(),
-      }, { merge: true }),
-      setDoc(visitorRef, {
-        visitorId: vid,
-        userId: currentUser?.uid || null,
-        lastViewedAt: serverTimestamp(),
-      }, { merge: true })
-    ]);
+    // Always record a view event (one document per view)
+    await addDoc(collection(db, 'posts', postId, 'views'), {
+      visitorId: vid,
+      visitorKey,
+      userId: currentUser?.uid || null,
+      dateKey,
+      createdAt: serverTimestamp(),
+    });
+
+    // For unique visitor counting, update/merge a single doc keyed by visitorKey
+    await setDoc(visitorRef, {
+      // Preserve both ids for analysis
+      visitorId: vid,
+      userId: currentUser?.uid || null,
+      keyType: currentUser?.uid ? 'user' : 'device',
+      lastViewedAt: serverTimestamp(),
+    }, { merge: true });
+  } catch (e) {
+    // Help surface rule or network errors without breaking UX
+    console.warn('recordCampaignView failed:', e?.message || e);
   } finally {
-    try { 
-      localStorage.setItem(localKey, '1'); 
-    } catch (err) {
-      // Ignore localStorage errors
-      console.warn('localStorage unavailable:', err);
-    }
+    // no-op
   }
 };

@@ -205,7 +205,7 @@ const CommunityPostCard = ({ post }) => {
         <div className="flex items-center space-x-3 flex-1">
           <Link
             to={`/profile/${post.authorId}`}
-            className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center overflow-hidden"
+            className="avatar-link w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center overflow-hidden"
             onClick={(e) => e.stopPropagation()}
             title={`View ${post.authorName || 'profile'}`}
           >

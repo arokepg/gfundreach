@@ -293,15 +293,19 @@ const GroupItemCard = ({ item }) => {
     <div className="card overflow-hidden hover:shadow-lg transition-all duration-300 md:hover:-translate-y-1 animate-fade-in">
       <div className="p-3 md:p-4">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center overflow-hidden">
+          <Link
+            to={`/profile/${item.authorId}`}
+            className="avatar-link w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center overflow-hidden hover:opacity-90"
+            title={`View ${item.authorName || 'profile'}`}
+          >
             {item.authorPhoto ? (
               <img src={item.authorPhoto} alt={item.authorName} className="w-10 h-10 object-cover" referrerPolicy="no-referrer" />
             ) : (
               <PersonIcon className="text-gray-600 dark:text-gray-300" />
             )}
-          </div>
+          </Link>
           <div className="flex-1 min-w-0">
-            <p className="font-semibold text-themed text-sm">{item.authorName || 'Anonymous'}</p>
+            <Link to={`/profile/${item.authorId}`} className="font-semibold text-themed text-sm hover:underline">{item.authorName || 'Anonymous'}</Link>
             <p className="text-xs text-themed-muted">{timeAgo(item.createdAt)}</p>
             <div className="text-xs mt-1">
               <Link to={`/group/${item.groupId}`} className="text-green-600 dark:text-green-400 hover:underline">

@@ -17,6 +17,7 @@ import BarChartIcon from '@mui/icons-material/BarChart';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import VerifiedIcon from '@mui/icons-material/Verified';
+import MessageCircle from '@mui/icons-material/Message';
 import { recordCampaignView } from '../../utils/viewTracker';
 import { formatCurrencyShort } from '../../utils/numberFormat';
 import { getMember } from '../../utils/groups';
@@ -38,6 +39,7 @@ const CampaignDetail = () => {
   const [groupName, setGroupName] = useState('');
   const [canGroupModerate, setCanGroupModerate] = useState(false);
   const [donors, setDonors] = useState([]);
+  const [supportersData, setSupportersData] = useState([]); // Array of {uid, displayName, photoURL}
   const { currentUser, userProfile } = useAuth();
   const navigate = useNavigate();
 
@@ -61,8 +63,44 @@ const CampaignDetail = () => {
         where('type', '==', 'donation')
       );
       const querySnapshot = await getDocs(q);
-      const uniqueDonors = [...new Set(querySnapshot.docs.map(doc => doc.data().senderId))];
-      setDonors(uniqueDonors);
+      
+      // Support both senderId and donorId fields (legacy compatibility)
+      const uniqueDonorIds = [...new Set(
+        querySnapshot.docs.map(doc => {
+          const data = doc.data();
+          return data.senderId || data.donorId; // Try senderId first, fallback to donorId
+        }).filter(Boolean) // Remove null/undefined values
+      )];
+      
+      console.log('Found donor IDs:', uniqueDonorIds);
+      setDonors(uniqueDonorIds);
+      
+      // Fetch detailed user info for each supporter
+      const supportersInfo = await Promise.all(
+        uniqueDonorIds.map(async (uid) => {
+          try {
+            console.log('Fetching user info for:', uid);
+            const userDoc = await getDoc(doc(db, 'users', uid));
+            if (userDoc.exists()) {
+              const userData = userDoc.data();
+              console.log('User data found:', userData.displayName);
+              return {
+                uid,
+                displayName: userData.displayName || userData.email || 'User',
+                photoURL: userData.photoURL || null
+              };
+            }
+            console.warn('User document not found for uid:', uid);
+            return { uid, displayName: 'User', photoURL: null };
+          } catch (err) {
+            console.error('Error fetching supporter info for uid:', uid, err);
+            return { uid, displayName: 'User', photoURL: null };
+          }
+        })
+      );
+      
+      console.log('Supporters data:', supportersInfo);
+      setSupportersData(supportersInfo);
     } catch (err) {
       console.error('Error fetching donors:', err);
     }
@@ -702,15 +740,48 @@ const CampaignDetail = () => {
               </div>
 
               {/* Stats */}
-              <div className="flex items-center gap-2 mb-6 pb-6 border-b border-outline-variant">
-                <FavoriteIcon fontSize="small" className="text-error" />
-                <span className="text-themed-secondary">
-                  <strong>{post.supporters || 0}</strong> supporters
-                </span>
-                {daysLeft() !== null && (
-                  <span className="ml-auto text-sm text-themed-muted">
-                    {daysLeft() < 0 ? 'Ended' : `${daysLeft()} days left`}
+              <div className="mb-6 pb-6 border-b border-outline-variant">
+                <div className="flex items-center gap-2 mb-3">
+                  <FavoriteIcon fontSize="small" className="text-error" />
+                  <span className="text-themed-secondary">
+                    <strong>{post.supporters || 0}</strong> supporters
                   </span>
+                  {daysLeft() !== null && (
+                    <span className="ml-auto text-sm text-themed-muted">
+                      {daysLeft() < 0 ? 'Ended' : `${daysLeft()} days left`}
+                    </span>
+                  )}
+                </div>
+                
+                {/* Supporters List */}
+                {supportersData.length > 0 && (
+                  <div className="mt-4">
+                    <div className="flex flex-wrap gap-3">
+                      {supportersData.map((supporter) => (
+                        <button
+                          key={supporter.uid}
+                          onClick={() => navigate(`/profile/${supporter.uid}`)}
+                          className="flex items-center gap-2 px-3 py-2 rounded-lg bg-surface-container hover:bg-surface-container-high transition-colors"
+                          title={supporter.displayName}
+                        >
+                          {supporter.photoURL ? (
+                            <img
+                              src={supporter.photoURL}
+                              alt={supporter.displayName}
+                              className="w-8 h-8 rounded-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                              <PersonIcon className="text-primary" fontSize="small" />
+                            </div>
+                          )}
+                          <span className="text-sm font-medium text-themed truncate max-w-[120px]">
+                            {supporter.displayName}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 )}
               </div>
 
@@ -793,16 +864,37 @@ const CampaignDetail = () => {
                       creatorId={post.authorId} 
                       creatorName={post.authorName || 'Creator'}
                       creatorPhoto={post.authorPhoto || ''}
+                      campaignContext={{
+                        id: post.id,
+                        title: post.title,
+                        description: post.description,
+                        imageUrl: post.imageUrl,
+                        category: post.category,
+                        currentAmount: post.currentAmount,
+                        goalAmount: post.goalAmount,
+                        supporters: post.supporters
+                      }}
                     />
                   </div>
                 </div>
               )}
 
               {currentUser && currentUser.uid === post.authorId && (
-                <div className="bg-primary-50 p-4 rounded-lg text-center">
-                  <p className="text-primary font-medium">
-                    This is your campaign
-                  </p>
+                <div className="space-y-3">
+                  <div className="bg-primary-50 p-4 rounded-lg text-center">
+                    <p className="text-primary font-medium">
+                      This is your campaign
+                    </p>
+                  </div>
+                  {donors.length > 0 && (
+                    <button
+                      onClick={() => navigate(`/campaign/${id}/create-group`)}
+                      className="w-full btn-secondary flex items-center justify-center gap-2"
+                    >
+                      <MessageCircle size={18} />
+                      Create Donor Group Chat
+                    </button>
+                  )}
                 </div>
               )}
 

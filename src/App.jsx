@@ -28,6 +28,7 @@ import AdminDashboard from './pages/admin/AdminDashboard';
 import TopDonors from './pages/user/TopDonors';
 import Messages from './pages/user/Messages';
 import ChatWindow from './pages/user/ChatWindow';
+import CreateCampaignGroup from './pages/user/CreateCampaignGroup';
 
 function App() {
   return (
@@ -194,6 +195,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <ChatWindow />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/campaign/:campaignId/create-group"
+            element={
+              <ProtectedRoute>
+                <CreateCampaignGroup />
               </ProtectedRoute>
             }
           />
