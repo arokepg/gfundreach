@@ -8,6 +8,7 @@ import { createNotification, createOrGroupLikeNotification } from '../utils/noti
 import { compressImageFile } from '../utils/imageUtils';
 import { uploadImage } from '../utils/uploadHelpers';
 import { saveItem, unsaveItem, isItemSaved } from '../utils/savedItems';
+import ShareToChatModal from './ShareToChatModal';
 import PersonIcon from '@mui/icons-material/Person';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -41,6 +42,8 @@ const CampaignUpdates = ({ campaignId, onUpdateCountChange }) => {
   const [sharesCounts, setSharesCounts] = useState({}); // Track share counts per post
   const [updateCity, setUpdateCity] = useState('');
   const [updateCountry, setUpdateCountry] = useState('');
+  const [shareToChatOpen, setShareToChatOpen] = useState(false);
+  const [postToShare, setPostToShare] = useState(null);
   const queryClient = useQueryClient();
 
   useEffect(() => {
@@ -433,38 +436,14 @@ const CampaignUpdates = ({ campaignId, onUpdateCountChange }) => {
   };
 
   const handleSharePost = async (post) => {
-    try {
-      const postRef = doc(db, 'posts', campaignId, 'updates', post.id);
-      // Best-effort: increment share count (may fail due to auth rules)
-      try {
-        await updateDoc(postRef, { sharesCount: increment(1) });
-        setSharesCounts(prev => ({ ...prev, [post.id]: (prev[post.id] || 0) + 1 }));
-      } catch (shareErr) {
-        console.warn('Share count increment failed (non-fatal):', shareErr);
-      }
-      const url = `${window.location.origin}/community-post/${campaignId}/${post.id}`;
-      if (navigator.share) {
-        await navigator.share({ title: post.campaignTitle || 'Community post', text: post.content, url });
-      } else {
-        await navigator.clipboard.writeText(url);
-        alert('Link copied to clipboard');
-      }
-      // Best-effort: notify post author about share
-      try {
-        if (post.authorId && currentUser?.uid !== post.authorId) {
-          await createNotification(post.authorId, 'share', {
-            senderId: currentUser?.uid,
-            senderName: userProfile?.displayName || currentUser?.displayName || 'Someone',
-            postId: post.id,
-            postTitle: post.campaignTitle || ''
-          });
-        }
-      } catch (e) {
-        console.warn('Share notification failed (non-fatal):', e);
-      }
-    } catch (err) {
-      if (err?.name !== 'AbortError') console.error('Share failed', err);
-    }
+    // Open share to chat modal instead of direct share
+    // Add metadata to identify this as a campaign update
+    setPostToShare({
+      ...post,
+      isUpdate: true,
+      campaignId: campaignId,
+    });
+    setShareToChatOpen(true);
   };
 
   const handleReport = async (post) => {
@@ -793,6 +772,33 @@ const CampaignUpdates = ({ campaignId, onUpdateCountChange }) => {
           ))}
         </div>
       )}
+
+      {/* Share to Chat Modal */}
+      <ShareToChatModal
+        open={shareToChatOpen}
+        onClose={() => {
+          setShareToChatOpen(false);
+          setPostToShare(null);
+        }}
+        post={postToShare}
+        onShared={() => {
+          // Update share count when shared
+          if (postToShare) {
+            try {
+              const postRef = doc(db, 'posts', campaignId, 'updates', postToShare.id);
+              updateDoc(postRef, { sharesCount: increment(1) }).catch(err => 
+                console.warn('Share count increment failed (non-fatal):', err)
+              );
+              setSharesCounts(prev => ({ 
+                ...prev, 
+                [postToShare.id]: (prev[postToShare.id] || 0) + 1 
+              }));
+            } catch (e) {
+              console.warn('Share count update failed:', e);
+            }
+          }
+        }}
+      />
     </div>
   );
 };

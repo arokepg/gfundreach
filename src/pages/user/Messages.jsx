@@ -247,7 +247,10 @@ const Messages = () => {
         currentUser.displayName || 'You',
         participantIds,
         participantData,
-        groupName.trim()
+        groupName.trim(),
+        null, // groupContext
+        '', // groupImageUrl
+        currentUser.photoURL || '' // creatorPhoto
       );
 
       // Reset form

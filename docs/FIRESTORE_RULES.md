@@ -249,11 +249,18 @@ service cloud.firestore {
       // - Participants can update: lastMessageAt, lastMessage, lastSenderId, unreadCount, typing, firstMessageSent, hasReplied
       // - Only group admins can update: settings (name, groupImageUrl, invitePermission), roles
       // - Group admins can approve/reject invites (pendingInvites)
+      // - Participants can be removed (leave group or kicked by admin)
       allow update: if isConvParticipant() && (
         // Regular conversation updates (messaging activity)
         request.resource.data.diff(resource.data).changedKeys().hasOnly(['lastMessageAt', 'lastMessage', 'lastSenderId', 'unreadCount', 'typing', 'firstMessageSent', 'participantNames', 'participantPhotos', 'hasReplied']) ||
         // Admin-only: settings, roles, and invite management
-        (isGroupAdmin() && resource.data.type == 'group')
+        (isGroupAdmin() && resource.data.type == 'group') ||
+        // Allow removing participants (leave group or admin kicks member)
+        (resource.data.type == 'group' && 
+         request.resource.data.diff(resource.data).changedKeys().hasOnly(['participants', 'lastMessageAt', 'lastMessage']) &&
+         // Either user is removing themselves OR admin is removing someone
+         (!request.resource.data.participants.hasAll([request.auth.uid]) || isGroupAdmin())
+        )
       );
 
       // Delete conversation:

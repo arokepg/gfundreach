@@ -175,7 +175,8 @@ const NotificationDropdown = () => {
 
     switch (n.type) {
       case 'chat_mention':
-        return conversationId ? `/messages/${conversationId}` : null;
+        if (!conversationId) return null;
+        return n.messageId ? `/messages/${conversationId}?messageId=${encodeURIComponent(n.messageId)}` : `/messages/${conversationId}`;
       case 'donation':
       case 'donation_receipt':
       case 'comment':

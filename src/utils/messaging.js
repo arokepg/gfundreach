@@ -19,6 +19,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { listFriendIds } from './friends';
+import { createNotification } from './notifications';
 
 /**
  * Generate conversation ID from two user IDs
@@ -128,15 +129,17 @@ export const getOrCreateConversation = async (currentUserId, otherUserId, curren
 /**
  * Send a message in a conversation
  */
-export const sendMessage = async (conversationId, senderId, senderName, content) => {
+export const sendMessage = async (conversationId, senderId, senderName, content, mentions = []) => {
   const convRef = doc(db, 'conversations', conversationId);
   const messagesRef = collection(convRef, 'messages');
   
   // Add message to subcollection
-  await addDoc(messagesRef, {
+  const messageDoc = await addDoc(messagesRef, {
+    type: 'text', // Default message type
     senderId,
     senderName,
     content,
+    mentions: mentions || [], // Array of mentioned user IDs
     read: false,
     createdAt: serverTimestamp()
   });
@@ -145,7 +148,8 @@ export const sendMessage = async (conversationId, senderId, senderName, content)
   const convSnap = await getDoc(convRef);
   if (!convSnap.exists()) return;
   
-  const participants = convSnap.data().participants;
+  const convData = convSnap.data();
+  const participants = convData.participants;
   const otherUserId = participants.find(id => id !== senderId);
   
   await updateDoc(convRef, {
@@ -155,6 +159,30 @@ export const sendMessage = async (conversationId, senderId, senderName, content)
     [`hasReplied.${senderId}`]: true,
     [`unreadCount.${otherUserId}`]: increment(1)
   });
+
+  // Create mention notifications for mentioned users
+  if (mentions && mentions.length > 0) {
+    const isGroup = convData.type === 'group' || participants.length > 2;
+    const groupName = isGroup ? (convData.settings?.name || convData.groupName || 'Group Chat') : null;
+    
+    for (const mentionedUserId of mentions) {
+      // Don't notify yourself
+      if (mentionedUserId !== senderId) {
+        try {
+          await createNotification(mentionedUserId, 'chat_mention', {
+            senderId,
+            senderName,
+            conversationId,
+            messageId: messageDoc.id,
+            groupName,
+            messagePreview: content.substring(0, 100),
+          });
+        } catch (err) {
+          console.warn('Failed to create mention notification:', err);
+        }
+      }
+    }
+  }
 };
 
 /**
@@ -378,6 +406,32 @@ export const getConversation = async (conversationId) => {
 };
 
 /**
+ * Subscribe to a single conversation document (real-time)
+ * @param {string} conversationId
+ * @param {(conv: any|null) => void} callback
+ * @returns {() => void} unsubscribe
+ */
+export const subscribeToConversation = (conversationId, callback) => {
+  const convRef = doc(db, 'conversations', conversationId);
+  return onSnapshot(convRef, (snap) => {
+    if (!snap.exists()) {
+      callback(null);
+    } else {
+      const data = snap.data();
+      callback({
+        id: snap.id,
+        ...data,
+        lastMessageAt: data.lastMessageAt?.toDate?.() || new Date(),
+        createdAt: data.createdAt?.toDate?.() || new Date(),
+      });
+    }
+  }, (err) => {
+    console.error('subscribeToConversation error:', err);
+    callback(null);
+  });
+};
+
+/**
  * Get total unread message count for a user
  */
 export const getTotalUnreadCount = async (userId) => {
@@ -518,6 +572,31 @@ export const removeReaction = async (conversationId, messageId, userId, emoji) =
 };
 
 /**
+ * Delete a message from a conversation
+ */
+export const deleteMessage = async (conversationId, messageId, userId) => {
+  const messageRef = doc(db, 'conversations', conversationId, 'messages', messageId);
+  const messageSnap = await getDoc(messageRef);
+  
+  if (!messageSnap.exists()) {
+    throw new Error('Message not found');
+  }
+  
+  const messageData = messageSnap.data();
+  
+  // Only the sender can delete their own message
+  if (messageData.senderId !== userId) {
+    throw new Error('You can only delete your own messages');
+  }
+  
+  // Delete the message
+  await deleteDoc(messageRef);
+  
+  // Optionally update last message if this was the last message
+  // For now, we'll just delete it and let the UI handle it
+};
+
+/**
  * Update typing status for a user in a conversation
  */
 export const updateTypingStatus = async (conversationId, userId, isTyping) => {
@@ -530,16 +609,25 @@ export const updateTypingStatus = async (conversationId, userId, isTyping) => {
 /**
  * Create a group conversation (for campaign donors/helpers)
  */
-export const createGroupConversation = async (creatorId, creatorName, participantIds, participantData, groupName, groupContext = null) => {
+export const createGroupConversation = async (
+  creatorId,
+  creatorName,
+  participantIds,
+  participantData,
+  groupName,
+  groupContext = null,
+  groupImageUrl = '',
+  creatorPhoto = ''
+) => {
   if (!participantIds || participantIds.length < 2) {
     throw new Error('Group must have at least 2 participants');
   }
 
   const allParticipants = Array.from(new Set([creatorId, ...participantIds]));
   
-  // Build participant names/photos maps
+  // Build participant names/photos maps - include creator's photo
   const participantNames = { [creatorId]: creatorName };
-  const participantPhotos = {};
+  const participantPhotos = { [creatorId]: creatorPhoto || '' };
   
   participantData.forEach(p => {
     participantNames[p.id] = p.name || 'User';
@@ -553,7 +641,7 @@ export const createGroupConversation = async (creatorId, creatorName, participan
     groupName: groupName || 'Group Chat', // kept for backward compatibility
     settings: {
       name: groupName || 'Group Chat',
-      groupImageUrl: '',
+      groupImageUrl: groupImageUrl || '',
       // invitePermission: 'auto' | 'approval' (admin review)
       invitePermission: 'approval',
     },
@@ -579,14 +667,15 @@ export const createGroupConversation = async (creatorId, creatorName, participan
 /**
  * Send a message in a group conversation
  */
-export const sendGroupMessage = async (conversationId, senderId, senderName, content) => {
+export const sendGroupMessage = async (conversationId, senderId, senderName, content, mentions = []) => {
   const convRef = doc(db, 'conversations', conversationId);
   const messagesRef = collection(convRef, 'messages');
   
-  await addDoc(messagesRef, {
+  const messageDoc = await addDoc(messagesRef, {
     senderId,
     senderName,
     content,
+    mentions: mentions || [],
     read: false,
     createdAt: serverTimestamp()
   });
@@ -594,7 +683,8 @@ export const sendGroupMessage = async (conversationId, senderId, senderName, con
   const convSnap = await getDoc(convRef);
   if (!convSnap.exists()) return;
   
-  const participants = convSnap.data().participants;
+  const convData = convSnap.data();
+  const participants = convData.participants;
   const updates = {
     lastMessage: content.substring(0, 100),
     lastMessageAt: serverTimestamp(),
@@ -608,6 +698,29 @@ export const sendGroupMessage = async (conversationId, senderId, senderName, con
   });
   
   await updateDoc(convRef, updates);
+
+  // Create mention notifications for mentioned users
+  if (mentions && mentions.length > 0) {
+    const groupName = convData.settings?.name || convData.groupName || 'Group Chat';
+    
+    for (const mentionedUserId of mentions) {
+      // Don't notify yourself
+      if (mentionedUserId !== senderId) {
+        try {
+          await createNotification(mentionedUserId, 'chat_mention', {
+            senderId,
+            senderName,
+            conversationId,
+            messageId: messageDoc.id,
+            groupName,
+            messagePreview: content.substring(0, 100),
+          });
+        } catch (err) {
+          console.warn('Failed to create mention notification:', err);
+        }
+      }
+    }
+  }
 };
 
 /**
@@ -661,6 +774,23 @@ export const inviteMember = async (conversationId, inviterId, userId, userName =
       [`roles.${userId}`]: 'member',
     };
     await updateDoc(convRef, updates);
+
+    // Create a system message announcing the new member
+    try {
+      const messagesRef = collection(convRef, 'messages');
+      await addDoc(messagesRef, {
+        type: 'system',
+        content: `${userName} joined the group`,
+        createdAt: serverTimestamp(),
+      });
+      // Update last message preview
+      await updateDoc(convRef, {
+        lastMessage: `${userName} joined the group`,
+        lastMessageAt: serverTimestamp(),
+      });
+    } catch (e) {
+      console.warn('Failed to write system message for join:', e);
+    }
     return { status: 'joined' };
   } else {
     await updateDoc(convRef, {
@@ -696,6 +826,21 @@ export const approveInvite = async (conversationId, adminId, userId, userName = 
     [`pendingInvites.${userId}`]: null,
   };
   await updateDoc(convRef, updates);
+  // System message: user joined
+  try {
+    const messagesRef = collection(convRef, 'messages');
+    await addDoc(messagesRef, {
+      type: 'system',
+      content: `${userName} joined the group`,
+      createdAt: serverTimestamp(),
+    });
+    await updateDoc(convRef, {
+      lastMessage: `${userName} joined the group`,
+      lastMessageAt: serverTimestamp(),
+    });
+  } catch (e) {
+    console.warn('Failed to write system message for approved join:', e);
+  }
   return { status: 'joined' };
 };
 
@@ -784,6 +929,220 @@ export const deleteConversation = async (conversationId) => {
     return true;
   } catch (error) {
     console.error('Error deleting conversation:', error);
+    throw error;
+  }
+};
+
+/**
+ * Backfill missing participant photos in a conversation
+ * Useful for updating existing groups where participantPhotos may be incomplete
+ */
+export const backfillParticipantPhotos = async (conversationId) => {
+  try {
+    const convRef = doc(db, 'conversations', conversationId);
+    const convSnap = await getDoc(convRef);
+    
+    if (!convSnap.exists()) {
+      console.warn('Conversation not found:', conversationId);
+      return;
+    }
+    
+    const convData = convSnap.data();
+  const participants = convData.participants || [];
+  const participantPhotos = convData.participantPhotos || {};
+  const participantNames = convData.participantNames || {};
+    
+  let needsUpdate = false;
+  const updates = {};
+    
+    // Check each participant and fetch their photo if missing
+    for (const uid of participants) {
+      try {
+        // Fetch only if missing photo or missing/placeholder name
+        const missingPhoto = !participantPhotos[uid];
+        const missingOrPlaceholderName = !participantNames[uid] || participantNames[uid] === uid || participantNames[uid] === 'User';
+        if (missingPhoto || missingOrPlaceholderName) {
+          const userDoc = await getDoc(doc(db, 'users', uid));
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+            if (missingPhoto) {
+              updates[`participantPhotos.${uid}`] = userData.photoURL || '';
+              needsUpdate = true;
+            }
+            if (missingOrPlaceholderName) {
+              updates[`participantNames.${uid}`] = userData.displayName || userData.email || 'User';
+              needsUpdate = true;
+            }
+          }
+        }
+      } catch (err) {
+        console.warn(`Failed to fetch profile for user ${uid}:`, err);
+      }
+    }
+    
+    // Update conversation if any photos were found
+    if (needsUpdate) {
+      await updateDoc(convRef, updates);
+      console.log('Backfilled participant profiles for conversation:', conversationId);
+    }
+  } catch (error) {
+    console.error('Error backfilling participant photos:', error);
+  }
+};
+
+/**
+ * Remove a member from a group (kick)
+ * Only admins can remove members
+ * @param {string} conversationId - The conversation ID
+ * @param {string} adminId - The admin user ID performing the action
+ * @param {string} targetUserId - The user ID to remove
+ * @param {string} targetUserName - The target user's display name
+ */
+export const removeMemberFromGroup = async (conversationId, adminId, targetUserId, targetUserName) => {
+  try {
+    const convRef = doc(db, 'conversations', conversationId);
+    const convSnap = await getDoc(convRef);
+    
+    if (!convSnap.exists()) {
+      throw new Error('Conversation not found');
+    }
+    
+    const convData = convSnap.data();
+    
+    // Check if it's a group
+    if (convData.type !== 'group') {
+      throw new Error('Can only remove members from group conversations');
+    }
+    
+    // Check if caller is admin or creator
+    const isAdmin = convData.createdBy === adminId || convData.roles?.[adminId] === 'admin';
+    if (!isAdmin) {
+      throw new Error('Only admins can remove members');
+    }
+    
+    // Cannot remove yourself using this function
+    if (adminId === targetUserId) {
+      throw new Error('Use leave group function to remove yourself');
+    }
+    
+    const participants = convData.participants || [];
+    
+    // Check if target user is in the group
+    if (!participants.includes(targetUserId)) {
+      throw new Error('User is not a member of this group');
+    }
+    
+    // Remove user from participants
+    const newParticipants = participants.filter(id => id !== targetUserId);
+    
+    // IMPORTANT: Create system message FIRST (while target user is still in participants)
+    const messagesRef = collection(convRef, 'messages');
+    await addDoc(messagesRef, {
+      type: 'system',
+      content: `${targetUserName} was removed from the group`,
+      createdAt: serverTimestamp(),
+    });
+    
+    // Then update conversation to remove user and cleanup fields in ONE operation
+    const updates = {
+      participants: newParticipants,
+      lastMessage: `${targetUserName} was removed from the group`,
+      lastMessageAt: serverTimestamp(),
+    };
+    
+    // Clean up user-specific fields (set to null to delete)
+    updates[`participantNames.${targetUserId}`] = null;
+    updates[`participantPhotos.${targetUserId}`] = null;
+    updates[`unreadCount.${targetUserId}`] = null;
+    updates[`roles.${targetUserId}`] = null;
+    
+    await updateDoc(convRef, updates);
+    
+    return true;
+  } catch (error) {
+    console.error('Error removing member from group:', error);
+    throw error;
+  }
+};
+
+/**
+ * Leave a group conversation
+ * Removes the user from participants and updates metadata
+ * @param {string} conversationId - The conversation ID
+ * @param {string} userId - The user ID leaving the group
+ * @param {string} userName - The user's display name
+ */
+export const leaveGroup = async (conversationId, userId, userName) => {
+  try {
+    const convRef = doc(db, 'conversations', conversationId);
+    const convSnap = await getDoc(convRef);
+    
+    if (!convSnap.exists()) {
+      throw new Error('Conversation not found');
+    }
+    
+    const convData = convSnap.data();
+    
+    // Check if it's a group
+    if (convData.type !== 'group') {
+      throw new Error('Can only leave group conversations');
+    }
+    
+    const participants = convData.participants || [];
+    
+    // Check if user is in the group
+    if (!participants.includes(userId)) {
+      throw new Error('You are not a member of this group');
+    }
+    
+    // Check if user is the only admin
+    const roles = convData.roles || {};
+    const isAdmin = convData.createdBy === userId || roles[userId] === 'admin';
+    if (isAdmin) {
+      const adminCount = participants.filter(id => 
+        convData.createdBy === id || roles[id] === 'admin'
+      ).length;
+      
+      if (adminCount === 1 && participants.length > 1) {
+        throw new Error('You are the only admin. Please promote another member to admin before leaving.');
+      }
+    }
+    
+    // Remove user from participants
+    const newParticipants = participants.filter(id => id !== userId);
+    
+    // If this is the last member, delete the conversation
+    if (newParticipants.length === 0) {
+      await deleteDoc(convRef);
+      return;
+    }
+    
+    // IMPORTANT: Create system message FIRST (while user is still in participants)
+    const messagesRef = collection(convRef, 'messages');
+    await addDoc(messagesRef, {
+      type: 'system',
+      content: `${userName} left the group`,
+      createdAt: serverTimestamp(),
+    });
+    
+    // Then update conversation to remove user and cleanup fields in ONE operation
+    const updates = {
+      participants: newParticipants,
+      lastMessage: `${userName} left the group`,
+      lastMessageAt: serverTimestamp(),
+    };
+    
+    // Clean up user-specific fields (set to null to delete)
+    updates[`participantNames.${userId}`] = null;
+    updates[`participantPhotos.${userId}`] = null;
+    updates[`unreadCount.${userId}`] = null;
+    updates[`roles.${userId}`] = null;
+    
+    await updateDoc(convRef, updates);
+    
+    return true;
+  } catch (error) {
+    console.error('Error leaving group:', error);
     throw error;
   }
 };
