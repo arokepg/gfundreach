@@ -269,9 +269,9 @@ const PostCard = ({ post }) => {
 
       {/* Content */}
       <Link to={`/post/${post.id}`} className="block px-3 md:px-4 pb-3" onClick={(e) => e.stopPropagation()}>
-        <p className="text-themed mb-2 line-clamp-2 text-sm md:text-base">
-          {post.description}
-        </p>
+        <h3 className="text-themed font-semibold mb-2 line-clamp-2 text-sm md:text-base">
+          {post.title}
+        </h3>
         {post.category && (
           <span className="text-xs md:text-sm text-blue-600 dark:text-blue-400">
             #{post.category}

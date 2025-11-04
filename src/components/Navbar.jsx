@@ -6,6 +6,7 @@ import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 import PersonIcon from '@mui/icons-material/Person';
 import AddCircleIcon from '@mui/icons-material/AddCircle';
 import LogoutIcon from '@mui/icons-material/Logout';
+import MessageIcon from '@mui/icons-material/Message';
 import logo from '../assets/logo.svg';
 import LightModeIcon from '@mui/icons-material/LightMode';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
@@ -45,6 +46,13 @@ const Navbar = () => {
             >
               <HomeIcon className="mr-1" fontSize="small" />
               Home
+            </Link>
+            <Link
+              to="/messages"
+              className={isActive('/messages') || location.pathname.startsWith('/messages/') ? 'nav-link-active' : 'nav-link'}
+            >
+              <MessageIcon className="mr-1" fontSize="small" />
+              Messages
             </Link>
             <Link
               to="/wallet"
@@ -98,6 +106,15 @@ const Navbar = () => {
           >
             <HomeIcon />
             <span className="text-xs">Home</span>
+          </Link>
+          <Link
+            to="/messages"
+            className={`flex flex-col items-center transition-all duration-300 hover:scale-110 ${
+              isActive('/messages') || location.pathname.startsWith('/messages/') ? 'text-primary' : 'text-gray-600'
+            }`}
+          >
+            <MessageIcon />
+            <span className="text-xs">Messages</span>
           </Link>
           <Link
             to="/wallet"

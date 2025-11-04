@@ -45,6 +45,70 @@ html, body, #root {
   min-height: 100vh;
 }
 
+/* Themed scrollbars: light in light mode, subtle dark in dark mode */
+.scrollbar-themed {
+  /* Firefox */
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 #f3f4f6; /* thumb track */
+}
+
+.scrollbar-themed::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+.scrollbar-themed::-webkit-scrollbar-track {
+  background: #f3f4f6; /* gray-100 */
+  border-radius: 9999px;
+}
+.scrollbar-themed::-webkit-scrollbar-thumb {
+  background: #cbd5e1; /* slate-300 */
+  border-radius: 9999px;
+  border: 2px solid #f3f4f6; /* keep gap around thumb */
+}
+.scrollbar-themed:hover::-webkit-scrollbar-thumb {
+  background: #94a3b8; /* slate-400 on hover */
+}
+
+html.dark .scrollbar-themed {
+  scrollbar-color: #475569 #1f2937; /* thumb track */
+}
+html.dark .scrollbar-themed::-webkit-scrollbar-track {
+  background: #1f2937; /* gray-800 */
+}
+html.dark .scrollbar-themed::-webkit-scrollbar-thumb {
+  background: #475569; /* slate-600 */
+  border: 2px solid #1f2937;
+}
+
+/* Also style the main page scrollbar */
+/* Light mode */
+html, body {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 #f3f4f6;
+}
+html::-webkit-scrollbar, body::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+html::-webkit-scrollbar-track, body::-webkit-scrollbar-track {
+  background: #f3f4f6;
+}
+html::-webkit-scrollbar-thumb, body::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 9999px;
+}
+
+/* Dark mode */
+html.dark, html.dark body {
+  scrollbar-color: #475569 #1f2937;
+}
+html.dark::-webkit-scrollbar-track, body.dark::-webkit-scrollbar-track {
+  background: #1f2937;
+}
+html.dark::-webkit-scrollbar-thumb, body.dark::-webkit-scrollbar-thumb {
+  background: #475569;
+}
+
 /* Use variables so the whole page flips themes consistently */
 body {
   background-color: var(--bg);
@@ -296,6 +360,22 @@ html.dark .pill-active {
   animation: slide-in-up 0.6s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/* Subtle pop for incoming chat bubbles */
+@keyframes chat-bubble-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-chat-bubble {
+  animation: chat-bubble-in 0.18s ease-out;
+}
+
 /* Input focus pulse */
 .input-focus-ring:focus-within {
   animation: pulse-ring 0.4s ease-out;
@@ -374,6 +454,35 @@ html.dark .pill-active {
   to {
     opacity: 0;
   }
+}
+
+/* Modal animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.2s ease-out;
+}
+
+.animate-slideUp {
+  animation: slideUp 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .notif-panel-enter {

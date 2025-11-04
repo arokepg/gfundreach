@@ -36,7 +36,12 @@ service cloud.firestore {
 
     // Users collection
     match /users/{userId} {
-      allow read: if isSignedIn(); // Allows user search for messaging
+      // Allow read access to all signed-in users for:
+      // 1. User search in messaging (finding new people to message)
+      // 2. Profile viewing
+      // 3. Friend requests and social features
+      allow read: if isSignedIn();
+      
       allow create: if isSignedIn();
       allow update, delete: if isOwner(userId);
       
@@ -44,11 +49,11 @@ service cloud.firestore {
       allow update: if isSignedIn() && request.auth.uid == userId &&
         request.resource.data.diff(resource.data).changedKeys().hasOnly(['greetingMessage']);
       
-      // Note: For better search performance, consider:
-      // 1. Creating a composite index on displayName (ascending) 
-      // 2. Using Algolia/ElasticSearch for full-text search
-      // 3. Current implementation uses prefix matching which requires: 
-      //    - Index: displayName (ascending)
+      // Note: User search implementation in Messages.jsx:
+      // - Uses prefix matching on displayName field
+      // - Requires Firestore index: displayName (ascending)
+      // - Query pattern: where('displayName', '>=', searchLower).where('displayName', '<=', searchLower + '\uf8ff')
+      // - For production, consider Algolia/ElasticSearch for better full-text search
     }
 
     // Campaign posts
@@ -208,6 +213,9 @@ service cloud.firestore {
     // 
     // The isStranger field is computed client-side by checking friendship status.
     // It's not stored in Firestore, so no special rules are needed for it.
+    //
+    // For group conversations, the creator is stored in createdBy field and
+    // automatically becomes the admin. Only the creator/admin can update group settings.
     match /conversations/{conversationId} {
       // Helpers within this match
       function isConvParticipant() {
@@ -219,38 +227,33 @@ service cloud.firestore {
           && request.resource.data.participants.size() >= 2
           && request.auth.uid in request.resource.data.participants;
       }
+      function isGroupAdmin() {
+        return isSignedIn() 
+          && resource.data.type == 'group'
+          && (
+            // Creator is always admin
+            ('createdBy' in resource.data && resource.data.createdBy == request.auth.uid) ||
+            // Or explicitly set as admin in roles
+            ('roles' in resource.data && resource.data.roles[request.auth.uid] == 'admin')
+          );
+      }
 
       // Users can read only their conversations
       allow read: if isConvParticipant();
 
       // Create when caller is one of participants (supports 1-1 and groups)
+      // For group conversations, automatically set createdBy to creator's UID
       allow create: if isCreateValid();
-      
-      // Helper to check group admin within conversations
-      function isGroupAdmin() {
-        return isSignedIn() && (resource.data.type == 'group') && (
-          (resource.data.createdBy != null && resource.data.createdBy == request.auth.uid) ||
-          (
-            ('roles' in resource.data) &&
-            (request.auth.uid in resource.data.roles) &&
-            resource.data.roles[request.auth.uid] == 'admin'
-          )
-        );
-      }
 
       // Updates depend on what's being changed:
       // - Participants can update: lastMessageAt, lastMessage, lastSenderId, unreadCount, typing, firstMessageSent, hasReplied
-      // - Only group admins can update: settings (name, groupImageUrl, invitePermission), roles, participants, pendingInvites
+      // - Only group admins can update: settings (name, groupImageUrl, invitePermission), roles
       // - Group admins can approve/reject invites (pendingInvites)
       allow update: if isConvParticipant() && (
         // Regular conversation updates (messaging activity)
         request.resource.data.diff(resource.data).changedKeys().hasOnly(['lastMessageAt', 'lastMessage', 'lastSenderId', 'unreadCount', 'typing', 'firstMessageSent', 'participantNames', 'participantPhotos', 'hasReplied']) ||
-        // Admin-only: settings, roles, participants, and invite management for groups
-        (isGroupAdmin() && resource.data.type == 'group') ||
-        // Any member can invite if invitePermission is 'auto' (adds to participants directly)
-        (isConvParticipant() && resource.data.type == 'group' && 
-         resource.data.settings.invitePermission == 'auto' &&
-         request.resource.data.diff(resource.data).changedKeys().hasOnly(['participants', 'participantNames', 'participantPhotos', 'unreadCount', 'roles']))
+        // Admin-only: settings, roles, and invite management
+        (isGroupAdmin() && resource.data.type == 'group')
       );
 
       // Delete conversation:
@@ -294,8 +297,11 @@ service cloud.firestore {
             )
           )
         );
+
+        // Delete message: any participant can delete messages
+        // Used during conversation deletion (bulk delete via writeBatch)
+        allow delete: if isSignedIn() && request.auth.uid in parentParticipants();
       }
     }
   }
 }
-

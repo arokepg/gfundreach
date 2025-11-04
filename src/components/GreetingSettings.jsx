@@ -70,13 +70,14 @@ const GreetingSettings = ({ userId }) => {
       </div>
 
       {/* Info Box */}
-      <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-4 flex gap-3">
-        <Info className="text-blue-600 shrink-0" size={20} />
-        <div className="text-sm text-blue-800 dark:text-blue-200">
+      {/* Max contrast in light mode: neutral dark text on white */}
+      <div className="bg-white dark:bg-gray-900/20 border border-gray-300 dark:border-gray-700 rounded-lg p-4 mb-4 flex gap-3">
+        <Info className="text-gray-700 dark:text-gray-200 shrink-0" size={20} />
+        <div className="text-sm text-gray-900 dark:text-gray-100">
           <p className="font-semibold mb-1">How it works:</p>
-          <ul className="list-disc list-inside space-y-1">
+          <ul className="list-disc list-inside space-y-1 text-gray-900 dark:text-gray-100">
             <li>This message is sent <strong>only once</strong> when someone messages you for the first time</li>
-            <li>Use <code className="bg-blue-100 dark:bg-blue-900 px-1 rounded">{'{RecipientName}'}</code> to personalize with their name</li>
+            <li>Use <code className="bg-gray-200 dark:bg-gray-800 px-1 rounded text-gray-900 dark:text-gray-100">{'{RecipientName}'}</code> to personalize with their name</li>
             <li>Leave blank to disable auto-greeting</li>
           </ul>
         </div>
