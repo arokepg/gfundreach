@@ -17,6 +17,8 @@ import Layout from '../../components/Layout';
 import { useTheme } from '../../contexts/ThemeContext';
 import CampaignContextCard from '../../components/CampaignContextCard';
 import GroupInfoPanel from '../../components/GroupInfoPanel';
+import MediaViewer from '../../components/MediaViewer';
+import PersonalChatInfoPanel from '../../components/PersonalChatInfoPanel';
 
 const COMMON_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
 
@@ -37,10 +39,14 @@ const ChatWindow = () => {
   const [hasMoreMessages, setHasMoreMessages] = useState(true);
   const [lastDocRef, setLastDocRef] = useState(null);
   const [showGroupInfo, setShowGroupInfo] = useState(false);
+  const [showPersonalInfo, setShowPersonalInfo] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [showTagging, setShowTagging] = useState(false);
   const [taggingQuery, setTaggingQuery] = useState('');
   const [tagCursorPosition, setTagCursorPosition] = useState(0);
+  const [showMediaViewer, setShowMediaViewer] = useState(false);
+  const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
+  const [mediaList, setMediaList] = useState([]);
   const { isDarkMode } = useTheme();
   const mediaRecorderRef = useRef(null);
   const chunksRef = useRef([]);
@@ -359,6 +365,32 @@ const ChatWindow = () => {
     if (e) e.stopPropagation();
     setShowEmojiPicker(prev => prev === messageId ? null : messageId);
   };
+
+  const handleMediaClick = (mediaUrl) => {
+    const allMedia = messages
+      .filter(msg => msg.type === 'image' || msg.type === 'video')
+      .map(msg => ({
+        id: msg.id,
+        url: msg.imageUrl || msg.videoUrl,
+        type: msg.type,
+        senderName: conversation.participantNames?.[msg.senderId] || 'Unknown'
+      }));
+    
+    const clickedIndex = allMedia.findIndex(m => m.url === mediaUrl);
+    setMediaList(allMedia);
+    setCurrentMediaIndex(clickedIndex >= 0 ? clickedIndex : 0);
+    setShowMediaViewer(true);
+  };
+
+  const handleMediaNavigate = (newIndex) => {
+    setCurrentMediaIndex(newIndex);
+  };
+
+  const handleCloseMediaViewer = () => {
+    setShowMediaViewer(false);
+    setMediaList([]);
+    setCurrentMediaIndex(0);
+  };
   
   // Load more older messages (lazy loading)
   const handleLoadMore = async () => {
@@ -456,12 +488,12 @@ const ChatWindow = () => {
               onClick={() => {
                 if (other.isGroup) {
                   setShowGroupInfo(true);
-                } else if (other.id) {
-                  navigate(`/profile/${other.id}`);
+                } else {
+                  setShowPersonalInfo(true);
                 }
               }}
               className={`flex items-center gap-3 rounded-lg px-2 py-1 ${isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-themed-tertiary'}`}
-              title={other.isGroup ? 'View group info' : `View ${other.name}'s profile`}
+              title={other.isGroup ? 'View group info' : `View chat info`}
             >
               {other.photo ? (
                 <img
@@ -590,7 +622,8 @@ const ChatWindow = () => {
                               <img 
                                 src={message.imageUrl} 
                                 alt="Shared" 
-                                className="max-w-full rounded-xl border border-gray-300 dark:border-gray-700"
+                                className="max-w-full rounded-xl border border-gray-300 dark:border-gray-700 cursor-pointer hover:opacity-90 transition-opacity"
+                                onClick={() => handleMediaClick(message.imageUrl)}
                                 onError={(e) => { e.target.src = ''; e.target.alt = '[Image failed to load]'; }}
                               />
                               {message.caption && (
@@ -606,7 +639,7 @@ const ChatWindow = () => {
                           <button
                             onClick={(e) => toggleEmojiPicker(message.id, e)}
                             className={`absolute -bottom-2 opacity-0 group-hover:opacity-100 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-full p-1 transition-opacity hover:scale-110 ${
-                              isCurrentUser ? '-left-2' : '-right-2'
+                              isCurrentUser ? '-right-2' : '-left-2'
                             }`}
                             title="React"
                             type="button"
@@ -795,6 +828,24 @@ const ChatWindow = () => {
       </div>
       {conversation?.type === 'group' && (
         <GroupInfoPanel conversationId={conversationId} open={showGroupInfo} onClose={() => setShowGroupInfo(false)} />
+      )}
+      
+      {conversation?.type !== 'group' && (
+        <PersonalChatInfoPanel 
+          conversationId={conversationId} 
+          otherUser={other} 
+          open={showPersonalInfo} 
+          onClose={() => setShowPersonalInfo(false)} 
+        />
+      )}
+      
+      {showMediaViewer && (
+        <MediaViewer
+          media={mediaList}
+          currentIndex={currentMediaIndex}
+          onClose={handleCloseMediaViewer}
+          onNavigate={handleMediaNavigate}
+        />
       )}
     </Layout>
   );

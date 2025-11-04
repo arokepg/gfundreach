@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState, useRef } from 'react';
+import { createPortal } from 'react-dom';
+import { useTheme } from '../contexts/ThemeContext';
 import { X, Shield, UserRound, Check, XCircle, Upload, Users, Image as ImageIcon, Link as LinkIcon, Music2, Search } from 'lucide-react';
 import CampaignContextCard from './CampaignContextCard';
 import { approveInvite, getSharedMedia, inviteMember, rejectInvite, setGroupRole, updateGroupSettings, getConversation } from '../utils/messaging';
@@ -16,6 +18,7 @@ import { collection, query, where, getDocs, limit } from 'firebase/firestore';
  */
 const GroupInfoPanel = ({ conversationId, open, onClose }) => {
   const { currentUser } = useAuth();
+  const { isDarkMode } = useTheme();
   const [loading, setLoading] = useState(true);
   const [conv, setConv] = useState(null);
   const [tab, setTab] = useState('overview'); // overview | shared
@@ -184,10 +187,14 @@ const GroupInfoPanel = ({ conversationId, open, onClose }) => {
 
   if (!open) return null;
 
-  return (
+  const panelClass = isDarkMode
+    ? 'bg-gray-900 text-gray-100'
+    : 'bg-white text-gray-900';
+
+  return createPortal(
     <div className="fixed inset-0 z-70 flex items-center justify-center p-4 animate-fadeIn">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-      <aside className="relative w-full max-w-2xl h-[90vh] bg-white dark:bg-gray-900 rounded-2xl shadow-2xl flex flex-col animate-slideUp overflow-hidden">
+      <aside className={`relative w-full max-w-2xl h-[90vh] ${panelClass} rounded-2xl shadow-2xl flex flex-col animate-slideUp overflow-hidden`}>
         <div className="p-6 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between">
           <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2"><Users size={22} /> Group Info</h3>
           <button className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors" onClick={onClose} aria-label="Close"><X size={20} /></button>
@@ -440,7 +447,7 @@ const GroupInfoPanel = ({ conversationId, open, onClose }) => {
         )}
       </aside>
     </div>
-  );
+  , document.body);
 };
 
 export default GroupInfoPanel;
