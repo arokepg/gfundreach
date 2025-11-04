@@ -305,7 +305,7 @@ const Messages = () => {
 
   return (
     <Layout>
-      <div className="max-w-4xl mx-auto p-4 space-y-4 animate-fade-in">
+      <div className="w-full md:max-w-4xl mx-auto p-2 md:p-4 space-y-4 animate-fade-in">
         {/* Header */}
         <div className="flex items-center justify-between animate-slide-in-up">
           <h1 className="text-2xl font-bold text-themed flex items-center gap-2">
@@ -470,7 +470,20 @@ const Messages = () => {
                   <div className="flex items-start gap-4">
                     {/* Avatar */}
                     <div className="shrink-0 relative">
-                      {other.photo && !other.isGroup ? (
+                      {other.isGroup ? (
+                        // Group chat: show uploaded group avatar or default icon
+                        conversation.settings?.groupImageUrl ? (
+                          <img
+                            src={conversation.settings.groupImageUrl}
+                            alt={other.name}
+                            className="w-12 h-12 rounded-full object-cover ring-2 ring-white dark:ring-gray-800"
+                          />
+                        ) : (
+                          <div className="w-12 h-12 rounded-full bg-linear-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold ring-2 ring-white dark:ring-gray-800">
+                            <Users size={24} />
+                          </div>
+                        )
+                      ) : other.photo ? (
                         <img
                           src={other.photo}
                           alt={other.name}
@@ -478,7 +491,7 @@ const Messages = () => {
                         />
                       ) : (
                         <div className="w-12 h-12 rounded-full bg-linear-to-br from-green-500 to-emerald-500 flex items-center justify-center text-white font-bold ring-2 ring-white dark:ring-gray-800">
-                          {other.isGroup ? <Users size={24} /> : other.name.charAt(0).toUpperCase()}
+                          {other.name.charAt(0).toUpperCase()}
                         </div>
                       )}
                       {/* Online/Unread status badge */}

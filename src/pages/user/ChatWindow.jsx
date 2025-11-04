@@ -38,6 +38,9 @@ const ChatWindow = () => {
   const [lastDocRef, setLastDocRef] = useState(null);
   const [showGroupInfo, setShowGroupInfo] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [showTagging, setShowTagging] = useState(false);
+  const [taggingQuery, setTaggingQuery] = useState('');
+  const [tagCursorPosition, setTagCursorPosition] = useState(0);
   const { isDarkMode } = useTheme();
   const mediaRecorderRef = useRef(null);
   const chunksRef = useRef([]);
@@ -45,8 +48,9 @@ const ChatWindow = () => {
   const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
   const imageInputRef = useRef(null);
-  const inputRef = useRef(null); // For text input focus
-  const lastMessageCountRef = useRef(0); // Track message count for smart scroll
+  const inputRef = useRef(null);
+  const lastMessageCountRef = useRef(0);
+  const taggingDropdownRef = useRef(null);
 
   // Handle delete conversation
   const handleDeleteConversation = async () => {
@@ -113,7 +117,62 @@ const ChatWindow = () => {
     
     // Update the ref for next comparison
     lastMessageCountRef.current = currentCount;
-  }, [messages.length, showEmojiPicker]); // Only on count change, not all updates
+  }, [messages.length, showEmojiPicker]);
+
+  const handleInputChange = (e) => {
+    const value = e.target.value;
+    const cursorPos = e.target.selectionStart;
+    setNewMessage(value);
+
+    const textBeforeCursor = value.substring(0, cursorPos);
+    const lastAtIndex = textBeforeCursor.lastIndexOf('@');
+    
+    if (lastAtIndex !== -1) {
+      const textAfterAt = textBeforeCursor.substring(lastAtIndex + 1);
+      
+      if (!textAfterAt.includes(' ') && conversation?.type === 'group') {
+        setShowTagging(true);
+        setTaggingQuery(textAfterAt.toLowerCase());
+        setTagCursorPosition(lastAtIndex);
+      } else {
+        setShowTagging(false);
+      }
+    } else {
+      setShowTagging(false);
+    }
+  };
+
+  const handleSelectTag = (user) => {
+    const beforeTag = newMessage.substring(0, tagCursorPosition);
+    const afterTag = newMessage.substring(tagCursorPosition).replace(/@[^\s]*/, '');
+    const newValue = `${beforeTag}@${user.displayName} ${afterTag}`;
+    
+    setNewMessage(newValue);
+    setShowTagging(false);
+    setTaggingQuery('');
+    
+    requestAnimationFrame(() => {
+      inputRef.current?.focus();
+      const newCursorPos = beforeTag.length + user.displayName.length + 2;
+      inputRef.current?.setSelectionRange(newCursorPos, newCursorPos);
+    });
+  };
+
+  const getTaggableUsers = () => {
+    if (!conversation || conversation.type !== 'group') return [];
+    
+    return (conversation.participants || [])
+      .filter(participantId => participantId !== currentUser.uid)
+      .map(participantId => ({
+        id: participantId,
+        displayName: conversation.participantNames?.[participantId] || 'Unknown',
+        photoURL: conversation.participantPhotos?.[participantId] || ''
+      }))
+      .filter(user => 
+        user.displayName.toLowerCase().includes(taggingQuery)
+      )
+      .slice(0, 5);
+  };
 
   const handleSendMessage = async (e) => {
     e.preventDefault();
@@ -121,10 +180,10 @@ const ChatWindow = () => {
 
     const messageContent = newMessage.trim();
     setSending(true);
-    setNewMessage(''); // Clear immediately for better UX
+    setNewMessage('');
+    setShowTagging(false);
 
     try {
-      // Check if it's a group conversation
       const isGroup = conversation?.type === 'group';
       
       if (isGroup) {
@@ -146,10 +205,9 @@ const ChatWindow = () => {
     } catch (error) {
       console.error('Error sending message:', error);
       alert('Failed to send message. Please try again.');
-      setNewMessage(messageContent); // Restore message on error
+      setNewMessage(messageContent);
     } finally {
       setSending(false);
-      // Keep input focused after sending so user can continue typing
       requestAnimationFrame(() => {
         inputRef.current?.focus();
       });
@@ -275,7 +333,7 @@ const ChatWindow = () => {
 
   // Reaction handlers
   const handleReaction = async (messageId, emoji, e) => {
-    if (e) e.stopPropagation(); // Prevent event bubbling
+    if (e) e.stopPropagation();
     
     const message = messages.find(m => m.id === messageId);
     if (!message) return;
@@ -283,20 +341,14 @@ const ChatWindow = () => {
     const currentReactions = message.reactions || {};
     const hasReacted = currentReactions[emoji]?.includes(currentUser.uid);
     
-    console.log('Reaction clicked:', { messageId, emoji, hasReacted, currentReactions });
-    
-    // Close picker immediately for better UX
     setShowEmojiPicker(null);
     
     try {
       if (hasReacted) {
-        console.log('Removing reaction...');
         await removeReaction(conversationId, messageId, currentUser.uid, emoji);
       } else {
-        console.log('Adding reaction...');
         await addReaction(conversationId, messageId, currentUser.uid, emoji);
       }
-      console.log('Reaction updated successfully');
     } catch (err) {
       console.error('Failed to toggle reaction', err);
       alert('Failed to update reaction. Please try again.');
@@ -387,7 +439,7 @@ const ChatWindow = () => {
 
   return (
     <Layout>
-      <div className="max-w-4xl mx-auto h-[calc(100vh-120px)] flex flex-col">
+      <div className="w-full md:max-w-4xl mx-auto h-[calc(100vh-120px)] md:h-[calc(100vh-120px)] flex flex-col">
         {/* Header */}
   <div className={`shrink-0 p-4 flex items-center justify-between gap-4 border-b ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
           <div className="flex items-center gap-4">
@@ -411,7 +463,7 @@ const ChatWindow = () => {
               className={`flex items-center gap-3 rounded-lg px-2 py-1 ${isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-themed-tertiary'}`}
               title={other.isGroup ? 'View group info' : `View ${other.name}'s profile`}
             >
-              {other.photo && !other.isGroup ? (
+              {other.photo ? (
                 <img
                   src={other.photo}
                   alt={other.name}
@@ -495,23 +547,29 @@ const ChatWindow = () => {
                 >
                   {/* Avatar space */}
                   <div className="w-8 shrink-0">
-                    {!isCurrentUser && showAvatar && (
-                      other.photo ? (
-                        <img
-                          src={other.photo}
-                          alt={other.name}
-                          className="w-8 h-8 rounded-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-8 h-8 rounded-full bg-linear-to-br from-green-500 to-emerald-500 flex items-center justify-center text-white text-xs font-bold">
-                          {other.name.charAt(0).toUpperCase()}
-                        </div>
-                      )
+                    {showAvatar && (
+                      (() => {
+                        // Get sender's photo and name
+                        const senderPhoto = conversation.participantPhotos?.[message.senderId] || '';
+                        const senderName = conversation.participantNames?.[message.senderId] || 'User';
+                        
+                        return senderPhoto ? (
+                          <img
+                            src={senderPhoto}
+                            alt={senderName}
+                            className="w-8 h-8 rounded-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-8 h-8 rounded-full bg-linear-to-br from-green-500 to-emerald-500 flex items-center justify-center text-white text-xs font-bold">
+                            {senderName.charAt(0).toUpperCase()}
+                          </div>
+                        );
+                      })()
                     )}
                   </div>
 
                   {/* Message bubble */}
-                  <div className={`max-w-[70%] ${isCurrentUser ? 'items-end' : 'items-start'} flex flex-col emoji-picker-wrapper`}>
+                  <div className={`max-w-[70%] ${isCurrentUser ? 'items-end' : 'items-start'} flex flex-col relative`}>
                     {(() => {
                       const isAttachment = message.type === 'image' || message.type === 'audio' || message.type === 'campaign';
                       const bubbleBase = `relative group rounded-2xl ${isAttachment ? 'p-0 bg-transparent' : 'px-4 py-2'} animate-chat-bubble`;
@@ -547,7 +605,9 @@ const ChatWindow = () => {
                           {/* Emoji picker button (appears on hover) */}
                           <button
                             onClick={(e) => toggleEmojiPicker(message.id, e)}
-                            className="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-full p-1 transition-opacity hover:scale-110"
+                            className={`absolute -bottom-2 opacity-0 group-hover:opacity-100 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-full p-1 transition-opacity hover:scale-110 ${
+                              isCurrentUser ? '-left-2' : '-right-2'
+                            }`}
                             title="React"
                             type="button"
                           >
@@ -559,7 +619,7 @@ const ChatWindow = () => {
                     
                     {/* Show reactions */}
                     {hasReactions && (
-                      <div className="flex gap-1 mt-1 flex-wrap">
+                      <div className={`flex gap-1 mt-1 flex-wrap ${isCurrentUser ? 'justify-end' : 'justify-start'}`}>
                         {Object.entries(reactions).map(([emoji, userIds]) => {
                           const count = userIds.length;
                           const userReacted = userIds.includes(currentUser.uid);
@@ -567,14 +627,21 @@ const ChatWindow = () => {
                             <button
                               key={emoji}
                               onClick={(e) => handleReaction(message.id, emoji, e)}
-                              className={`text-xs px-2 py-0.5 rounded-full border transition-all ${
+                              className={`text-xs px-2 py-1 rounded-full border transition-all hover:scale-105 ${
                                 userReacted 
-                                  ? 'bg-green-100 dark:bg-green-900/30 border-green-500' 
-                                  : 'bg-gray-50 border-gray-200 hover:border-green-500'
+                                  ? isDarkMode
+                                    ? 'bg-green-900/40 border-green-500 text-green-300'
+                                    : 'bg-green-100 border-green-500 text-green-800'
+                                  : isDarkMode
+                                    ? 'bg-gray-800 border-gray-600 text-gray-300 hover:border-green-500'
+                                    : 'bg-white border-gray-300 text-gray-700 hover:border-green-500'
                               }`}
                               type="button"
                             >
-                              {emoji} {count > 1 && count}
+                              <span className="inline-flex items-center gap-1">
+                                <span>{emoji}</span>
+                                {count > 1 && <span className="text-xs font-semibold">{count}</span>}
+                              </span>
                             </button>
                           );
                         })}
@@ -583,13 +650,20 @@ const ChatWindow = () => {
                     
                     {/* Emoji picker popup */}
                     {showEmojiPicker === message.id && (
-                      <div className="mt-1 flex gap-1 p-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg shadow-lg z-10">
+                      <div className={`absolute bottom-0 flex gap-1 p-2 rounded-lg shadow-lg z-10 animate-fadeIn ${
+                        isDarkMode 
+                          ? 'bg-gray-800 border border-gray-700' 
+                          : 'bg-white border border-gray-300'
+                      } ${isCurrentUser ? 'right-0' : 'left-0'}`}>
                         {COMMON_EMOJIS.map(emoji => (
                           <button
                             key={emoji}
                             onClick={(e) => handleReaction(message.id, emoji, e)}
-                            className="text-xl hover:scale-125 transition-transform p-1"
+                            className={`text-xl hover:scale-125 transition-transform p-1 rounded ${
+                              isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'
+                            }`}
                             type="button"
+                            title={`React with ${emoji}`}
                           >
                             {emoji}
                           </button>
@@ -641,15 +715,64 @@ const ChatWindow = () => {
               {isRecording ? <StopCircle size={22} /> : <Mic size={20} />}
             </button>
             
-            <input
-              ref={inputRef}
-              type="text"
-              value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value)}
-              placeholder="Type a message..."
-              className={`flex-1 px-4 py-3 rounded-xl placeholder-gray-500 focus:outline-none focus:ring-2 focus:border-transparent ${isDarkMode ? 'bg-gray-800 text-gray-100 border border-gray-700 focus:ring-green-500' : 'bg-white text-gray-900 border border-gray-200 focus:ring-green-600'}`}
-              disabled={sending || sendingImage}
-            />
+            <div className="flex-1 relative">
+              <input
+                ref={inputRef}
+                type="text"
+                value={newMessage}
+                onChange={handleInputChange}
+                placeholder="Type a message..."
+                className={`w-full px-4 py-3 rounded-xl placeholder-gray-500 focus:outline-none focus:ring-2 focus:border-transparent ${isDarkMode ? 'bg-gray-800 text-gray-100 border border-gray-700 focus:ring-green-500' : 'bg-white text-gray-900 border border-gray-200 focus:ring-green-600'}`}
+                disabled={sending || sendingImage}
+              />
+              
+              {showTagging && getTaggableUsers().length > 0 && (
+                <div
+                  ref={taggingDropdownRef}
+                  className={`absolute bottom-full mb-2 left-0 right-0 rounded-lg shadow-lg border max-h-48 overflow-y-auto z-50 ${
+                    isDarkMode 
+                      ? 'bg-gray-800 border-gray-700' 
+                      : 'bg-white border-gray-200'
+                  }`}
+                >
+                  <div className={`px-3 py-2 text-xs font-semibold border-b ${
+                    isDarkMode 
+                      ? 'text-gray-400 border-gray-700' 
+                      : 'text-gray-600 border-gray-200'
+                  }`}>
+                    Tag someone
+                  </div>
+                  <ul>
+                    {getTaggableUsers().map(user => (
+                      <li key={user.id}>
+                        <button
+                          type="button"
+                          onClick={() => handleSelectTag(user)}
+                          className={`w-full px-3 py-2 flex items-center gap-3 transition-colors ${
+                            isDarkMode 
+                              ? 'hover:bg-gray-700 text-gray-100' 
+                              : 'hover:bg-gray-50 text-gray-900'
+                          }`}
+                        >
+                          {user.photoURL ? (
+                            <img
+                              src={user.photoURL}
+                              alt={user.displayName}
+                              className="w-8 h-8 rounded-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-8 h-8 rounded-full bg-linear-to-br from-green-500 to-emerald-500 flex items-center justify-center text-white text-sm font-bold">
+                              {user.displayName.charAt(0).toUpperCase()}
+                            </div>
+                          )}
+                          <span className="font-medium">{user.displayName}</span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
             <button
               type="submit"
               disabled={!newMessage.trim() || sending || sendingImage}
