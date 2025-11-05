@@ -1,5 +1,14 @@
 import { useEffect, useMemo, useState, useRef } from 'react';
-import { X, Shield, UserRound, Check, XCircle, Users, Image as ImageIcon, Link as LinkIcon, Music2, Search } from 'lucide-react';
+import { default as X } from '@mui/icons-material/Close';
+import { default as Shield } from '@mui/icons-material/Shield';
+import { default as UserRound } from '@mui/icons-material/AccountCircle';
+import { default as Check } from '@mui/icons-material/Check';
+import { default as XCircle } from '@mui/icons-material/Cancel';
+import { default as Users } from '@mui/icons-material/Group';
+import { default as ImageIcon } from '@mui/icons-material/Image';
+import { default as LinkIcon } from '@mui/icons-material/Link';
+import { default as Music2 } from '@mui/icons-material/MusicNote';
+import { default as Search } from '@mui/icons-material/Search';
 import ImageViewer from './ImageViewer';
 import CampaignContextCard from './CampaignContextCard';
 import { approveInvite, getSharedMedia, inviteMember, rejectInvite, setGroupRole, updateGroupSettings, getConversation, removeGroupMember } from '../utils/messaging';

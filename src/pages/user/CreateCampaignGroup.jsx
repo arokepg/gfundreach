@@ -5,7 +5,11 @@ import { db } from '../../config/firebase';
 import { useAuth } from '../../contexts/AuthContext';
 import { createGroupConversation } from '../../utils/messaging';
 import Layout from '../../components/Layout';
-import { ArrowLeft, Users, MessageCircle, CheckCircle, Loader2 } from 'lucide-react';
+import { default as ArrowLeft } from '@mui/icons-material/ArrowBack';
+import { default as Users } from '@mui/icons-material/Group';
+import { default as MessageCircle } from '@mui/icons-material/ChatBubbleOutlineOutlined';
+import { default as CheckCircle } from '@mui/icons-material/CheckCircle';
+import { default as Loader2 } from '@mui/icons-material/Autorenew';
 
 /**
  * CreateCampaignGroup - Allow campaign owner to create a group chat with donors/supporters

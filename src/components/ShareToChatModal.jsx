@@ -2,7 +2,12 @@ import { useEffect, useState } from 'react';
 import { collection, query, where, getDocs, doc, updateDoc, increment, getDoc } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { useAuth } from '../contexts/AuthContext';
-import { Users, User as UserIcon, Search, X, Send as SendIcon, Link as LinkIcon } from 'lucide-react';
+import { default as Users } from '@mui/icons-material/Group';
+import { default as UserIcon } from '@mui/icons-material/Person';
+import { default as Search } from '@mui/icons-material/Search';
+import { default as X } from '@mui/icons-material/Close';
+import { default as SendIcon } from '@mui/icons-material/Send';
+import { default as LinkIcon } from '@mui/icons-material/Link';
 import { sendCampaignCard } from '../utils/messaging';
 
 const ShareToChatModal = ({ open, onClose, post, onShared }) => {

@@ -1,6 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MessageCircle, Search, Clock, Users, UserPlus, X, Check } from 'lucide-react';
+import { default as MessageCircle } from '@mui/icons-material/ChatBubbleOutlineOutlined';
+import { default as Search } from '@mui/icons-material/Search';
+import { default as Clock } from '@mui/icons-material/AccessTime';
+import { default as Users } from '@mui/icons-material/Group';
+import { default as UserPlus } from '@mui/icons-material/PersonAdd';
+import { default as X } from '@mui/icons-material/Close';
+import { default as Check } from '@mui/icons-material/Check';
 import { useAuth } from '../../contexts/AuthContext';
 import { subscribeToConversations, getOrCreateConversation, createGroupConversation } from '../../utils/messaging';
 import { collection, query, where, getDocs, limit } from 'firebase/firestore';
@@ -308,16 +314,16 @@ const Messages = () => {
 
   return (
     <Layout>
-      <div className="w-full md:max-w-4xl mx-auto p-2 md:p-4 space-y-4 animate-fade-in">
+  <div className="w-full md:max-w-4xl mx-auto p-2 md:p-4 space-y-3 md:space-y-4 animate-fade-in">
         {/* Header */}
-        <div className="flex items-center justify-between animate-slide-in-up">
-          <h1 className="text-2xl font-bold text-themed flex items-center gap-2">
+  <div className="flex items-center justify-between animate-slide-in-up sticky top-0 z-10 py-2 bg-(--bg)/80 backdrop-blur">
+          <h1 className="text-xl md:text-2xl font-bold text-themed flex items-center gap-2">
             <MessageCircle size={28} />
             Messages
           </h1>
           <button
             onClick={() => setShowCreateGroup(true)}
-            className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-all flex items-center gap-2 shadow-md hover:shadow-lg active:scale-95"
+            className="px-3 py-2 md:px-4 md:py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-all flex items-center gap-2 shadow-md hover:shadow-lg active:scale-95"
           >
             <Users size={18} />
             <span className="hidden sm:inline">Create Group</span>

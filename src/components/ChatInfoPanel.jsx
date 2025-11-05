@@ -1,5 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import { X, Users, UserRound, Image as ImageIcon, Link as LinkIcon, Music2 } from 'lucide-react';
+import { default as X } from '@mui/icons-material/Close';
+import { default as Users } from '@mui/icons-material/Group';
+import { default as UserRound } from '@mui/icons-material/AccountCircle';
+import { default as ImageIcon } from '@mui/icons-material/Image';
+import { default as LinkIcon } from '@mui/icons-material/Link';
+import { default as Music2 } from '@mui/icons-material/MusicNote';
 import ImageViewer from './ImageViewer';
 import CampaignContextCard from './CampaignContextCard';
 import { getConversation, getSharedMedia } from '../utils/messaging';

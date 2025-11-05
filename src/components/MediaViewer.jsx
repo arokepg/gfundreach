@@ -1,6 +1,9 @@
 import { useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Download, ChevronLeft, ChevronRight } from 'lucide-react';
+import { default as X } from '@mui/icons-material/Close';
+import { default as Download } from '@mui/icons-material/Download';
+import { default as ChevronLeft } from '@mui/icons-material/ChevronLeft';
+import { default as ChevronRight } from '@mui/icons-material/ChevronRight';
 
 const MediaViewer = ({ media, currentIndex, onClose, onNavigate }) => {
   

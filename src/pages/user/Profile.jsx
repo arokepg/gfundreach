@@ -731,7 +731,7 @@ const Profile = () => {
           <div className="flex border-b border-gray-200 dark:border-gray-700 overflow-x-auto scrollbar-hide" role="tablist" aria-label="Profile sections">
             <button
               onClick={() => setActiveTab('personal')}
-              className={`relative px-3 sm:px-6 py-2.5 sm:py-3 font-medium whitespace-nowrap transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500/40 text-xs sm:text-base border-b-2 ${
+              className={`relative px-4 sm:px-6 py-3 sm:py-3 font-medium whitespace-nowrap transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500/40 text-sm sm:text-base border-b-2 ${
                 activeTab === 'personal'
                   ? 'text-green-700 dark:text-green-400 border-green-600 dark:border-green-500 bg-green-50 dark:bg-green-900/20'
                   : 'text-gray-600 dark:text-gray-400 hover:bg-(--hover-bg) hover:text-(--text) border-transparent'
@@ -739,12 +739,11 @@ const Profile = () => {
               role="tab"
               aria-selected={activeTab === 'personal'}
             >
-              <span className="hidden sm:inline">Personal Info</span>
-              <span className="sm:hidden">Info</span>
+              Info
             </button>
             <button
               onClick={() => setActiveTab('campaigns')}
-              className={`relative px-3 sm:px-6 py-2.5 sm:py-3 font-medium whitespace-nowrap transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500/40 text-xs sm:text-base border-b-2 ${
+              className={`relative px-4 sm:px-6 py-3 sm:py-3 font-medium whitespace-nowrap transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500/40 text-sm sm:text-base border-b-2 ${
                 activeTab === 'campaigns'
                   ? 'text-green-700 dark:text-green-400 border-green-600 dark:border-green-500 bg-green-50 dark:bg-green-900/20'
                   : 'text-gray-600 dark:text-gray-400 hover:bg-(--hover-bg) hover:text-(--text) border-transparent'
@@ -752,11 +751,11 @@ const Profile = () => {
               role="tab"
               aria-selected={activeTab === 'campaigns'}
             >
-              Campaigns
+              Posts
             </button>
             <button
               onClick={() => setActiveTab('community')}
-              className={`relative px-3 sm:px-6 py-2.5 sm:py-3 font-medium whitespace-nowrap transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500/40 text-xs sm:text-base border-b-2 ${
+              className={`relative px-4 sm:px-6 py-3 sm:py-3 font-medium whitespace-nowrap transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500/40 text-sm sm:text-base border-b-2 ${
                 activeTab === 'community'
                   ? 'text-green-700 dark:text-green-400 border-green-600 dark:border-green-500 bg-green-50 dark:bg-green-900/20'
                   : 'text-gray-600 dark:text-gray-400 hover:bg-(--hover-bg) hover:text-(--text) border-transparent'
@@ -764,13 +763,12 @@ const Profile = () => {
               role="tab"
               aria-selected={activeTab === 'community'}
             >
-              <span className="hidden sm:inline">Community Posts</span>
-              <span className="sm:hidden">Posts</span>
+              Community
             </button>
             {(isOwnProfile || transactionsPrivacy === 'public') && (
               <button
                 onClick={() => setActiveTab('donations')}
-                className={`relative px-3 sm:px-6 py-2.5 sm:py-3 font-medium whitespace-nowrap transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500/40 text-xs sm:text-base border-b-2 ${
+                className={`relative px-4 sm:px-6 py-3 sm:py-3 font-medium whitespace-nowrap transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500/40 text-sm sm:text-base border-b-2 ${
                   activeTab === 'donations'
                     ? 'text-green-700 dark:text-green-400 border-green-600 dark:border-green-500 bg-green-50 dark:bg-green-900/20'
                     : 'text-gray-600 dark:text-gray-400 hover:bg-(--hover-bg) hover:text-(--text) border-transparent'
@@ -778,14 +776,13 @@ const Profile = () => {
                 role="tab"
                 aria-selected={activeTab === 'donations'}
               >
-                <span className="hidden sm:inline">Donation History</span>
-                <span className="sm:hidden">Sent</span>
+                Sent
               </button>
             )}
             {(isOwnProfile || transactionsPrivacy === 'public') && (
               <button
                 onClick={() => setActiveTab('received')}
-                className={`relative px-3 sm:px-6 py-2.5 sm:py-3 font-medium whitespace-nowrap transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500/40 text-xs sm:text-base border-b-2 ${
+                className={`relative px-4 sm:px-6 py-3 sm:py-3 font-medium whitespace-nowrap transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500/40 text-sm sm:text-base border-b-2 ${
                   activeTab === 'received'
                     ? 'text-green-700 dark:text-green-400 border-green-600 dark:border-green-500 bg-green-50 dark:bg-green-900/20'
                     : 'text-gray-600 dark:text-gray-400 hover:bg-(--hover-bg) hover:text-(--text) border-transparent'
@@ -793,13 +790,12 @@ const Profile = () => {
                 role="tab"
                 aria-selected={activeTab === 'received'}
               >
-                <span className="hidden sm:inline">Received History</span>
-                <span className="sm:hidden">Received</span>
+                Received
               </button>
             )}
             <button
               onClick={() => setActiveTab('friends')}
-              className={`relative px-3 sm:px-6 py-2.5 sm:py-3 font-medium whitespace-nowrap transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500/40 text-xs sm:text-base border-b-2 ${
+              className={`relative px-4 sm:px-6 py-3 sm:py-3 font-medium whitespace-nowrap transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500/40 text-sm sm:text-base border-b-2 ${
                 activeTab === 'friends'
                   ? 'text-green-700 dark:text-green-400 border-green-600 dark:border-green-500 bg-green-50 dark:bg-green-900/20'
                   : 'text-gray-600 dark:text-gray-400 hover:bg-(--hover-bg) hover:text-(--text) border-transparent'
@@ -812,9 +808,11 @@ const Profile = () => {
           </div>
         </div>
 
-        {/* Main Content Area with Sidebar */}
-        <div className="grid lg:grid-cols-4 gap-6">
-          {/* Left Sidebar - Stats */}
+        {/* Main Content Area with optional Sidebar */}
+        {/** Show donation info only on Personal tab; otherwise expand content to full width */}
+        <div className={`grid gap-6 ${activeTab === 'personal' ? 'lg:grid-cols-4' : 'lg:grid-cols-3'}`}>
+          {/* Left Sidebar - Stats (only on Personal tab) */}
+          {activeTab === 'personal' && (
           <div className="lg:col-span-1">
             <div className="card p-6 space-y-4">
               {/* Donated Stat */}
@@ -862,9 +860,10 @@ const Profile = () => {
               </div>
             </div>
           </div>
+          )}
 
           {/* Main Content */}
-          <div className="lg:col-span-3">
+          <div className={`${activeTab === 'personal' ? 'lg:col-span-3' : 'lg:col-span-3 lg:col-start-1'}`}>
             {/* Personal Info Tab */}
             {activeTab === 'personal' && (
               <div className="card p-6">

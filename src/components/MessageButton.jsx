@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MessageCircle } from 'lucide-react';
+import { default as MessageCircle } from '@mui/icons-material/ChatBubbleOutlineOutlined';
 import { useAuth } from '../contexts/AuthContext';
 import { getOrCreateConversation, sendCampaignCard } from '../utils/messaging';
 

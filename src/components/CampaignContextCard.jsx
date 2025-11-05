@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
-import { ExternalLink, TrendingUp } from 'lucide-react';
+import { default as ExternalLink } from '@mui/icons-material/OpenInNew';
+import { default as TrendingUp } from '@mui/icons-material/TrendingUp';
 import { formatCurrencyShort } from '../utils/numberFormat';
 
 /**

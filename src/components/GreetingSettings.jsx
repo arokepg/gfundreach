@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../config/firebase';
-import { Save, MessageSquare, Info } from 'lucide-react';
+import SaveIcon from '@mui/icons-material/Save';
+import ChatBubbleOutlineOutlinedIcon from '@mui/icons-material/ChatBubbleOutlineOutlined';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 
 const GreetingSettings = ({ userId }) => {
   const [greetingMessage, setGreetingMessage] = useState('');
@@ -60,7 +62,7 @@ const GreetingSettings = ({ userId }) => {
     <div className="bg-themed-secondary rounded-xl p-6 border border-themed-border">
       {/* Header */}
       <div className="flex items-center gap-3 mb-4">
-        <MessageSquare className="text-green-600" size={24} />
+  <ChatBubbleOutlineOutlinedIcon className="text-green-600" sx={{ fontSize: 24 }} />
         <div>
           <h3 className="text-lg font-bold text-themed">Auto-Greeting Message</h3>
           <p className="text-sm text-themed-muted">
@@ -72,7 +74,7 @@ const GreetingSettings = ({ userId }) => {
       {/* Info Box */}
       {/* Max contrast in light mode: neutral dark text on white */}
       <div className="bg-white dark:bg-gray-900/20 border border-gray-300 dark:border-gray-700 rounded-lg p-4 mb-4 flex gap-3">
-        <Info className="text-gray-700 dark:text-gray-200 shrink-0" size={20} />
+  <InfoOutlinedIcon className="text-gray-700 dark:text-gray-200 shrink-0" sx={{ fontSize: 20 }} />
         <div className="text-sm text-gray-900 dark:text-gray-100">
           <p className="font-semibold mb-1">How it works:</p>
           <ul className="list-disc list-inside space-y-1 text-gray-900 dark:text-gray-100">
@@ -144,7 +146,7 @@ const GreetingSettings = ({ userId }) => {
             </>
           ) : (
             <>
-              <Save size={18} />
+              <SaveIcon fontSize="small" />
               Save Greeting
             </>
           )}

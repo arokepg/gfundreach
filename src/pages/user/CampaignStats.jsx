@@ -25,8 +25,6 @@ const CampaignStats = () => {
   const [sharesCount, setSharesCount] = useState(0);
   const [viewsTotal, setViewsTotal] = useState(0);
   const [views7d, setViews7d] = useState(0);
-  const [uniqueVisitorsTotal, setUniqueVisitorsTotal] = useState(0);
-  const [uniqueVisitors30d, setUniqueVisitors30d] = useState(0);
   const [viewsChartData, setViewsChartData] = useState([]);
   const [donationsChartData, setDonationsChartData] = useState([]);
   const [donationDistribution, setDonationDistribution] = useState([]);
@@ -57,7 +55,7 @@ const CampaignStats = () => {
   setLikesCount(data.likesCount || 0);
   setSharesCount(data.sharesCount || 0);
 
-        // Views and Visitors counts (using subcollections created by view tracker)
+        // Views counts (using subcollections created by view tracker)
         try {
           const viewsCol = collection(db, 'posts', id, 'views');
           const totalViewsSnap = await getCountFromServer(query(viewsCol));
@@ -70,16 +68,6 @@ const CampaignStats = () => {
           );
           setViews7d(views7Snap.data().count || 0);
 
-          const visitorsCol = collection(db, 'posts', id, 'visitors');
-          const totalVisitorsSnap = await getCountFromServer(query(visitorsCol));
-          setUniqueVisitorsTotal(totalVisitorsSnap.data().count || 0);
-
-          const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-          const thirtyTs = Timestamp.fromDate(thirtyDaysAgo);
-          const visitors30Snap = await getCountFromServer(
-            query(visitorsCol, where('lastViewedAt', '>=', thirtyTs))
-          );
-          setUniqueVisitors30d(visitors30Snap.data().count || 0);
         } catch (viewErr) {
           console.log('View stats not available yet:', viewErr);
         }
@@ -345,7 +333,7 @@ const CampaignStats = () => {
           </div>
 
           {/* Statistics Cards */}
-          <div className="grid md:grid-cols-4 gap-6">
+          <div className="grid md:grid-cols-3 gap-6">
             <div className="card p-6">
               <div className="flex items-center gap-3 mb-2">
                 <div className="p-3 bg-gray-100 dark:bg-gray-800 rounded-lg">
@@ -359,18 +347,7 @@ const CampaignStats = () => {
               <p className="text-xs text-themed-muted">Last 7 days: {views7d}</p>
             </div>
 
-            <div className="card p-6">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="p-3 bg-gray-100 dark:bg-gray-800 rounded-lg">
-                  <PeopleIcon className="text-gray-600 dark:text-gray-300" />
-                </div>
-                <div>
-                  <p className="text-sm text-themed-secondary">Unique Viewers</p>
-                  <p className="text-2xl font-bold text-themed">{uniqueVisitorsTotal}</p>
-                </div>
-              </div>
-              <p className="text-xs text-themed-muted">Last 30 days: {uniqueVisitors30d}</p>
-            </div>
+            {/* Unique viewers removed per request */}
 
             <div className="card p-6">
               <div className="flex items-center gap-3 mb-2">

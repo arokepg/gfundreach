@@ -1,5 +1,10 @@
 import { useEffect, useState } from 'react';
-import { X, User, Image as ImageIcon, ExternalLink, Link as LinkIcon, Music2 } from 'lucide-react';
+import { default as X } from '@mui/icons-material/Close';
+import { default as User } from '@mui/icons-material/Person';
+import { default as ImageIcon } from '@mui/icons-material/Image';
+import { default as ExternalLink } from '@mui/icons-material/OpenInNew';
+import { default as LinkIcon } from '@mui/icons-material/Link';
+import { default as Music2 } from '@mui/icons-material/MusicNote';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { getSharedMedia } from '../utils/messaging';
