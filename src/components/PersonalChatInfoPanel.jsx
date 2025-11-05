@@ -1,15 +1,18 @@
 import { useEffect, useState } from 'react';
-import { X, User, Image as ImageIcon, ExternalLink } from 'lucide-react';
+import { X, User, Image as ImageIcon, ExternalLink, Link as LinkIcon, Music2 } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { getSharedMedia } from '../utils/messaging';
 import { useTheme } from '../contexts/ThemeContext';
+import CampaignContextCard from './CampaignContextCard';
+import ImageViewer from './ImageViewer';
 
 const PersonalChatInfoPanel = ({ conversationId, otherUser, open, onClose }) => {
   const { isDarkMode } = useTheme();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [media, setMedia] = useState({ images: [], audios: [], campaigns: [], links: [] });
+  const [imagePreview, setImagePreview] = useState({ open: false, src: '', alt: '' });
 
   useEffect(() => {
     if (!open || !conversationId) return;
@@ -83,6 +86,7 @@ const PersonalChatInfoPanel = ({ conversationId, otherUser, open, onClose }) => 
 
             {/* Shared Media Section */}
             <div className="p-6 space-y-6">
+              {/* Shared Images */}
               {media.images.length > 0 && (
                 <div>
                   <div className="text-base font-semibold text-gray-900 dark:text-gray-100 mb-3 flex items-center gap-2">
@@ -95,10 +99,65 @@ const PersonalChatInfoPanel = ({ conversationId, otherUser, open, onClose }) => 
                         key={img.id}
                         src={img.url}
                         alt="shared"
-                        className="w-full h-28 object-cover rounded-lg border border-gray-200 dark:border-gray-700 cursor-pointer hover:opacity-75 transition-opacity"
+                        className="w-full h-28 object-cover rounded-lg border border-gray-200 dark:border-gray-700 cursor-zoom-in hover:opacity-75 transition-opacity"
+                        onClick={() => setImagePreview({ open: true, src: img.url, alt: 'Shared image' })}
                       />
                     ))}
                   </div>
+                </div>
+              )}
+
+              {/* Shared Audio */}
+              {media.audios.length > 0 && (
+                <div>
+                  <div className="text-base font-semibold text-gray-900 dark:text-gray-100 mb-3 flex items-center gap-2">
+                    <Music2 size={18} />
+                    Shared Audio ({media.audios.length})
+                  </div>
+                  <div className="space-y-2">
+                    {media.audios.map(a => (
+                      <audio key={a.id} controls src={a.url} className="w-full" />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Shared Campaigns */}
+              {media.campaigns.length > 0 && (
+                <div>
+                  <div className="text-base font-semibold text-gray-900 dark:text-gray-100 mb-3">
+                    Shared Campaigns ({media.campaigns.length})
+                  </div>
+                  <div className="space-y-3">
+                    {media.campaigns.map(c => (
+                      <CampaignContextCard key={c.id} campaign={c.campaign} />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Shared Links */}
+              {media.links.length > 0 && (
+                <div>
+                  <div className="text-base font-semibold text-gray-900 dark:text-gray-100 mb-3 flex items-center gap-2">
+                    <LinkIcon size={18} />
+                    Shared Links ({media.links.length})
+                  </div>
+                  <ul className="space-y-2 text-sm">
+                    {media.links.map(l => (
+                      <li key={l.id} className="p-3 rounded-lg bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                        <a 
+                          className="text-blue-600 dark:text-blue-400 hover:underline break-all flex items-center gap-2" 
+                          href={l.url} 
+                          target="_blank" 
+                          rel="noreferrer"
+                        >
+                          <ExternalLink size={16} />
+                          {l.url}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               )}
 
@@ -111,6 +170,12 @@ const PersonalChatInfoPanel = ({ conversationId, otherUser, open, onClose }) => 
           </div>
         )}
       </aside>
+      <ImageViewer
+        open={imagePreview.open}
+        src={imagePreview.src}
+        alt={imagePreview.alt}
+        onClose={() => setImagePreview({ open: false, src: '', alt: '' })}
+      />
     </div>
   , document.body);
 };

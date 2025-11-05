@@ -1,17 +1,21 @@
 import { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Send, Loader2, Mic, StopCircle, Image as ImageIcon, Smile, TrendingUp, ChevronUp, Users, Trash2 } from 'lucide-react';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { ArrowLeft, Send, Loader2, Mic, StopCircle, Image as ImageIcon, Smile, TrendingUp, ChevronUp, Users, Trash2, LogOut } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { 
   subscribeToMessages, 
   sendMessage, 
   markConversationAsRead,
   getConversation,
+  subscribeToConversation,
   sendImageMessage,
   addReaction,
   removeReaction,
   loadMoreMessages,
-  deleteConversation
+  deleteConversation,
+  backfillParticipantPhotos,
+  leaveGroup,
+  deleteMessage
 } from '../../utils/messaging';
 import Layout from '../../components/Layout';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -24,6 +28,7 @@ const COMMON_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
 
 const ChatWindow = () => {
   const { conversationId } = useParams();
+  const location = useLocation();
   const { currentUser } = useAuth();
   const navigate = useNavigate();
   const [messages, setMessages] = useState([]);
@@ -47,6 +52,9 @@ const ChatWindow = () => {
   const [showMediaViewer, setShowMediaViewer] = useState(false);
   const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
   const [mediaList, setMediaList] = useState([]);
+  const [deletingMessageId, setDeletingMessageId] = useState(null);
+  const [longPressTimer, setLongPressTimer] = useState(null);
+  const [longPressedMessage, setLongPressedMessage] = useState(null);
   const { isDarkMode } = useTheme();
   const mediaRecorderRef = useRef(null);
   const chunksRef = useRef([]);
@@ -57,6 +65,10 @@ const ChatWindow = () => {
   const inputRef = useRef(null);
   const lastMessageCountRef = useRef(0);
   const taggingDropdownRef = useRef(null);
+
+  // Check if current user is admin in group
+  const isAdmin = conversation?.type === 'group' && conversation?.roles?.[currentUser?.uid] === 'admin';
+  const isGroup = conversation?.type === 'group';
 
   // Handle delete conversation
   const handleDeleteConversation = async () => {
@@ -75,6 +87,23 @@ const ChatWindow = () => {
     }
   };
 
+  // Handle leave group
+  const handleLeaveGroup = async () => {
+    if (!confirm('Are you sure you want to leave this group?')) {
+      return;
+    }
+
+    setDeleting(true);
+    try {
+      await leaveGroup(conversationId, currentUser.uid, currentUser.displayName || 'User');
+      navigate('/messages');
+    } catch (error) {
+      console.error('Error leaving group:', error);
+      alert('Failed to leave group. Please try again.');
+      setDeleting(false);
+    }
+  };
+
   // Load conversation details
   useEffect(() => {
     if (!currentUser || !conversationId) {
@@ -82,16 +111,44 @@ const ChatWindow = () => {
       return;
     }
 
-    const loadConversation = async () => {
+    let unsubscribeConv;
+    (async () => {
       const conv = await getConversation(conversationId);
       if (!conv) {
         navigate('/messages');
         return;
       }
       setConversation(conv);
-    };
+      
+      // Backfill missing participant info (photos or names) for groups
+      if (conv.type === 'group') {
+        const participantPhotos = conv.participantPhotos || {};
+        const participantNames = conv.participantNames || {};
+        const participants = conv.participants || [];
+        const hasMissingProfiles = participants.some(uid => !participantPhotos[uid] || !participantNames[uid] || participantNames[uid] === uid || participantNames[uid] === 'User');
+        
+        if (hasMissingProfiles) {
+          backfillParticipantPhotos(conversationId).catch(err => 
+            console.warn('Failed to backfill profiles:', err)
+          );
+        }
+      }
+      
+      // live updates (e.g., avatar/name changes)
+      unsubscribeConv = subscribeToConversation(conversationId, (c) => {
+        if (c) setConversation(c);
+      });
+    })();
 
-    loadConversation();
+    return () => {
+      if (unsubscribeConv) {
+        try {
+          unsubscribeConv();
+        } catch {
+          // ignore
+        }
+      }
+    };
   }, [conversationId, currentUser, navigate]);
 
   // Subscribe to messages
@@ -100,7 +157,29 @@ const ChatWindow = () => {
 
     setLoading(true);
     const unsubscribe = subscribeToMessages(conversationId, (msgs) => {
-      setMessages(msgs);
+      // Validate and filter messages
+      const validMessages = msgs.filter(msg => {
+        if (!msg) {
+          console.warn('Null message found');
+          return false;
+        }
+        // System messages do not have senderId/senderName
+        if (msg.type !== 'system') {
+          if (!msg.senderId || !msg.senderName) {
+            console.warn('Message missing senderId or senderName:', msg);
+            return false;
+          }
+        }
+        // Ensure type field exists
+        if (!msg.type) {
+          console.warn('Message missing type field, defaulting to text:', msg);
+          msg.type = 'text';
+        }
+        return true;
+      });
+      
+      console.log('Loaded messages:', validMessages.length);
+      setMessages(validMessages);
       setLoading(false);
     });
 
@@ -115,6 +194,26 @@ const ChatWindow = () => {
     const currentCount = messages.length;
     const previousCount = lastMessageCountRef.current;
     
+    // Check if we need to scroll to a specific message from notification
+    const searchParams = new URLSearchParams(location.search);
+    const targetMessageId = searchParams.get('messageId');
+    
+    if (targetMessageId && messages.length > 0) {
+      // Find and scroll to the target message
+      setTimeout(() => {
+        const messageElement = document.getElementById(`message-${targetMessageId}`);
+        if (messageElement) {
+          messageElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          // Highlight the message briefly
+          messageElement.classList.add('highlight-mention');
+          setTimeout(() => {
+            messageElement.classList.remove('highlight-mention');
+          }, 2000);
+        }
+      }, 300);
+      return;
+    }
+    
     // Only scroll if there's actually a NEW message (count increased)
     // and emoji picker is not open
     if (currentCount > previousCount && !showEmojiPicker) {
@@ -123,7 +222,7 @@ const ChatWindow = () => {
     
     // Update the ref for next comparison
     lastMessageCountRef.current = currentCount;
-  }, [messages.length, showEmojiPicker]);
+  }, [messages.length, showEmojiPicker, location.search]);
 
   const handleInputChange = (e) => {
     const value = e.target.value;
@@ -185,6 +284,22 @@ const ChatWindow = () => {
     if (!newMessage.trim() || sending) return;
 
     const messageContent = newMessage.trim();
+    
+      // Extract mentions by scanning full display names in content
+      const mentionedUserIds = [];
+      if (conversation) {
+        const participants = conversation.participants || [];
+        const participantNames = conversation.participantNames || {};
+        participants.forEach((id) => {
+          const name = participantNames[id];
+          if (!name) return;
+          const label = `@${name}`;
+          if (messageContent.includes(label) && !mentionedUserIds.includes(id)) {
+            mentionedUserIds.push(id);
+          }
+        });
+      }
+    
     setSending(true);
     setNewMessage('');
     setShowTagging(false);
@@ -198,14 +313,16 @@ const ChatWindow = () => {
           conversationId,
           currentUser.uid,
           currentUser.displayName || 'Anonymous',
-          messageContent
+            messageContent,
+            mentionedUserIds
         );
       } else {
         await sendMessage(
           conversationId,
           currentUser.uid,
           currentUser.displayName || 'Anonymous',
-          messageContent
+            messageContent,
+            mentionedUserIds
         );
       }
     } catch (error) {
@@ -386,11 +503,110 @@ const ChatWindow = () => {
     setCurrentMediaIndex(newIndex);
   };
 
+  // Handle delete message
+  const handleDeleteMessage = async (messageId) => {
+    if (!confirm('Delete this message? Everyone in the conversation will no longer see it.')) {
+      return;
+    }
+
+    setDeletingMessageId(messageId);
+    try {
+      await deleteMessage(conversationId, messageId, currentUser.uid);
+      setLongPressedMessage(null);
+    } catch (error) {
+      console.error('Failed to delete message:', error);
+      alert(error.message || 'Failed to delete message. Please try again.');
+    } finally {
+      setDeletingMessageId(null);
+    }
+  };
+
+  // Handle long press to show delete option
+  const handleMessageLongPress = (messageId, senderId, e) => {
+    if (senderId !== currentUser.uid) return; // Only allow deleting own messages
+    
+    e.preventDefault();
+    const timer = setTimeout(() => {
+      setLongPressedMessage(messageId);
+    }, 500); // 500ms long press
+    setLongPressTimer(timer);
+  };
+
+  const handleMessageLongPressEnd = () => {
+    if (longPressTimer) {
+      clearTimeout(longPressTimer);
+      setLongPressTimer(null);
+    }
+  };
+
   const handleCloseMediaViewer = () => {
     setShowMediaViewer(false);
     setMediaList([]);
     setCurrentMediaIndex(0);
   };
+  
+    // Render message content with mentions highlighted
+    // Build full-labels for mentions and render them bold (covers multi-word names)
+    const renderMessageContent = (content, message) => {
+      if (!content) return null;
+      
+      // Ensure content is a string
+      const textContent = typeof content === 'string' ? content : String(content);
+
+      // Build labels from message.mentions using current participant names
+      const labels = [];
+      const namesMap = conversation?.participantNames || {};
+      const mentionedIds = Array.isArray(message?.mentions) ? message.mentions : [];
+      mentionedIds.forEach((uid) => {
+        const name = namesMap[uid];
+        if (name) labels.push(`@${name}`);
+      });
+
+      // Fallback: detect labels from any participant names present in text
+      if (labels.length === 0 && conversation?.participants) {
+        (conversation.participants || []).forEach((uid) => {
+          const name = namesMap[uid];
+          if (!name) return;
+          const label = `@${name}`;
+          if (textContent.includes(label)) labels.push(label);
+        });
+      }
+
+      if (labels.length === 0) return textContent;
+
+      // Sort labels by length desc to avoid partial overlaps
+      labels.sort((a, b) => b.length - a.length);
+
+      const parts = [];
+      let i = 0;
+      while (i < textContent.length) {
+        let foundLabel = null;
+        let foundIndex = -1;
+        for (const label of labels) {
+          const idx = textContent.indexOf(label, i);
+          if (idx !== -1 && (foundIndex === -1 || idx < foundIndex)) {
+            foundLabel = label;
+            foundIndex = idx;
+            // earliest match found; keep searching for an even earlier one among labels
+          }
+        }
+        if (foundIndex === -1) {
+          parts.push(textContent.substring(i));
+          break;
+        }
+        if (foundIndex > i) {
+          parts.push(textContent.substring(i, foundIndex));
+        }
+        parts.push(
+          <strong key={`m-${foundIndex}`} className="font-bold text-blue-600 dark:text-blue-400">
+            {foundLabel}
+          </strong>
+        );
+        i = foundIndex + foundLabel.length;
+      }
+
+      return parts;
+    };
   
   // Load more older messages (lazy loading)
   const handleLoadMore = async () => {
@@ -516,24 +732,46 @@ const ChatWindow = () => {
             </button>
           </div>
 
-          {/* Delete Conversation Button */}
-          <button
-            onClick={handleDeleteConversation}
-            disabled={deleting}
-            className={`p-2 rounded-lg transition-colors ${
-              deleting 
-                ? 'opacity-50 cursor-not-allowed' 
-                : 'hover:bg-red-50 dark:hover:bg-red-900/20'
-            }`}
-            title="Delete conversation"
-            aria-label="Delete conversation"
-          >
-            {deleting ? (
-              <Loader2 size={20} className="animate-spin text-red-600 dark:text-red-400" />
-            ) : (
-              <Trash2 size={20} className="text-red-600 dark:text-red-400" />
-            )}
-          </button>
+          {/* Delete/Leave Button */}
+          {isGroup && !isAdmin ? (
+            // Leave Group button for non-admin members
+            <button
+              onClick={handleLeaveGroup}
+              disabled={deleting}
+              className={`p-2 rounded-lg transition-colors ${
+                deleting 
+                  ? 'opacity-50 cursor-not-allowed' 
+                  : 'hover:bg-orange-50 dark:hover:bg-orange-900/20'
+              }`}
+              title="Leave group"
+              aria-label="Leave group"
+            >
+              {deleting ? (
+                <Loader2 size={20} className="animate-spin text-orange-600 dark:text-orange-400" />
+              ) : (
+                <LogOut size={20} className="text-orange-600 dark:text-orange-400" />
+              )}
+            </button>
+          ) : (
+            // Delete Conversation button for DMs or admin
+            <button
+              onClick={handleDeleteConversation}
+              disabled={deleting}
+              className={`p-2 rounded-lg transition-colors ${
+                deleting 
+                  ? 'opacity-50 cursor-not-allowed' 
+                  : 'hover:bg-red-50 dark:hover:bg-red-900/20'
+              }`}
+              title="Delete conversation"
+              aria-label="Delete conversation"
+            >
+              {deleting ? (
+                <Loader2 size={20} className="animate-spin text-red-600 dark:text-red-400" />
+              ) : (
+                <Trash2 size={20} className="text-red-600 dark:text-red-400" />
+              )}
+            </button>
+          )}
         </div>
 
   {/* Messages Area */}
@@ -572,8 +810,26 @@ const ChatWindow = () => {
               const reactions = message.reactions || {};
               const hasReactions = Object.keys(reactions).length > 0;
 
+              // Render system messages differently (centered, no bubble)
+              if (message.type === 'system') {
+                return (
+                  <div
+                    id={`message-${message.id}`}
+                    key={message.id}
+                    className="flex justify-center my-4"
+                  >
+                    <div className="px-4 py-2 rounded-full bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+                      <p className="text-xs text-gray-600 dark:text-gray-400 font-medium">
+                        {message.content}
+                      </p>
+                    </div>
+                  </div>
+                );
+              }
+
               return (
                 <div
+                  id={`message-${message.id}`}
                   key={message.id}
                   className={`flex gap-2 ${isCurrentUser ? 'flex-row-reverse' : 'flex-row'}`}
                 >
@@ -585,16 +841,24 @@ const ChatWindow = () => {
                         const senderPhoto = conversation.participantPhotos?.[message.senderId] || '';
                         const senderName = conversation.participantNames?.[message.senderId] || 'User';
                         
-                        return senderPhoto ? (
-                          <img
-                            src={senderPhoto}
-                            alt={senderName}
-                            className="w-8 h-8 rounded-full object-cover"
-                          />
-                        ) : (
-                          <div className="w-8 h-8 rounded-full bg-linear-to-br from-green-500 to-emerald-500 flex items-center justify-center text-white text-xs font-bold">
-                            {senderName.charAt(0).toUpperCase()}
-                          </div>
+                        return (
+                          <button
+                            onClick={() => navigate(`/profile/${message.senderId}`)}
+                            className="focus:outline-none focus:ring-2 focus:ring-green-500 rounded-full transition-transform hover:scale-110"
+                            title={`View ${senderName}'s profile`}
+                          >
+                            {senderPhoto ? (
+                              <img
+                                src={senderPhoto}
+                                alt={senderName}
+                                className="w-8 h-8 rounded-full object-cover cursor-pointer"
+                              />
+                            ) : (
+                              <div className="w-8 h-8 rounded-full bg-linear-to-br from-green-500 to-emerald-500 flex items-center justify-center text-white text-xs font-bold cursor-pointer">
+                                {senderName.charAt(0).toUpperCase()}
+                              </div>
+                            )}
+                          </button>
                         );
                       })()
                     )}
@@ -611,7 +875,20 @@ const ChatWindow = () => {
                             ? 'bg-white text-gray-800 border border-emerald-300 dark:bg-emerald-900/20 dark:text-gray-100 dark:border-emerald-800 rounded-br-sm'
                             : 'bg-white text-gray-800 border border-gray-300 dark:bg-gray-800 dark:text-gray-100 dark:border-gray-700 rounded-bl-sm');
                       return (
-                        <div className={`${bubbleBase} ${bubbleTone}`}>
+                        <div 
+                          className={`${bubbleBase} ${bubbleTone}`}
+                          onMouseDown={(e) => handleMessageLongPress(message.id, message.senderId, e)}
+                          onMouseUp={handleMessageLongPressEnd}
+                          onMouseLeave={handleMessageLongPressEnd}
+                          onTouchStart={(e) => handleMessageLongPress(message.id, message.senderId, e)}
+                          onTouchEnd={handleMessageLongPressEnd}
+                          onContextMenu={(e) => {
+                            if (message.senderId === currentUser.uid) {
+                              e.preventDefault();
+                              setLongPressedMessage(message.id);
+                            }
+                          }}
+                        >
                           {/* Render different message types */}
                           {message.type === 'audio' && message.audioUrl ? (
                             <audio controls src={message.audioUrl} className="max-w-full">
@@ -631,21 +908,70 @@ const ChatWindow = () => {
                               )}
                             </div>
                           ) : message.type === 'campaign' && message.campaign ? (
-                            <CampaignContextCard campaign={message.campaign} compact={false} />
+                            <div>
+                              {(() => {
+                                try {
+                                  console.log('Rendering campaign card:', message.campaign);
+                                  return <CampaignContextCard campaign={message.campaign} compact={false} />;
+                                } catch (err) {
+                                  console.error('Error rendering campaign card:', err);
+                                  return (
+                                    <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                                      <p className="text-sm text-red-600 dark:text-red-400">Failed to load campaign</p>
+                                    </div>
+                                  );
+                                }
+                              })()}
+                            </div>
                           ) : (
-                            <p className="whitespace-pre-wrap wrap-break-word text-gray-800 dark:text-gray-100">{message.content}</p>
+                              <p className="whitespace-pre-wrap wrap-break-word text-gray-800 dark:text-gray-100">
+                                {renderMessageContent(message.content, message)}
+                              </p>
                           )}
                           {/* Emoji picker button (appears on hover) */}
-                          <button
-                            onClick={(e) => toggleEmojiPicker(message.id, e)}
-                            className={`absolute -bottom-2 opacity-0 group-hover:opacity-100 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-full p-1 transition-opacity hover:scale-110 ${
-                              isCurrentUser ? '-right-2' : '-left-2'
-                            }`}
-                            title="React"
-                            type="button"
-                          >
-                            <Smile size={14} className="text-gray-700 dark:text-gray-300" />
-                          </button>
+                          {message.type !== 'system' && (
+                            <button
+                              onClick={(e) => toggleEmojiPicker(message.id, e)}
+                              className={`absolute -bottom-2 opacity-0 group-hover:opacity-100 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-full p-1 transition-opacity hover:scale-110 ${
+                                isCurrentUser ? '-right-2' : '-left-2'
+                              }`}
+                              title="React"
+                              type="button"
+                            >
+                              <Smile size={14} className="text-gray-700 dark:text-gray-300" />
+                            </button>
+                          )}
+                          
+                          {/* Delete button (appears on long press or right click for own messages) */}
+                          {longPressedMessage === message.id && message.senderId === currentUser.uid && (
+                            <div className={`absolute -top-10 ${isCurrentUser ? 'right-0' : 'left-0'} bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg shadow-lg p-2 z-10 animate-fade-in`}>
+                              <button
+                                onClick={() => handleDeleteMessage(message.id)}
+                                disabled={deletingMessageId === message.id}
+                                className="flex items-center gap-2 px-3 py-1.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors disabled:opacity-50"
+                                type="button"
+                              >
+                                {deletingMessageId === message.id ? (
+                                  <>
+                                    <Loader2 size={14} className="animate-spin" />
+                                    Deleting...
+                                  </>
+                                ) : (
+                                  <>
+                                    <Trash2 size={14} />
+                                    Delete
+                                  </>
+                                )}
+                              </button>
+                              <button
+                                onClick={() => setLongPressedMessage(null)}
+                                className="flex items-center gap-2 px-3 py-1.5 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 rounded transition-colors mt-1"
+                                type="button"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          )}
                         </div>
                       );
                     })()}

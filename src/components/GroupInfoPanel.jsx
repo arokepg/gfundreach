@@ -1,13 +1,15 @@
 import { useEffect, useMemo, useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { useNavigate } from 'react-router-dom';
 import { useTheme } from '../contexts/ThemeContext';
-import { X, Shield, UserRound, Check, XCircle, Upload, Users, Image as ImageIcon, Link as LinkIcon, Music2, Search } from 'lucide-react';
+import { X, Shield, UserRound, Check, XCircle, Upload, Users, Image as ImageIcon, Link as LinkIcon, Music2, Search, Trash2, LogOut } from 'lucide-react';
 import CampaignContextCard from './CampaignContextCard';
-import { approveInvite, getSharedMedia, inviteMember, rejectInvite, setGroupRole, updateGroupSettings, getConversation } from '../utils/messaging';
+import { approveInvite, getSharedMedia, inviteMember, rejectInvite, setGroupRole, updateGroupSettings, getConversation, backfillParticipantPhotos, removeMemberFromGroup, leaveGroup } from '../utils/messaging';
 import { useAuth } from '../contexts/AuthContext';
 import { uploadImageAsBase64 } from '../utils/base64Upload';
 import { db } from '../config/firebase';
-import { collection, query, where, getDocs, limit } from 'firebase/firestore';
+import { getDoc, doc } from 'firebase/firestore';
+import { listFriendIds } from '../utils/friends';
 
 /**
  * GroupInfoPanel - right-side drawer for managing a group conversation
@@ -19,6 +21,7 @@ import { collection, query, where, getDocs, limit } from 'firebase/firestore';
 const GroupInfoPanel = ({ conversationId, open, onClose }) => {
   const { currentUser } = useAuth();
   const { isDarkMode } = useTheme();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [conv, setConv] = useState(null);
   const [tab, setTab] = useState('overview'); // overview | shared
@@ -31,6 +34,8 @@ const GroupInfoPanel = ({ conversationId, open, onClose }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
+  const [friends, setFriends] = useState([]); // [{uid, displayName, photoURL, email}]
+  const [loadingFriends, setLoadingFriends] = useState(false);
   const imageInputRef = useRef(null);
   const searchTimeoutRef = useRef(null);
 
@@ -52,19 +57,60 @@ const GroupInfoPanel = ({ conversationId, open, onClose }) => {
         setInvitePermission(settings.invitePermission || 'approval');
         const m = await getSharedMedia(conversationId, 200);
         setMedia(m);
+        
+        // Backfill missing participant photos
+        if (c?.type === 'group') {
+          const participantPhotos = c.participantPhotos || {};
+          const participantNames = c.participantNames || {};
+          const participants = c.participants || [];
+          const hasMissingProfiles = participants.some(uid => !participantPhotos[uid] || !participantNames[uid] || participantNames[uid] === uid || participantNames[uid] === 'User');
+
+          if (hasMissingProfiles) {
+            backfillParticipantPhotos(conversationId).catch(err => 
+              console.warn('Failed to backfill profiles:', err)
+            );
+          }
+        }
       } finally {
         setLoading(false);
       }
     })();
   }, [open, conversationId]);
 
-  // User search with debouncing
+  // Load current user's friends (profiles) once when panel opens
+  useEffect(() => {
+    if (!open || !currentUser?.uid) return;
+    (async () => {
+      try {
+        setLoadingFriends(true);
+        const ids = await listFriendIds(currentUser.uid);
+        if (!ids || ids.length === 0) {
+          setFriends([]);
+          return;
+        }
+        // Fetch user profiles by id (simple fan-out)
+        const snaps = await Promise.all(ids.map((uid) => getDoc(doc(db, 'users', uid)).catch(() => null)));
+        const profiles = snaps
+          .filter((s) => s && s.exists())
+          .map((s) => ({ uid: s.id, ...(s.data() || {}) }));
+        setFriends(profiles);
+      } catch (err) {
+        console.warn('Failed to load friends:', err);
+        setFriends([]);
+      } finally {
+        setLoadingFriends(false);
+      }
+    })();
+  }, [open, currentUser?.uid]);
+
+  // User search within Friends with debouncing (by name)
   useEffect(() => {
     if (searchTimeoutRef.current) {
       clearTimeout(searchTimeoutRef.current);
     }
 
-    if (!searchQuery || searchQuery.trim().length < 2) {
+    // Allow empty/short queries to show nothing
+    if (!searchQuery || searchQuery.trim().length < 1) {
       setSearchResults([]);
       return;
     }
@@ -73,26 +119,18 @@ const GroupInfoPanel = ({ conversationId, open, onClose }) => {
       setSearching(true);
       try {
         const searchLower = searchQuery.toLowerCase().trim();
-        const usersRef = collection(db, 'users');
-        const q = query(
-          usersRef,
-          where('displayName', '>=', searchLower),
-          where('displayName', '<=', searchLower + '\uf8ff'),
-          limit(10)
-        );
-        
-        const snapshot = await getDocs(q);
-        const results = snapshot.docs
-          .map(doc => ({
-            uid: doc.id,
-            ...doc.data()
-          }))
-          // Filter out users already in the conversation
-          .filter(user => !conv?.participants?.includes(user.uid));
-        
+        const pending = Object.keys(conv?.pendingInvites || {});
+        // Filter friends locally by name or email
+        const results = friends
+          .filter((f) => !conv?.participants?.includes(f.uid))
+          .filter((f) => !pending.includes(f.uid))
+          .filter((f) => (f.displayName || '').toLowerCase().includes(searchLower))
+          .slice(0, 10);
+
         setSearchResults(results);
       } catch (error) {
-        console.error('Error searching users:', error);
+        console.error('Error filtering friends:', error);
+        setSearchResults([]);
       } finally {
         setSearching(false);
       }
@@ -103,7 +141,7 @@ const GroupInfoPanel = ({ conversationId, open, onClose }) => {
         clearTimeout(searchTimeoutRef.current);
       }
     };
-  }, [searchQuery, conv?.participants]);
+  }, [searchQuery, conv?.participants, conv?.pendingInvites, friends]);
 
   const handleAvatarUpload = async (e) => {
     const file = e.target.files?.[0];
@@ -113,6 +151,16 @@ const GroupInfoPanel = ({ conversationId, open, onClose }) => {
     try {
       const base64 = await uploadImageAsBase64(file);
       setImageUrl(base64);
+      // Persist immediately so other views (header, list) update in real time
+      try {
+        await updateGroupSettings(conversationId, currentUser.uid, { groupImageUrl: base64 });
+        setConv(prev => ({
+          ...prev,
+          settings: { ...(prev?.settings || {}), groupImageUrl: base64 }
+        }));
+      } catch (persistErr) {
+        console.warn('Failed to persist group avatar immediately; will rely on Save button:', persistErr);
+      }
     } catch (err) {
       console.error('Failed to upload avatar:', err);
       alert('Failed to upload image. Please try again.');
@@ -146,9 +194,29 @@ const GroupInfoPanel = ({ conversationId, open, onClose }) => {
   const handleInvite = async (userId) => {
     if (!userId) return;
     try {
-      const res = await inviteMember(conversationId, currentUser.uid, userId);
+      // Fetch user's profile to capture display name and avatar
+      let userName = 'User';
+      let userPhoto = '';
+      try {
+        const snap = await getDoc(doc(db, 'users', userId));
+        if (snap.exists()) {
+          const u = snap.data() || {};
+          userName = u.displayName || u.email || 'User';
+          userPhoto = u.photoURL || '';
+        }
+      } catch {/* non-fatal */}
+
+      const res = await inviteMember(conversationId, currentUser.uid, userId, userName, userPhoto);
       if (res.status === 'joined') {
-        setConv(prev => ({ ...prev, participants: [...(prev.participants || []), userId] }));
+        // Joined immediately (auto mode or inviter is admin): update local maps so UI shows name/photo
+        setConv(prev => ({
+          ...prev,
+          participants: [...(prev.participants || []), userId],
+          participantNames: { ...(prev.participantNames || {}), [userId]: userName },
+          participantPhotos: { ...(prev.participantPhotos || {}), [userId]: userPhoto },
+          roles: { ...(prev.roles || {}), [userId]: 'member' },
+          unreadCount: { ...(prev.unreadCount || {}), [userId]: 0 },
+        }));
       } else if (res.status === 'pending') {
         setConv(prev => ({ ...prev, pendingInvites: { ...(prev.pendingInvites || {}), [userId]: { invitedBy: currentUser.uid, invitedAt: new Date() } } }));
       }
@@ -162,10 +230,26 @@ const GroupInfoPanel = ({ conversationId, open, onClose }) => {
 
   const handleApprove = async (uid) => {
     try {
-      await approveInvite(conversationId, currentUser.uid, uid);
+      // Resolve user profile to store name/photo for the approved member
+      let userName = 'User';
+      let userPhoto = '';
+      try {
+        const snap = await getDoc(doc(db, 'users', uid));
+        if (snap.exists()) {
+          const u = snap.data() || {};
+          userName = u.displayName || u.email || 'User';
+          userPhoto = u.photoURL || '';
+        }
+      } catch {/* ignore */}
+
+      await approveInvite(conversationId, currentUser.uid, uid, userName, userPhoto);
       setConv(prev => ({
         ...prev,
         participants: [...(prev.participants || []), uid],
+        participantNames: { ...(prev.participantNames || {}), [uid]: userName },
+        participantPhotos: { ...(prev.participantPhotos || {}), [uid]: userPhoto },
+        roles: { ...(prev.roles || {}), [uid]: 'member' },
+        unreadCount: { ...(prev.unreadCount || {}), [uid]: 0 },
         pendingInvites: { ...(prev.pendingInvites || {}), [uid]: undefined },
       }));
     } catch (e) { alert(e.message || 'Approve failed'); }
@@ -184,6 +268,74 @@ const GroupInfoPanel = ({ conversationId, open, onClose }) => {
       setConv(prev => ({ ...prev, roles: { ...(prev.roles || {}), [uid]: role } }));
     } catch (e) { alert(e.message || 'Change role failed'); }
   };
+
+  const handleRemoveMember = async (uid) => {
+    const memberName = conv?.participantNames?.[uid] || uid;
+    if (!confirm(`Are you sure you want to remove ${memberName} from the group?`)) {
+      return;
+    }
+    
+    try {
+      await removeMemberFromGroup(conversationId, currentUser.uid, uid, memberName);
+      setConv(prev => ({
+        ...prev,
+        participants: (prev.participants || []).filter(id => id !== uid),
+      }));
+      alert('Member removed successfully');
+    } catch (e) {
+      alert(e.message || 'Failed to remove member');
+    }
+  };
+
+  const handleLeaveGroup = async () => {
+    const userName = currentUser?.displayName || 'User';
+    
+    // Check if user is the only admin
+    const roles = conv?.roles || {};
+    const isCurrentUserAdmin = conv?.createdBy === currentUser?.uid || roles[currentUser?.uid] === 'admin';
+    
+    if (isCurrentUserAdmin) {
+      const adminCount = (conv?.participants || []).filter(id => 
+        conv?.createdBy === id || roles[id] === 'admin'
+      ).length;
+      
+      if (adminCount === 1 && (conv?.participants || []).length > 1) {
+        alert('You are the only admin. Please promote another member to admin before leaving.');
+        return;
+      }
+    }
+    
+    if (!confirm('Are you sure you want to leave this group?')) {
+      return;
+    }
+    
+    try {
+      await leaveGroup(conversationId, currentUser.uid, userName);
+      onClose(); // Close the panel first
+      // Redirect to messages page
+      navigate('/messages');
+    } catch (e) {
+      alert(e.message || 'Failed to leave group');
+    }
+  };
+
+  const canLeaveGroup = useMemo(() => {
+    // Admin can leave if there are other admins OR if they're the only member
+    const roles = conv?.roles || {};
+    const isCurrentUserAdmin = conv?.createdBy === currentUser?.uid || roles[currentUser?.uid] === 'admin';
+    
+    if (!isCurrentUserAdmin) {
+      return true; // Regular members can always leave
+    }
+    
+    const participants = conv?.participants || [];
+    const adminCount = participants.filter(id => 
+      conv?.createdBy === id || roles[id] === 'admin'
+    ).length;
+    
+    // Can leave if: more than one admin, OR only member in group
+    return adminCount > 1 || participants.length === 1;
+  }, [conv, currentUser?.uid]);
 
   if (!open) return null;
 
@@ -303,8 +455,8 @@ const GroupInfoPanel = ({ conversationId, open, onClose }) => {
                         className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-green-500 focus:border-transparent"
                       />
                     </div>
-                    {searching && (
-                      <div className="mt-2 text-sm text-gray-600 dark:text-gray-400">Searching...</div>
+                    {(searching || loadingFriends) && (
+                      <div className="mt-2 text-sm text-gray-600 dark:text-gray-400">{loadingFriends ? 'Loading friends...' : 'Searching...'}</div>
                     )}
                     {searchResults.length > 0 && (
                       <div className="mt-2 max-h-60 overflow-y-auto scrollbar-hide space-y-2 border border-gray-300 dark:border-gray-700 rounded-lg p-2 bg-white dark:bg-gray-800">
@@ -333,8 +485,8 @@ const GroupInfoPanel = ({ conversationId, open, onClose }) => {
                         ))}
                       </div>
                     )}
-                    {searchQuery.trim().length >= 2 && !searching && searchResults.length === 0 && (
-                      <div className="mt-2 text-sm text-gray-600 dark:text-gray-400">No users found</div>
+                    {searchQuery.trim().length >= 1 && !searching && searchResults.length === 0 && (
+                      <div className="mt-2 text-sm text-gray-600 dark:text-gray-400">No matching friends</div>
                     )}
                   </div>
                   {conv?.pendingInvites && Object.keys(conv.pendingInvites).length>0 && (
@@ -365,6 +517,7 @@ const GroupInfoPanel = ({ conversationId, open, onClose }) => {
                       const name = conv?.participantNames?.[uid] || uid;
                       const photo = conv?.participantPhotos?.[uid] || '';
                       const role = conv?.roles?.[uid] || 'member';
+                      const isCurrentUser = uid === currentUser?.uid;
                       return (
                         <li key={uid} className="flex items-center justify-between p-3 rounded-lg border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
                           <div className="flex items-center gap-3 min-w-0">
@@ -372,20 +525,50 @@ const GroupInfoPanel = ({ conversationId, open, onClose }) => {
                               {photo ? <img src={photo} alt={name} className="w-full h-full object-cover"/> : <UserRound size={20} className="text-gray-500 dark:text-gray-400"/>}
                             </div>
                             <div className="min-w-0">
-                              <div className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{name}</div>
+                              <div className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                                {name}
+                                {isCurrentUser && <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">(You)</span>}
+                              </div>
                               <div className="text-xs text-gray-600 dark:text-gray-400 flex items-center gap-1">{role==='admin'?<Shield size={12}/>:null}{role}</div>
                             </div>
                           </div>
-                          {isAdmin && currentUser?.uid !== uid && (
-                            <select className="text-sm border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-1 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-green-500" value={role} onChange={(e)=>handleRole(uid, e.target.value)}>
-                              <option value="member">Member</option>
-                              <option value="admin">Admin</option>
-                            </select>
+                          {isAdmin && !isCurrentUser && (
+                            <div className="flex items-center gap-2">
+                              <select className="text-sm border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-1 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-green-500" value={role} onChange={(e)=>handleRole(uid, e.target.value)}>
+                                <option value="member">Member</option>
+                                <option value="admin">Admin</option>
+                              </select>
+                              <button
+                                onClick={() => handleRemoveMember(uid)}
+                                className="p-2 rounded-lg bg-red-600 hover:bg-red-700 text-white transition-colors"
+                                title="Remove member"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
                           )}
                         </li>
                       );
                     })}
                   </ul>
+                </div>
+
+                {/* Leave Group Button */}
+                <div className="pt-4 border-t border-gray-200 dark:border-gray-800">
+                  <button
+                    onClick={handleLeaveGroup}
+                    disabled={!canLeaveGroup}
+                    className="w-full px-4 py-3 rounded-lg bg-red-600 hover:bg-red-700 text-white font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+                    title={!canLeaveGroup ? 'You must promote another admin before leaving' : 'Leave this group'}
+                  >
+                    <LogOut size={18} />
+                    Leave Group
+                  </button>
+                  {!canLeaveGroup && (
+                    <p className="mt-2 text-xs text-gray-600 dark:text-gray-400 text-center">
+                      You are the only admin. Promote another member to admin before leaving.
+                    </p>
+                  )}
                 </div>
               </div>
             ) : (

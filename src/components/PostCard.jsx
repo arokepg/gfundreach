@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { doc, updateDoc, increment, arrayUnion, arrayRemove, getDoc } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { useAuth } from '../contexts/AuthContext';
-import { createOrGroupLikeNotification, createOrGroupShareNotification } from '../utils/notifications';
+import { createOrGroupLikeNotification } from '../utils/notifications';
 import { saveItem, unsaveItem, isItemSaved } from '../utils/savedItems';
 import FavoriteIcon from '@mui/icons-material/Favorite';
 import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
@@ -15,6 +15,7 @@ import LocationOnIcon from '@mui/icons-material/LocationOn';
 import VerifiedIcon from '@mui/icons-material/Verified';
 import FlagIcon from '@mui/icons-material/Flag';
 import { formatCurrencyShort } from '../utils/numberFormat';
+import ShareToChatModal from './ShareToChatModal';
 import { reportContent } from '../utils/reports';
 
 const PostCard = ({ post }) => {
@@ -22,11 +23,12 @@ const PostCard = ({ post }) => {
   const { currentUser, userProfile } = useAuth();
   const [isLiked, setIsLiked] = useState(post.likedBy?.includes(currentUser?.uid) || false);
   const [likesCount, setLikesCount] = useState(post.likesCount || 0);
-  const [sharesCount, setSharesCount] = useState(post.sharesCount || 0);
+  const sharesCount = post.sharesCount || 0;
   const [isSaved, setIsSaved] = useState(false);
   const progress = post.goalAmount ? (post.currentAmount / post.goalAmount) * 100 : 0;
   const isCompleted = (post.currentAmount || 0) >= (post.goalAmount || Infinity);
   const [groupName, setGroupName] = useState('');
+  const [openShare, setOpenShare] = useState(false);
 
   // Fetch group name for group campaigns
   useEffect(() => {
@@ -125,47 +127,9 @@ const PostCard = ({ post }) => {
     }
   };
 
-  const handleShare = async (e) => {
+  const handleShare = (e) => {
     e.stopPropagation();
-    
-    try {
-      // Increment share count
-      const postRef = doc(db, 'posts', post.id);
-      await updateDoc(postRef, {
-        sharesCount: increment(1),
-      });
-      setSharesCount(prev => prev + 1);
-
-      // Share via Web Share API or copy link
-      const url = `${window.location.origin}/post/${post.id}`;
-      if (navigator.share) {
-        await navigator.share({
-          title: post.title,
-          text: post.description,
-          url: url,
-        });
-      } else {
-        await navigator.clipboard.writeText(url);
-        alert('Link copied to clipboard!');
-      }
-
-      // Create grouped share notification for post author
-      try {
-        if (post?.authorId && currentUser?.uid !== post.authorId) {
-          await createOrGroupShareNotification(post.authorId, {
-            senderId: currentUser.uid,
-            senderName: userProfile?.name || currentUser.displayName || 'Someone',
-            postId: post.id,
-            postTitle: post.title || '',
-            postType: 'campaign'
-          });
-        }
-      } catch {/* non-fatal */}
-    } catch (error) {
-      if (error.name !== 'AbortError') {
-        console.error('Error sharing:', error);
-      }
-    }
+    setOpenShare(true);
   };
 
   const handleReport = async (e) => {
@@ -242,6 +206,7 @@ const PostCard = ({ post }) => {
   };
 
   return (
+  <>
   <div
     className="card overflow-hidden hover:shadow-lg transition-all duration-300 md:hover:-translate-y-1 animate-fade-in cursor-pointer"
     onClick={navigateToPost}
@@ -430,6 +395,8 @@ const PostCard = ({ post }) => {
         </Link>
       </div>
     </div>
+    <ShareToChatModal open={openShare} onClose={() => setOpenShare(false)} post={post} />
+  </>
   );
 };
 

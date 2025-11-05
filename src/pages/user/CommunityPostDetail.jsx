@@ -7,6 +7,7 @@ import { db } from '../../config/firebase';
 import { useAuth } from '../../contexts/AuthContext';
 import { createOrGroupLikeNotification, createOrGroupShareNotification } from '../../utils/notifications';
 import Layout from '../../components/Layout';
+import ShareToChatModal from '../../components/ShareToChatModal';
 import PersonIcon from '@mui/icons-material/Person';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CampaignIcon from '@mui/icons-material/Campaign';
@@ -28,6 +29,8 @@ const CommunityPostDetail = () => {
   const [sharesCount, setSharesCount] = useState(0);
   const [isSaved, setIsSaved] = useState(false);
   const navigate = useNavigate();
+  const [shareOpen, setShareOpen] = useState(false);
+  const [postToShare, setPostToShare] = useState(null);
   const queryClient = useQueryClient();
 
   useEffect(() => {
@@ -130,38 +133,16 @@ const CommunityPostDetail = () => {
     }
   };
 
-  const sharePost = async () => {
+  const sharePost = () => {
     if (!post) return;
-    const ref = doc(db, 'posts', campaignId, 'updates', postId);
-    try {
-      try {
-        await updateDoc(ref, { sharesCount: increment(1) });
-        setSharesCount((c) => c + 1);
-      } catch (e) {
-        console.warn('Share increment failed (non-fatal):', e);
-      }
-      const url = `${window.location.origin}/community-post/${campaignId}/${postId}`;
-      if (navigator.share) {
-        await navigator.share({ title: campaign?.title || 'Community post', text: post.content, url });
-      } else {
-        await navigator.clipboard.writeText(url);
-        alert('Link copied to clipboard');
-      }
-      // Best-effort: notify post author about share
-      try {
-        if (post?.authorId && currentUser?.uid !== post.authorId) {
-          await createOrGroupShareNotification(post.authorId, {
-            senderId: currentUser.uid,
-            senderName: currentUser.displayName || 'Someone',
-            postId: post.id,
-            postTitle: campaign?.title || '',
-            postType: 'community post'
-          });
-        }
-      } catch {/* non-fatal */}
-    } catch (err) {
-      if (err?.name !== 'AbortError') console.error('Share failed', err);
-    }
+    // Open ShareToChat modal with proper metadata so it sends the parent campaign
+    setPostToShare({
+      ...post,
+      id: post.id, // update id
+      isUpdate: true,
+      campaignId,
+    });
+    setShareOpen(true);
   };
 
   const toggleSave = async () => {
@@ -361,6 +342,33 @@ const CommunityPostDetail = () => {
           </div>
         )}
       </div>
+      {/* Share to Chat Modal */}
+      <ShareToChatModal
+        open={shareOpen}
+        onClose={() => { setShareOpen(false); setPostToShare(null); }}
+        post={postToShare}
+        onShared={async () => {
+          try {
+            const ref = doc(db, 'posts', campaignId, 'updates', postId);
+            await updateDoc(ref, { sharesCount: increment(1) });
+            setSharesCount((c) => c + 1);
+            // Best-effort: notify author
+            try {
+              if (post?.authorId && currentUser?.uid !== post.authorId) {
+                await createOrGroupShareNotification(post.authorId, {
+                  senderId: currentUser.uid,
+                  senderName: currentUser.displayName || 'Someone',
+                  postId: post.id,
+                  postTitle: campaign?.title || '',
+                  postType: 'community post',
+                });
+              }
+            } catch {/* non-fatal */}
+          } catch (e) {
+            console.warn('Failed to increment shares after sharing to chat:', e);
+          }
+        }}
+      />
     </Layout>
   );
 };

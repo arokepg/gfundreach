@@ -764,3 +764,42 @@ html.dark .mobile-center-btn {
 }
 
 
+/* Highlight a particular message briefly (used when deep-linking to a message) */
+.highlight-mention {
+  animation: mentionFlash 1.8s ease-out;
+}
+
+@keyframes mentionFlash {
+  0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.45); background-color: rgba(16, 185, 129, 0.08); }
+  40% { box-shadow: 0 0 0 6px rgba(34, 197, 94, 0.12); background-color: rgba(16, 185, 129, 0.06); }
+  100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); background-color: transparent; }
+}
+
+/* Highlight effect for mentioned messages */
+.highlight-mention {
+  animation: highlight-pulse 2s ease-in-out;
+}
+
+@keyframes highlight-pulse {
+  0%, 100% {
+    background-color: transparent;
+  }
+  50% {
+    background-color: rgba(34, 197, 94, 0.2); /* green-500 with opacity */
+  }
+}
+
+html.dark .highlight-mention {
+  animation: highlight-pulse-dark 2s ease-in-out;
+}
+
+@keyframes highlight-pulse-dark {
+  0%, 100% {
+    background-color: transparent;
+  }
+  50% {
+    background-color: rgba(34, 197, 94, 0.3); /* green-500 with higher opacity for dark mode */
+  }
+}
+
+

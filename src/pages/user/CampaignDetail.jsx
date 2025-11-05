@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { doc, getDoc, collection, updateDoc, deleteDoc, arrayUnion, arrayRemove, runTransaction, serverTimestamp, increment, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import { useAuth } from '../../contexts/AuthContext';
-import { createNotification, createOrGroupLikeNotification, createOrGroupShareNotification } from '../../utils/notifications';
+import { createNotification, createOrGroupLikeNotification } from '../../utils/notifications';
 import Layout from '../../components/Layout';
 import CampaignUpdates from '../../components/CampaignUpdates';
 import CampaignMilestones from '../../components/CampaignMilestones';
@@ -19,6 +19,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import VerifiedIcon from '@mui/icons-material/Verified';
 import MessageCircle from '@mui/icons-material/Message';
 import { recordCampaignView } from '../../utils/viewTracker';
+import ShareToChatModal from '../../components/ShareToChatModal';
 import { formatCurrencyShort } from '../../utils/numberFormat';
 import { getMember } from '../../utils/groups';
 import FlagIcon from '@mui/icons-material/Flag';
@@ -36,6 +37,7 @@ const CampaignDetail = () => {
   const [isLiked, setIsLiked] = useState(false);
   const [likesCount, setLikesCount] = useState(0);
   const [sharesCount, setSharesCount] = useState(0);
+  const [openShare, setOpenShare] = useState(false);
   const [groupName, setGroupName] = useState('');
   const [canGroupModerate, setCanGroupModerate] = useState(false);
   const [donors, setDonors] = useState([]);
@@ -367,44 +369,9 @@ const CampaignDetail = () => {
     }
   };
 
-  const handleShare = async () => {
-    try {
-      // Increment share count
-      const postRef = doc(db, 'posts', id);
-      await updateDoc(postRef, {
-        sharesCount: increment(1),
-      });
-      setSharesCount(prev => prev + 1);
-
-      // Share via Web Share API or copy link
-      if (navigator.share) {
-        await navigator.share({
-          title: post.title,
-          text: post.description,
-          url: window.location.href,
-        });
-      } else {
-        await navigator.clipboard.writeText(window.location.href);
-        alert('Link copied to clipboard!');
-      }
-
-      // Create grouped share notification for post author
-      try {
-        if (post?.authorId && currentUser?.uid !== post.authorId) {
-          await createOrGroupShareNotification(post.authorId, {
-            senderId: currentUser.uid,
-            senderName: userProfile?.name || currentUser.displayName || 'Someone',
-            postId: post.id,
-            postTitle: post.title || '',
-            postType: 'campaign'
-          });
-        }
-      } catch {/* non-fatal */}
-    } catch (error) {
-      if (error.name !== 'AbortError') {
-        console.error('Error sharing:', error);
-      }
-    }
+  const handleShare = () => {
+    // Open our Share-to-chat modal; sharesCount increments when sending in modal
+    setOpenShare(true);
   };
 
   const handleReport = async () => {
@@ -479,6 +446,7 @@ const CampaignDetail = () => {
   }
 
   return (
+    <>
     <Layout>
       <div className="max-w-4xl mx-auto animate-fade-in">
         <button
@@ -911,7 +879,24 @@ const CampaignDetail = () => {
         </div>
       </div>
     </Layout>
+    <ShareToChatModal
+      open={openShare}
+      onClose={() => setOpenShare(false)}
+      onShared={() => setSharesCount((c) => c + 1)}
+      post={{
+        id: post.id,
+        title: post.title,
+        description: post.description || post.shortSummary || '',
+        imageUrl: post.imageUrl || '',
+        category: post.category || '',
+        currentAmount: post.currentAmount || 0,
+        goalAmount: post.goalAmount || 0,
+        supporters: post.supporters || 0,
+      }}
+    />
+    </>
   );
 };
 
 export default CampaignDetail;
+ 

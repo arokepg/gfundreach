@@ -9,15 +9,26 @@ import { formatCurrencyShort } from '../utils/numberFormat';
 const CampaignContextCard = ({ campaign, compact = false }) => {
   const navigate = useNavigate();
 
-  if (!campaign) return null;
+  if (!campaign) {
+    console.warn('CampaignContextCard: campaign is null or undefined');
+    return null;
+  }
 
-  const progress = campaign.goalAmount > 0 
-    ? Math.min((campaign.currentAmount / campaign.goalAmount) * 100, 100) 
+  // Safe defaults
+  const safeGoalAmount = typeof campaign.goalAmount === 'number' ? campaign.goalAmount : 0;
+  const safeCurrentAmount = typeof campaign.currentAmount === 'number' ? campaign.currentAmount : 0;
+  const safeSupporters = typeof campaign.supporters === 'number' ? campaign.supporters : 0;
+  const safeTitle = campaign.title || 'Untitled Campaign';
+  
+  const progress = safeGoalAmount > 0 
+    ? Math.min((safeCurrentAmount / safeGoalAmount) * 100, 100) 
     : 0;
 
   const handleClick = (e) => {
     e.preventDefault();
-    navigate(`/post/${campaign.id}`);
+    if (campaign.id) {
+      navigate(`/post/${campaign.id}`);
+    }
   };
 
   if (compact) {
@@ -28,9 +39,9 @@ const CampaignContextCard = ({ campaign, compact = false }) => {
       >
         <TrendingUp size={16} className="text-green-600 shrink-0" />
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-themed truncate">{campaign.title}</p>
+          <p className="text-sm font-medium text-themed truncate">{safeTitle}</p>
           <p className="text-xs text-themed-secondary truncate">
-            {formatCurrencyShort(campaign.currentAmount)} / {formatCurrencyShort(campaign.goalAmount)} • {progress.toFixed(0)}%
+            {formatCurrencyShort(safeCurrentAmount)} / {formatCurrencyShort(safeGoalAmount)} • {progress.toFixed(0)}%
           </p>
         </div>
         <ExternalLink size={14} className="text-themed-muted shrink-0" />
@@ -48,7 +59,7 @@ const CampaignContextCard = ({ campaign, compact = false }) => {
         <div className="relative h-32 bg-gray-200 dark:bg-gray-700">
           <img 
             src={campaign.imageUrl} 
-            alt={campaign.title}
+            alt={safeTitle}
             className="w-full h-full object-cover"
             onError={(e) => { e.target.style.display = 'none'; }}
           />
@@ -63,7 +74,7 @@ const CampaignContextCard = ({ campaign, compact = false }) => {
       {/* Campaign Info */}
       <div className="p-4 space-y-3">
         <div className="flex items-start justify-between gap-2">
-          <h4 className="font-semibold text-themed line-clamp-2">{campaign.title}</h4>
+          <h4 className="font-semibold text-themed line-clamp-2">{safeTitle}</h4>
           <ExternalLink size={16} className="text-themed-muted shrink-0 mt-1" />
         </div>
         
@@ -77,10 +88,10 @@ const CampaignContextCard = ({ campaign, compact = false }) => {
         <div className="space-y-1">
           <div className="flex justify-between text-sm">
             <span className="font-medium text-green-600">
-              {formatCurrencyShort(campaign.currentAmount)}
+              {formatCurrencyShort(safeCurrentAmount)}
             </span>
             <span className="text-themed-secondary">
-              of {formatCurrencyShort(campaign.goalAmount)}
+              of {formatCurrencyShort(safeGoalAmount)}
             </span>
           </div>
           <div className="relative w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
@@ -90,7 +101,7 @@ const CampaignContextCard = ({ campaign, compact = false }) => {
             />
           </div>
           <p className="text-xs text-themed-muted">
-            {progress.toFixed(1)}% funded • {campaign.supporters || 0} supporters
+            {progress.toFixed(1)}% funded • {safeSupporters} supporters
           </p>
         </div>
       </div>
