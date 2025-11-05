@@ -227,6 +227,8 @@ const CampaignDetail = () => {
         tx.update(donorRef, {
           walletBalance: (ddata?.walletBalance || 0) - amount,
           totalDonated: (ddata?.totalDonated || 0) + amount,
+          // Track unique recipients helped for leaderboard without reading others' transactions
+          helpedRecipientIds: arrayUnion(pdata.authorId),
         });
 
         // Recipient totals can be updated via Cloud Function or best-effort outside rules.

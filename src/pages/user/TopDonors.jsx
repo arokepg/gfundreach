@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react';
-import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
+import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import Layout from '../../components/Layout';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { formatCurrencyShort } from '../../utils/numberFormat';
 
 export default function TopDonors() {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [donors, setDonors] = useState([]);
 
@@ -14,54 +16,21 @@ export default function TopDonors() {
     const load = async () => {
       setLoading(true);
       try {
-        // Aggregate all donations by donorId in a single pass
-        let txDocs = [];
-        try {
-          const snap = await getDocs(collection(db, 'transactions'));
-          txDocs = snap.docs;
-        } catch (e) {
-          console.error('Failed to load transactions:', e);
-          txDocs = [];
-        }
+        // Leaderboard based on denormalized fields on user docs
+        const snap = await getDocs(collection(db, 'users'));
+        const rows = snap.docs.map(d => {
+          const u = d.data() || {};
+          return {
+            id: d.id,
+            name: u.displayName || u.email || 'Anonymous',
+            photoURL: u.photoURL || null,
+            totalDonated: Number(u.totalDonated || 0),
+            helpedCount: Array.isArray(u.helpedRecipientIds) ? u.helpedRecipientIds.length : Number(u.uniqueHelped || 0) || 0,
+          };
+        })
+        .filter(r => (r.totalDonated || 0) > 0)
+        .sort((a, b) => b.totalDonated - a.totalDonated);
 
-        const totals = new Map();
-        const recipientsByDonor = new Map();
-        for (const d of txDocs) {
-          const t = d.data();
-          const type = t.type || 'donation';
-          if (type !== 'donation') continue;
-          const donorId = t.donorId;
-          if (!donorId) continue;
-          const amt = Number(t.amount) || 0;
-          totals.set(donorId, (totals.get(donorId) || 0) + amt);
-          if (t.recipientId) {
-            if (!recipientsByDonor.has(donorId)) recipientsByDonor.set(donorId, new Set());
-            recipientsByDonor.get(donorId).add(t.recipientId);
-          }
-        }
-
-        // Fetch user profiles for donors
-        const donorIds = Array.from(totals.keys());
-        const donorProfiles = await Promise.all(
-          donorIds.map(async (uid) => {
-            try {
-              const snap = await getDoc(doc(db, 'users', uid));
-              return { uid, profile: snap.exists() ? snap.data() : null };
-            } catch {
-              return { uid, profile: null };
-            }
-          })
-        );
-
-        const rows = donorProfiles.map(({ uid, profile }) => ({
-          id: uid,
-          name: profile?.displayName || profile?.email || 'Anonymous',
-          photoURL: profile?.photoURL || null,
-          totalDonated: totals.get(uid) || 0,
-          helpedCount: recipientsByDonor.get(uid)?.size || 0,
-        }));
-
-        rows.sort((a, b) => b.totalDonated - a.totalDonated);
         setDonors(rows);
       } finally {
         setLoading(false);
@@ -75,7 +44,14 @@ export default function TopDonors() {
   return (
     <Layout>
       <div className="max-w-3xl mx-auto p-4">
-        <div className="flex items-center gap-2 mb-6">
+        <div className="flex items-center gap-3 mb-6">
+          <button
+            onClick={() => navigate(-1)}
+            className="p-2 rounded-lg hover:bg-(--hover-bg) active:scale-95 transition-all"
+            aria-label="Go back"
+          >
+            <ArrowBackIcon />
+          </button>
           <EmojiEventsIcon className="text-green-600" />
           <h1 className="text-2xl font-bold text-themed">Top Donors</h1>
         </div>

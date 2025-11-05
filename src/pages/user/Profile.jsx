@@ -3,6 +3,7 @@ import { formatCurrencyShort } from '../../utils/numberFormat';
 import { collection, query, where, getDocs, orderBy, deleteDoc, doc, getDoc, collectionGroup, updateDoc } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import { useAuth } from '../../contexts/AuthContext';
+import { useTheme } from '../../contexts/ThemeContext';
 import { Link, useNavigate, useParams, useLocation } from 'react-router-dom';
 import Layout from '../../components/Layout';
 import PersonIcon from '@mui/icons-material/Person';
@@ -31,6 +32,7 @@ import MessageIcon from '@mui/icons-material/Message';
 
 const Profile = () => {
   const { currentUser, userProfile: currentUserProfile, logout } = useAuth();
+  const { isDarkMode } = useTheme();
   const navigate = useNavigate();
   const { userId } = useParams(); // Get userId from URL if viewing another user's profile
   const [viewedUserProfile, setViewedUserProfile] = useState(null);
@@ -268,12 +270,24 @@ const Profile = () => {
       const { collection, query, where, getDocs } = await import('firebase/firestore');
       const { db } = await import('../../config/firebase');
       const col = collection(db, 'friendships');
-      const q = query(col, where('status', '==', 'pending'), where('users', 'array-contains', currentUser.uid));
-      const snap = await getDocs(q);
+
+      let snap;
+      try {
+        // Primary query (requires composite index): status == 'pending' + users array-contains
+        const q = query(col, where('status', '==', 'pending'), where('users', 'array-contains', currentUser.uid));
+        snap = await getDocs(q);
+      } catch (primaryErr) {
+        console.warn('Pending requests composite index missing, using fallback:', primaryErr?.message);
+        // Fallback: only filter by users array-contains; filter the rest client-side
+        const q2 = query(col, where('users', 'array-contains', currentUser.uid));
+        snap = await getDocs(q2);
+      }
+
       const requests = [];
       for (const d of snap.docs) {
         const data = d.data() || {};
-        if (data.requestedBy && data.requestedBy !== currentUser.uid) {
+        // Only keep those where status is pending and the current user is NOT the requester (i.e., received requests)
+        if ((data.status === 'pending') && data.requestedBy && data.requestedBy !== currentUser.uid) {
           // requestedBy is the sender
           try {
             const userDoc = await getDoc(doc(db, 'users', data.requestedBy));
@@ -701,25 +715,25 @@ const Profile = () => {
 
           {/* Action Buttons - Only show for own profile */}
           {isOwnProfile && (
-            <div className="mt-6 flex flex-wrap gap-3 md:gap-4 justify-center md:justify-start">
+            <div className="mt-6 flex items-center gap-2 sm:gap-3 md:gap-4 justify-center md:justify-start">
               {/* Create Campaign Button */}
               <Link
                 to="/create-post"
-                className="flex items-center gap-2 px-4 md:px-6 py-2 md:py-3 rounded-full transition-all duration-300 active:scale-95"
+                className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 md:px-6 py-2 md:py-3 rounded-full transition-all duration-300 active:scale-95 text-sm sm:text-base"
                 style={{ backgroundColor: 'var(--hover-bg)', color: 'var(--text)' }}
                 onMouseEnter={(e)=>{ e.currentTarget.style.backgroundColor = 'rgba(103,80,164,0.15)'; }}
                 onMouseLeave={(e)=>{ e.currentTarget.style.backgroundColor = 'var(--hover-bg)'; }}
               >
-                <AddIcon />
-                <span className="font-medium">Create Campaign</span>
+                <AddIcon sx={{ fontSize: { xs: 18, sm: 20, md: 24 } }} />
+                <span className="font-medium">Create</span>
               </Link>
 
               {/* Logout Button */}
               <button
                 onClick={handleLogout}
-                className="flex items-center gap-2 px-6 py-3 bg-red-500 hover:bg-red-600 text-white rounded-full transition-colors"
+                className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 md:px-6 py-2 md:py-3 bg-red-500 hover:bg-red-600 text-white rounded-full transition-colors text-sm sm:text-base"
               >
-                <LogoutIcon />
+                <LogoutIcon sx={{ fontSize: { xs: 18, sm: 20, md: 24 } }} />
                 <span className="font-medium">Logout</span>
               </button>
             </div>
@@ -728,10 +742,10 @@ const Profile = () => {
 
         {/* Tabs */}
         <div className="card mb-6">
-          <div className="flex border-b border-gray-200 dark:border-gray-700 overflow-x-auto scrollbar-hide" role="tablist" aria-label="Profile sections">
+          <div className="grid grid-cols-3 border-b border-gray-200 dark:border-gray-700" role="tablist" aria-label="Profile sections">
             <button
               onClick={() => setActiveTab('personal')}
-              className={`relative px-4 sm:px-6 py-3 sm:py-3 font-medium whitespace-nowrap transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500/40 text-sm sm:text-base border-b-2 ${
+              className={`relative py-2.5 sm:py-3 font-medium transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500/40 text-xs sm:text-sm md:text-base border-b-2 ${
                 activeTab === 'personal'
                   ? 'text-green-700 dark:text-green-400 border-green-600 dark:border-green-500 bg-green-50 dark:bg-green-900/20'
                   : 'text-gray-600 dark:text-gray-400 hover:bg-(--hover-bg) hover:text-(--text) border-transparent'
@@ -743,7 +757,7 @@ const Profile = () => {
             </button>
             <button
               onClick={() => setActiveTab('campaigns')}
-              className={`relative px-4 sm:px-6 py-3 sm:py-3 font-medium whitespace-nowrap transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500/40 text-sm sm:text-base border-b-2 ${
+              className={`relative py-2.5 sm:py-3 font-medium transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500/40 text-xs sm:text-sm md:text-base border-b-2 ${
                 activeTab === 'campaigns'
                   ? 'text-green-700 dark:text-green-400 border-green-600 dark:border-green-500 bg-green-50 dark:bg-green-900/20'
                   : 'text-gray-600 dark:text-gray-400 hover:bg-(--hover-bg) hover:text-(--text) border-transparent'
@@ -755,7 +769,7 @@ const Profile = () => {
             </button>
             <button
               onClick={() => setActiveTab('community')}
-              className={`relative px-4 sm:px-6 py-3 sm:py-3 font-medium whitespace-nowrap transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500/40 text-sm sm:text-base border-b-2 ${
+              className={`relative py-2.5 sm:py-3 font-medium transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500/40 text-xs sm:text-sm md:text-base border-b-2 ${
                 activeTab === 'community'
                   ? 'text-green-700 dark:text-green-400 border-green-600 dark:border-green-500 bg-green-50 dark:bg-green-900/20'
                   : 'text-gray-600 dark:text-gray-400 hover:bg-(--hover-bg) hover:text-(--text) border-transparent'
@@ -768,7 +782,7 @@ const Profile = () => {
             {(isOwnProfile || transactionsPrivacy === 'public') && (
               <button
                 onClick={() => setActiveTab('donations')}
-                className={`relative px-4 sm:px-6 py-3 sm:py-3 font-medium whitespace-nowrap transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500/40 text-sm sm:text-base border-b-2 ${
+                className={`relative py-2.5 sm:py-3 font-medium transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500/40 text-xs sm:text-sm md:text-base border-b-2 ${
                   activeTab === 'donations'
                     ? 'text-green-700 dark:text-green-400 border-green-600 dark:border-green-500 bg-green-50 dark:bg-green-900/20'
                     : 'text-gray-600 dark:text-gray-400 hover:bg-(--hover-bg) hover:text-(--text) border-transparent'
@@ -782,20 +796,20 @@ const Profile = () => {
             {(isOwnProfile || transactionsPrivacy === 'public') && (
               <button
                 onClick={() => setActiveTab('received')}
-                className={`relative px-4 sm:px-6 py-3 sm:py-3 font-medium whitespace-nowrap transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500/40 text-sm sm:text-base border-b-2 ${
+                className={`relative py-2.5 sm:py-3 font-medium transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500/40 text-xs sm:text-sm md:text-base border-b-2 ${
                   activeTab === 'received'
                     ? 'text-green-700 dark:text-green-400 border-green-600 dark:border-green-500 bg-green-50 dark:bg-green-900/20'
                     : 'text-gray-600 dark:text-gray-400 hover:bg-(--hover-bg) hover:text-(--text) border-transparent'
-                }`}
+              }`}
                 role="tab"
                 aria-selected={activeTab === 'received'}
               >
-                Received
+                Receive
               </button>
             )}
             <button
               onClick={() => setActiveTab('friends')}
-              className={`relative px-4 sm:px-6 py-3 sm:py-3 font-medium whitespace-nowrap transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500/40 text-sm sm:text-base border-b-2 ${
+              className={`relative py-2.5 sm:py-3 font-medium transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500/40 text-xs sm:text-sm md:text-base border-b-2 ${
                 activeTab === 'friends'
                   ? 'text-green-700 dark:text-green-400 border-green-600 dark:border-green-500 bg-green-50 dark:bg-green-900/20'
                   : 'text-gray-600 dark:text-gray-400 hover:bg-(--hover-bg) hover:text-(--text) border-transparent'
@@ -1117,9 +1131,35 @@ const Profile = () => {
             {/* Donations Tab */}
             {activeTab === 'donations' && (
               <div className="card p-6">
-                {/* Visibility toggle for Donations/Received (controls both) */}
-                {isOwnProfile && (
-                  <div className="flex items-center justify-end mb-4">
+                {/* Filter Buttons and Visibility Toggle - aligned in one row */}
+                <div className="flex items-center justify-between mb-6 gap-4 flex-wrap">
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setDonationFilter('all')}
+                      className={`px-4 py-2 rounded-full font-medium transition-all ${
+                        donationFilter === 'all' ? 'pill-active' : 'pill'
+                      }`}
+                    >
+                      All
+                    </button>
+                    <button
+                      onClick={() => setDonationFilter('7days')}
+                      className={`px-4 py-2 rounded-full font-medium transition-all ${
+                        donationFilter === '7days' ? 'pill-active' : 'pill'
+                      }`}
+                    >
+                      Last 7 days
+                    </button>
+                    <button
+                      onClick={() => setDonationFilter('30days')}
+                      className={`px-4 py-2 rounded-full font-medium transition-all ${
+                        donationFilter === '30days' ? 'pill-active' : 'pill'
+                      }`}
+                    >
+                      Last 30 days
+                    </button>
+                  </div>
+                  {isOwnProfile && (
                     <button
                       type="button"
                       onClick={(e) => { e.stopPropagation(); toggleTransactionsPrivacy(); }}
@@ -1138,34 +1178,7 @@ const Profile = () => {
                         </>
                       )}
                     </button>
-                  </div>
-                )}
-                {/* Filter Buttons */}
-                <div className="flex gap-2 mb-6">
-                  <button
-                    onClick={() => setDonationFilter('all')}
-                    className={`px-4 py-2 rounded-full font-medium transition-all ${
-                      donationFilter === 'all' ? 'pill-active' : 'pill'
-                    }`}
-                  >
-                    All
-                  </button>
-                  <button
-                    onClick={() => setDonationFilter('7days')}
-                    className={`px-4 py-2 rounded-full font-medium transition-all ${
-                      donationFilter === '7days' ? 'pill-active' : 'pill'
-                    }`}
-                  >
-                    Last 7 days
-                  </button>
-                  <button
-                    onClick={() => setDonationFilter('30days')}
-                    className={`px-4 py-2 rounded-full font-medium transition-all ${
-                      donationFilter === '30days' ? 'pill-active' : 'pill'
-                    }`}
-                  >
-                    Last 30 days
-                  </button>
+                  )}
                 </div>
 
                 {/* Table */}
@@ -1181,7 +1194,8 @@ const Profile = () => {
                     </p>
                   </div>
                 ) : (
-                  <div className="overflow-x-auto">
+                  <>
+                  <div className="hidden sm:block overflow-x-auto">
                     <table className="w-full">
                       <thead>
                         <tr className="border-b border-gray-200 dark:border-gray-700">
@@ -1269,6 +1283,67 @@ const Profile = () => {
                       </tbody>
                     </table>
                   </div>
+                  {/* Mobile card list */}
+                  <div className="sm:hidden space-y-3">
+                    {donations
+                      .filter((donation) => {
+                        if (donationFilter === 'all') return true;
+                        const donationDate = donation.createdAt?.toDate ? donation.createdAt.toDate() : new Date(donation.createdAt);
+                        const now = new Date();
+                        const daysDiff = Math.floor((now - donationDate) / (1000 * 60 * 60 * 24));
+                        if (donationFilter === '7days') return daysDiff <= 7;
+                        if (donationFilter === '30days') return daysDiff <= 30;
+                        return true;
+                      })
+                      .map((donation) => {
+                        const donationDate = donation.createdAt?.toDate 
+                          ? donation.createdAt.toDate() 
+                          : new Date(donation.createdAt);
+                        return (
+                          <div 
+                            key={donation.id} 
+                            className="p-4 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900"
+                            style={!isDarkMode ? { backgroundColor: '#ffffff', borderColor: '#e5e7eb' } : undefined}
+                          >
+                            <div className="flex items-center gap-3">
+                              <Link to={`/profile/${donation.recipientId || ''}`} state={{ tab: 'personal' }} className="w-10 h-10 rounded-full overflow-hidden bg-gray-200 dark:bg-gray-700 flex items-center justify-center shrink-0">
+                                {donation.recipientPhoto ? (
+                                  <img src={donation.recipientPhoto} alt={donation.recipientName} className="w-10 h-10 object-cover" />
+                                ) : (
+                                  <PersonIcon className="text-gray-400" />
+                                )}
+                              </Link>
+                              <div className="flex-1 min-w-0">
+                                <Link 
+                                  to={`/profile/${donation.recipientId || ''}`} 
+                                  state={{ tab: 'personal' }} 
+                                  className="font-medium hover:underline block truncate"
+                                  style={!isDarkMode ? { color: '#111827' } : { color: 'var(--text)' }}
+                                >
+                                  {donation.recipientName}
+                                </Link>
+                                <div 
+                                  className="text-xs truncate"
+                                  style={!isDarkMode ? { color: '#6b7280' } : undefined}
+                                >
+                                  {donation.campaignTitle}
+                                </div>
+                              </div>
+                              <div className="text-right shrink-0">
+                                <div className="font-semibold text-green-600 dark:text-green-400">{formatCurrency(donation.amount || 0)}</div>
+                                <div 
+                                  className="text-xs"
+                                  style={!isDarkMode ? { color: '#6b7280' } : undefined}
+                                >
+                                  {donationDate.toLocaleDateString('en-US', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                  </div>
+                  </>
                 )}
               </div>
             )}
@@ -1276,9 +1351,35 @@ const Profile = () => {
             {/* Received History Tab */}
             {activeTab === 'received' && (
               <div className="card p-6">
-                {/* Visibility toggle for Donations/Received (controls both) */}
-                {isOwnProfile && (
-                  <div className="flex items-center justify-end mb-4">
+                {/* Filter Buttons and Visibility Toggle - aligned in one row */}
+                <div className="flex items-center justify-between mb-6 gap-4 flex-wrap">
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setReceivedFilter('all')}
+                      className={`px-4 py-2 rounded-full font-medium transition-all ${
+                        receivedFilter === 'all' ? 'pill-active' : 'pill'
+                      }`}
+                    >
+                      All
+                    </button>
+                    <button
+                      onClick={() => setReceivedFilter('7days')}
+                      className={`px-4 py-2 rounded-full font-medium transition-all ${
+                        receivedFilter === '7days' ? 'pill-active' : 'pill'
+                      }`}
+                    >
+                      Last 7 days
+                    </button>
+                    <button
+                      onClick={() => setReceivedFilter('30days')}
+                      className={`px-4 py-2 rounded-full font-medium transition-all ${
+                        receivedFilter === '30days' ? 'pill-active' : 'pill'
+                      }`}
+                    >
+                      Last 30 days
+                    </button>
+                  </div>
+                  {isOwnProfile && (
                     <button
                       type="button"
                       onClick={(e) => { e.stopPropagation(); toggleTransactionsPrivacy(); }}
@@ -1297,34 +1398,7 @@ const Profile = () => {
                         </>
                       )}
                     </button>
-                  </div>
-                )}
-                {/* Filter Buttons */}
-                <div className="flex gap-2 mb-6">
-                  <button
-                    onClick={() => setReceivedFilter('all')}
-                    className={`px-4 py-2 rounded-full font-medium transition-all ${
-                      receivedFilter === 'all' ? 'pill-active' : 'pill'
-                    }`}
-                  >
-                    All
-                  </button>
-                  <button
-                    onClick={() => setReceivedFilter('7days')}
-                    className={`px-4 py-2 rounded-full font-medium transition-all ${
-                      receivedFilter === '7days' ? 'pill-active' : 'pill'
-                    }`}
-                  >
-                    Last 7 days
-                  </button>
-                  <button
-                    onClick={() => setReceivedFilter('30days')}
-                    className={`px-4 py-2 rounded-full font-medium transition-all ${
-                      receivedFilter === '30days' ? 'pill-active' : 'pill'
-                    }`}
-                  >
-                    Last 30 days
-                  </button>
+                  )}
                 </div>
 
                 {/* Table */}
@@ -1340,7 +1414,8 @@ const Profile = () => {
                     </p>
                   </div>
                 ) : (
-                  <div className="overflow-x-auto">
+                  <>
+                  <div className="hidden sm:block overflow-x-auto">
                     <table className="w-full">
                       <thead>
                         <tr className="border-b border-gray-200 dark:border-gray-700">
@@ -1428,24 +1503,85 @@ const Profile = () => {
                       </tbody>
                     </table>
                   </div>
+                  {/* Mobile card list */}
+                  <div className="sm:hidden space-y-3">
+                    {receivedDonations
+                      .filter((donation) => {
+                        if (receivedFilter === 'all') return true;
+                        const donationDate = donation.createdAt?.toDate ? donation.createdAt.toDate() : new Date(donation.createdAt);
+                        const now = new Date();
+                        const daysDiff = Math.floor((now - donationDate) / (1000 * 60 * 60 * 24));
+                        if (receivedFilter === '7days') return daysDiff <= 7;
+                        if (receivedFilter === '30days') return daysDiff <= 30;
+                        return true;
+                      })
+                      .map((donation) => {
+                        const donationDate = donation.createdAt?.toDate 
+                          ? donation.createdAt.toDate() 
+                          : new Date(donation.createdAt);
+                        return (
+                          <div 
+                            key={donation.id} 
+                            className="p-4 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900"
+                            style={!isDarkMode ? { backgroundColor: '#ffffff', borderColor: '#e5e7eb' } : undefined}
+                          >
+                            <div className="flex items-center gap-3">
+                              <Link to={`/profile/${donation.donorId || ''}`} state={{ tab: 'personal' }} className="w-10 h-10 rounded-full overflow-hidden bg-gray-200 dark:bg-gray-700 flex items-center justify-center shrink-0">
+                                {donation.donorPhoto ? (
+                                  <img src={donation.donorPhoto} alt={donation.donorName} className="w-10 h-10 object-cover" />
+                                ) : (
+                                  <PersonIcon className="text-gray-400" />
+                                )}
+                              </Link>
+                              <div className="flex-1 min-w-0">
+                                <Link 
+                                  to={`/profile/${donation.donorId || ''}`} 
+                                  state={{ tab: 'personal' }} 
+                                  className="font-medium hover:underline block truncate"
+                                  style={!isDarkMode ? { color: '#111827' } : { color: 'var(--text)' }}
+                                >
+                                  {donation.donorName}
+                                </Link>
+                                <div 
+                                  className="text-xs truncate"
+                                  style={!isDarkMode ? { color: '#6b7280' } : undefined}
+                                >
+                                  {donation.campaignTitle}
+                                </div>
+                              </div>
+                              <div className="text-right shrink-0">
+                                <div className="font-semibold text-green-600 dark:text-green-400">{formatCurrency(donation.amount || 0)}</div>
+                                <div 
+                                  className="text-xs"
+                                  style={!isDarkMode ? { color: '#6b7280' } : undefined}
+                                >
+                                  {donationDate.toLocaleDateString('en-US', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                  </div>
+                  </>
                 )}
               </div>
             )}
 
             {/* Friends Tab */}
             {activeTab === 'friends' && (
-              <div className="card p-6">
-                <div className="flex items-center justify-between mb-6">
+              <div className="card p-4 sm:p-6">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 mb-6">
                   {/* Move sub-tabs into header and remove big H2 */}
-                  <div className="inline-flex items-center gap-4">
+                  <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
                     {/* Only show Requests button on own profile */}
                     {isOwnProfile && (
                       <button
                         onClick={() => setFriendsSubTab('requests')}
-                        className={`px-5 py-2.5 rounded-full transition-all font-semibold text-base sm:text-lg ${
+                        className={`flex-1 sm:flex-initial px-3 sm:px-4 md:px-5 py-2 sm:py-2.5 rounded-full transition-all font-semibold text-xs sm:text-sm md:text-base ${
                           friendsSubTab === 'requests'
                             ? 'bg-green-400 text-white shadow-md'
-                            : 'bg-green-50 text-green-700 hover:bg-green-400 hover:text-white'
+                            : 'bg-green-50 text-green-700 hover:bg-green-400 hover:text-white dark:bg-green-900/20 dark:text-green-400'
                         }`}
                         aria-pressed={friendsSubTab === 'requests'}
                       >
@@ -1455,10 +1591,10 @@ const Profile = () => {
 
                     <button
                       onClick={() => setFriendsSubTab('friends')}
-                      className={`px-5 py-2.5 rounded-full transition-all font-semibold text-base sm:text-lg ${
+                      className={`flex-1 sm:flex-initial px-3 sm:px-4 md:px-5 py-2 sm:py-2.5 rounded-full transition-all font-semibold text-xs sm:text-sm md:text-base ${
                         friendsSubTab === 'friends'
                           ? 'bg-green-400 text-white shadow-md'
-                          : 'bg-green-50 text-green-700 hover:bg-green-400 hover:text-white'
+                          : 'bg-green-50 text-green-700 hover:bg-green-400 hover:text-white dark:bg-green-900/20 dark:text-green-400'
                       }`}
                       aria-pressed={friendsSubTab === 'friends'}
                     >
@@ -1469,18 +1605,18 @@ const Profile = () => {
                   {isOwnProfile && (
                     <button
                       onClick={toggleFriendsPrivacy}
-                      className="flex items-center gap-2 px-4 py-2 rounded-lg transition-colors bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700"
+                      className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 md:px-4 py-1.5 sm:py-2 rounded-lg transition-colors bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 w-full sm:w-auto justify-center sm:justify-start text-xs sm:text-sm"
                       title={`Friends list is ${friendsPrivacy}`}
                     >
                       {friendsPrivacy === 'public' ? (
                         <>
-                          <PublicIcon className="text-green-600 dark:text-green-400" fontSize="small" />
-                          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Public</span>
+                          <PublicIcon className="text-green-600 dark:text-green-400" sx={{ fontSize: { xs: 16, sm: 18 } }} />
+                          <span className="font-medium text-gray-700 dark:text-gray-300">Public</span>
                         </>
                       ) : (
                         <>
-                          <LockIcon className="text-gray-600 dark:text-gray-400" fontSize="small" />
-                          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Private</span>
+                          <LockIcon className="text-gray-600 dark:text-gray-400" sx={{ fontSize: { xs: 16, sm: 18 } }} />
+                          <span className="font-medium text-gray-700 dark:text-gray-300">Private</span>
                         </>
                       )}
                     </button>
@@ -1497,7 +1633,7 @@ const Profile = () => {
                     ) : (
                       <div className="space-y-4">
                         {friendRequests.map((req) => (
-                          <div key={req.id} className="card p-4 flex items-center justify-between">
+                          <div key={req.id} className="card p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                             <div className="flex items-center gap-3">
                               <Link to={`/profile/${req.id}`} state={{ friendsSubTab: 'requests' }} className="w-12 h-12 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden shrink-0">
                                 {req.photoURL ? (
@@ -1511,7 +1647,7 @@ const Profile = () => {
                                 {req.title && <div className="text-sm text-gray-500">{req.title}</div>}
                               </div>
                             </div>
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 sm:justify-end">
                               <button onClick={() => handleAcceptRequest(req.id)} className="px-4 py-2 bg-green-400 text-white rounded-full font-medium hover:bg-green-500">Accept</button>
                               <button onClick={() => handleDeleteRequest(req.id)} className="px-4 py-2 bg-gray-100 text-gray-700 rounded-full font-medium hover:bg-gray-200">Delete</button>
                             </div>

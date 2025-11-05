@@ -45,7 +45,7 @@ const Layout = ({ children }) => {
               {/* Mobile Messages Button */}
               <RouterLink
                 to="/messages"
-                className="md:hidden p-1.5 rounded-full transition-all duration-300 hover:scale-110 active:scale-95 text-themed"
+                className="md:hidden p-1.5 rounded-full transition-all duration-300 hover:scale-110 active:scale-95 text-themed flex items-center justify-center h-9 w-9"
                 title="Messages"
                 onMouseEnter={(e)=>{ e.currentTarget.style.backgroundColor = 'var(--hover-bg)'; }}
                 onMouseLeave={(e)=>{ e.currentTarget.style.backgroundColor = 'transparent'; }}
@@ -56,7 +56,7 @@ const Layout = ({ children }) => {
               </RouterLink>
               {/* Dark Mode Toggle */}
               <button
-                className="p-1.5 md:p-2 rounded-full transition-all duration-300 hover:scale-110 active:scale-95 text-themed"
+                className="p-1.5 md:p-2 rounded-full transition-all duration-300 hover:scale-110 active:scale-95 text-themed flex items-center justify-center h-9 w-9 md:h-10 md:w-10"
                 onClick={toggleTheme}
                 title={isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
                 onMouseEnter={(e)=>{ e.currentTarget.style.backgroundColor = 'var(--hover-bg)'; }}
@@ -66,7 +66,7 @@ const Layout = ({ children }) => {
               >
                 {isDarkMode ? <LightModeIcon sx={{ fontSize: 20 }} className="md:text-2xl" /> : <DarkModeIcon sx={{ fontSize: 20 }} className="md:text-2xl" />}
               </button>
-              <button className="p-1.5 md:p-2 rounded-full transition-all duration-300 hover:scale-110 active:scale-95" style={{ backgroundColor: 'transparent' }}
+              <button className="p-1.5 md:p-2 rounded-full transition-all duration-300 hover:scale-110 active:scale-95 flex items-center justify-center h-9 w-9 md:h-10 md:w-10" style={{ backgroundColor: 'transparent' }}
                 onClick={open}
                 onMouseEnter={(e)=>{ e.currentTarget.style.backgroundColor = 'var(--hover-bg)'; }}
                 onMouseLeave={(e)=>{ e.currentTarget.style.backgroundColor = 'transparent'; }}

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { doc, getDoc, collection, query, where, getDocs, orderBy, getCountFromServer, Timestamp } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, getDocs, orderBy, Timestamp } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import { useAuth } from '../../contexts/AuthContext';
 import Layout from '../../components/Layout';
@@ -23,9 +23,6 @@ const CampaignStats = () => {
   const [uniqueDonors, setUniqueDonors] = useState(0);
   const [likesCount, setLikesCount] = useState(0);
   const [sharesCount, setSharesCount] = useState(0);
-  const [viewsTotal, setViewsTotal] = useState(0);
-  const [views7d, setViews7d] = useState(0);
-  const [viewsChartData, setViewsChartData] = useState([]);
   const [donationsChartData, setDonationsChartData] = useState([]);
   const [donationDistribution, setDonationDistribution] = useState([]);
   const [categoryData, setCategoryData] = useState([]);
@@ -55,22 +52,7 @@ const CampaignStats = () => {
   setLikesCount(data.likesCount || 0);
   setSharesCount(data.sharesCount || 0);
 
-        // Views counts (using subcollections created by view tracker)
-        try {
-          const viewsCol = collection(db, 'posts', id, 'views');
-          const totalViewsSnap = await getCountFromServer(query(viewsCol));
-          setViewsTotal(totalViewsSnap.data().count || 0);
-
-          const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-          const sevenTs = Timestamp.fromDate(sevenDaysAgo);
-          const views7Snap = await getCountFromServer(
-            query(viewsCol, where('createdAt', '>=', sevenTs))
-          );
-          setViews7d(views7Snap.data().count || 0);
-
-        } catch (viewErr) {
-          console.log('View stats not available yet:', viewErr);
-        }
+        // Views counts removed - no longer tracking views
 
         // Fetch donations for this campaign using transactions (type=='donation')
         try {
@@ -177,20 +159,8 @@ const CampaignStats = () => {
             if (byKey[key]) byKey[key].views += 1;
           });
 
-          setViewsChartData(series);
         } catch (viewChartErr) {
           console.log('Views chart data not available:', viewChartErr);
-          // Still show zeroed series to ensure a chart renders
-          const days = 14;
-          const series = [];
-          const today = new Date();
-          for (let i = days - 1; i >= 0; i--) {
-            const d = new Date(today);
-            d.setDate(today.getDate() - i);
-            const key = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-            series.push({ date: key, views: 0 });
-          }
-          setViewsChartData(series);
         }
 
         // Create category breakdown data
@@ -334,20 +304,7 @@ const CampaignStats = () => {
 
           {/* Statistics Cards */}
           <div className="grid md:grid-cols-3 gap-6">
-            <div className="card p-6">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="p-3 bg-gray-100 dark:bg-gray-800 rounded-lg">
-                  <VisibilityIcon className="text-gray-600 dark:text-gray-300" />
-                </div>
-                <div>
-                  <p className="text-sm text-themed-secondary">Total Views</p>
-                  <p className="text-2xl font-bold text-themed">{viewsTotal}</p>
-                </div>
-              </div>
-              <p className="text-xs text-themed-muted">Last 7 days: {views7d}</p>
-            </div>
-
-            {/* Unique viewers removed per request */}
+            {/* View Count metric removed as requested */}
 
             <div className="card p-6">
               <div className="flex items-center gap-3 mb-2">
@@ -443,53 +400,8 @@ const CampaignStats = () => {
           </div>
 
           {/* Charts Section */}
-          <div className="grid md:grid-cols-2 gap-6 mb-6">
-            {/* Views Over Time Chart */}
-            <div className="card p-6">
-              <h2 className="text-xl font-bold text-themed mb-4 flex items-center gap-2">
-                <TrendingUpIcon className="text-blue-600" />
-                Views Trend (Last 14 Days)
-              </h2>
-              {viewsChartData.length > 0 ? (
-                <ResponsiveContainer width="100%" height={300}>
-                  <LineChart data={viewsChartData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                    <XAxis 
-                      dataKey="date" 
-                      stroke="#6b7280"
-                      style={{ fontSize: '12px' }}
-                    />
-                    <YAxis 
-                      stroke="#6b7280"
-                      style={{ fontSize: '12px' }}
-                    />
-                    <Tooltip 
-                      contentStyle={{ 
-                        backgroundColor: 'var(--card-bg)', 
-                        border: '1px solid var(--border-color)',
-                        borderRadius: '8px'
-                      }}
-                    />
-                    <Legend />
-                    <Line 
-                      type="monotone" 
-                      dataKey="views" 
-                      stroke="#3b82f6" 
-                      strokeWidth={2}
-                      dot={{ fill: '#3b82f6', r: 4 }}
-                      activeDot={{ r: 6 }}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="h-[300px] flex items-center justify-center text-themed-secondary">
-                  <div className="text-center">
-                    <VisibilityIcon sx={{ fontSize: 48 }} className="mb-2 opacity-50" />
-                    <p>No view data available yet</p>
-                  </div>
-                </div>
-              )}
-            </div>
+          <div className="grid md:grid-cols-1 gap-6 mb-6">
+            {/* Views Over Time Chart - REMOVED as requested */}
 
             {/* Donations Over Time Chart */}
             <div className="card p-6">

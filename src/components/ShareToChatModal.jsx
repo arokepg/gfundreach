@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { collection, query, where, getDocs, doc, updateDoc, increment, getDoc } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { useAuth } from '../contexts/AuthContext';
+import { useTheme } from '../contexts/ThemeContext';
 import { default as Users } from '@mui/icons-material/Group';
 import { default as UserIcon } from '@mui/icons-material/Person';
 import { default as Search } from '@mui/icons-material/Search';
@@ -12,6 +13,7 @@ import { sendCampaignCard } from '../utils/messaging';
 
 const ShareToChatModal = ({ open, onClose, post, onShared }) => {
   const { currentUser } = useAuth();
+  const { isDarkMode } = useTheme();
   const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
@@ -167,14 +169,35 @@ const ShareToChatModal = ({ open, onClose, post, onShared }) => {
   return (
     <div className="fixed inset-0 z-[90] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-lg max-h-[85vh] overflow-hidden rounded-2xl shadow-2xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 animate-slideUp">
-        <div className="p-4 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-themed flex items-center gap-2"><Users size={18} /> Share to Chat</h3>
-          <button onClick={onClose} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800" aria-label="Close">
+      <div 
+        className="relative w-full max-w-lg max-h-[85vh] overflow-hidden rounded-2xl shadow-2xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 animate-slideUp"
+        style={!isDarkMode ? { backgroundColor: '#ffffff', color: '#111827' } : undefined}
+      >
+        <div 
+          className="p-4 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between"
+          style={!isDarkMode ? { borderColor: '#e5e7eb' } : undefined}
+        >
+          <h3 
+            className="text-lg font-semibold flex items-center gap-2"
+            style={!isDarkMode ? { color: '#111827' } : undefined}
+          >
+            <Users size={18} /> Share to Chat
+          </h3>
+          <button 
+            onClick={onClose} 
+            className="p-2 rounded-lg dark:hover:bg-gray-800" 
+            aria-label="Close"
+            style={!isDarkMode ? { color: '#111827', backgroundColor: 'transparent' } : undefined}
+            onMouseEnter={(e) => !isDarkMode && (e.currentTarget.style.backgroundColor = '#f3f4f6')}
+            onMouseLeave={(e) => !isDarkMode && (e.currentTarget.style.backgroundColor = 'transparent')}
+          >
             <X size={18} />
           </button>
         </div>
-        <div className="p-4 border-b border-gray-200 dark:border-gray-800">
+        <div 
+          className="p-4 border-b border-gray-200 dark:border-gray-800"
+          style={!isDarkMode ? { borderColor: '#e5e7eb' } : undefined}
+        >
           <div className="relative">
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
             <input
@@ -182,14 +205,23 @@ const ShareToChatModal = ({ open, onClose, post, onShared }) => {
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search conversations..."
               className="w-full pl-9 pr-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+              style={!isDarkMode ? { backgroundColor: '#ffffff', color: '#111827', borderColor: '#d1d5db' } : undefined}
             />
           </div>
         </div>
         <div className="p-4 overflow-y-auto max-h-[50vh]">
           {loading ? (
-            <div className="text-sm text-themed-muted">Loading conversations…</div>
+            <div 
+              className="text-sm"
+              style={!isDarkMode ? { color: '#6b7280' } : undefined}
+            >
+              Loading conversations…
+            </div>
           ) : filtered.length === 0 ? (
-            <div className="text-sm text-themed-muted">
+            <div 
+              className="text-sm"
+              style={!isDarkMode ? { color: '#6b7280' } : undefined}
+            >
               {search ? 'No conversations found.' : 'No conversations yet. Start chatting with someone first!'}
             </div>
           ) : (
@@ -197,7 +229,11 @@ const ShareToChatModal = ({ open, onClose, post, onShared }) => {
               {filtered.map((g) => {
                 const alreadySent = sentToChats.has(g.id);
                 return (
-                  <li key={g.id} className="flex items-center justify-between p-2 rounded-lg border border-gray-200 dark:border-gray-700">
+                  <li 
+                    key={g.id} 
+                    className="flex items-center justify-between p-2 rounded-lg border border-gray-200 dark:border-gray-700"
+                    style={!isDarkMode ? { backgroundColor: '#f9fafb', borderColor: '#e5e7eb' } : undefined}
+                  >
                     <div className="flex items-center gap-3 min-w-0">
                       {g.photo ? (
                         <img src={g.photo} alt={g.name} className="w-10 h-10 rounded-full object-cover" />
@@ -207,8 +243,19 @@ const ShareToChatModal = ({ open, onClose, post, onShared }) => {
                         </div>
                       )}
                       <div className="min-w-0">
-                        <div className="font-medium text-sm text-themed truncate" title={g.name}>{g.name}</div>
-                        <div className="text-xs text-themed-muted">{g.type === 'group' ? `${g.count} members` : 'Direct chat'}</div>
+                        <div 
+                          className="font-medium text-sm truncate" 
+                          title={g.name}
+                          style={!isDarkMode ? { color: '#111827' } : undefined}
+                        >
+                          {g.name}
+                        </div>
+                        <div 
+                          className="text-xs"
+                          style={!isDarkMode ? { color: '#6b7280' } : undefined}
+                        >
+                          {g.type === 'group' ? `${g.count} members` : 'Direct chat'}
+                        </div>
                       </div>
                     </div>
                     <button
@@ -228,21 +275,34 @@ const ShareToChatModal = ({ open, onClose, post, onShared }) => {
             </ul>
           )}
         </div>
-        <div className="p-4 border-t border-gray-200 dark:border-gray-800 flex items-center justify-between">
+        <div 
+          className="p-4 border-t border-gray-200 dark:border-gray-800 flex items-center justify-between"
+          style={!isDarkMode ? { borderColor: '#e5e7eb' } : undefined}
+        >
           <div className="flex items-center gap-2">
             <button
               onClick={copyLink}
               className="px-3 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-sm font-medium flex items-center gap-2"
+              style={!isDarkMode ? { backgroundColor: '#f3f4f6', color: '#111827' } : undefined}
             >
               <LinkIcon size={16} /> {copied ? 'Copied!' : 'Copy link'}
             </button>
             {sentToChats.size > 0 && (
-              <span className="text-xs text-themed-muted">
+              <span 
+                className="text-xs"
+                style={!isDarkMode ? { color: '#6b7280' } : undefined}
+              >
                 Shared to {sentToChats.size} chat{sentToChats.size > 1 ? 's' : ''}
               </span>
             )}
           </div>
-          <button onClick={onClose} className="px-3 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-sm font-medium">Close</button>
+          <button 
+            onClick={onClose} 
+            className="px-3 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-sm font-medium"
+            style={!isDarkMode ? { backgroundColor: '#f3f4f6', color: '#111827' } : undefined}
+          >
+            Close
+          </button>
         </div>
       </div>
     </div>

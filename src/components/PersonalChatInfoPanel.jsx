@@ -42,10 +42,13 @@ const PersonalChatInfoPanel = ({ conversationId, otherUser, open, onClose }) => 
   return createPortal(
     <div className="fixed inset-0 z-70 flex items-center justify-center p-4 animate-fadeIn">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-  <aside className={`relative w-full max-w-2xl h-[90vh] ${panelClass} rounded-2xl shadow-2xl flex flex-col animate-slideUp overflow-hidden`}>
+  <aside
+        className={`relative w-full max-w-2xl h-[90vh] ${panelClass} rounded-2xl shadow-2xl flex flex-col animate-slideUp overflow-hidden`}
+        style={!isDarkMode ? { backgroundColor: '#ffffff', color: '#111827' } : undefined}
+      >
         {/* Header */}
-        <div className="p-6 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between">
-          <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+        <div className="p-6 border-b flex items-center justify-between" style={!isDarkMode ? {borderColor: '#e5e7eb'} : undefined}>
+          <h3 className="text-xl font-semibold flex items-center gap-2" style={!isDarkMode ? {color: '#111827'} : undefined}>
             <User size={22} /> Chat Info
           </h3>
           <button 
@@ -58,7 +61,7 @@ const PersonalChatInfoPanel = ({ conversationId, otherUser, open, onClose }) => 
         </div>
 
         {loading ? (
-          <div className="p-6 text-gray-600 dark:text-gray-400">Loading…</div>
+          <div className="p-6 text-gray-900 dark:text-gray-400">Loading…</div>
         ) : (
           <div className="flex-1 overflow-y-auto scrollbar-hide">
             {/* User Profile Section */}
@@ -67,11 +70,11 @@ const PersonalChatInfoPanel = ({ conversationId, otherUser, open, onClose }) => 
                 {otherUser?.photo ? (
                   <img src={otherUser.photo} alt={otherUser.name} className="w-full h-full object-cover" />
                 ) : (
-                  <User size={48} className="text-gray-500 dark:text-gray-400" />
+                  <User size={48} className="text-gray-700 dark:text-gray-400" />
                 )}
               </div>
               <div className="text-center">
-                <div className="font-semibold text-gray-900 dark:text-gray-100 text-xl">{otherUser?.name || 'Unknown User'}</div>
+                <div className="font-semibold text-xl" style={!isDarkMode ? {color: '#111827'} : undefined}>{otherUser?.name || 'Unknown User'}</div>
               </div>
               
               {/* View Profile Button */}
@@ -94,7 +97,7 @@ const PersonalChatInfoPanel = ({ conversationId, otherUser, open, onClose }) => 
               {/* Shared Images */}
               {media.images.length > 0 && (
                 <div>
-                  <div className="text-base font-semibold text-gray-900 dark:text-gray-100 mb-3 flex items-center gap-2">
+                  <div className="text-base font-semibold mb-3 flex items-center gap-2" style={!isDarkMode ? {color: '#111827'} : undefined}>
                     <ImageIcon size={18} />
                     Shared Images ({media.images.length})
                   </div>
@@ -115,7 +118,7 @@ const PersonalChatInfoPanel = ({ conversationId, otherUser, open, onClose }) => 
               {/* Shared Audio */}
               {media.audios.length > 0 && (
                 <div>
-                  <div className="text-base font-semibold text-gray-900 dark:text-gray-100 mb-3 flex items-center gap-2">
+                  <div className="text-base font-semibold mb-3 flex items-center gap-2" style={!isDarkMode ? {color: '#111827'} : undefined}>
                     <Music2 size={18} />
                     Shared Audio ({media.audios.length})
                   </div>
@@ -130,7 +133,7 @@ const PersonalChatInfoPanel = ({ conversationId, otherUser, open, onClose }) => 
               {/* Shared Campaigns */}
               {media.campaigns.length > 0 && (
                 <div>
-                  <div className="text-base font-semibold text-gray-900 dark:text-gray-100 mb-3">
+                  <div className="text-base font-semibold mb-3" style={!isDarkMode ? {color: '#111827'} : undefined}>
                     Shared Campaigns ({media.campaigns.length})
                   </div>
                   <div className="space-y-3">
@@ -144,13 +147,13 @@ const PersonalChatInfoPanel = ({ conversationId, otherUser, open, onClose }) => 
               {/* Shared Links */}
               {media.links.length > 0 && (
                 <div>
-                  <div className="text-base font-semibold text-gray-900 dark:text-gray-100 mb-3 flex items-center gap-2">
+                  <div className="text-base font-semibold mb-3 flex items-center gap-2" style={!isDarkMode ? {color: '#111827'} : undefined}>
                     <LinkIcon size={18} />
                     Shared Links ({media.links.length})
                   </div>
                   <ul className="space-y-2 text-sm">
                     {media.links.map(l => (
-                      <li key={l.id} className="p-3 rounded-lg bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                      <li key={l.id} className="p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors" style={!isDarkMode ? {backgroundColor: '#f9fafb'} : undefined}>
                         <a 
                           className="text-blue-600 dark:text-blue-400 hover:underline break-all flex items-center gap-2" 
                           href={l.url} 
@@ -167,7 +170,7 @@ const PersonalChatInfoPanel = ({ conversationId, otherUser, open, onClose }) => 
               )}
 
               {media.images.length === 0 && media.audios.length === 0 && media.campaigns.length === 0 && media.links.length === 0 && (
-                <div className="text-sm text-gray-600 dark:text-gray-400 text-center py-8">
+                <div className="text-sm text-center py-8" style={!isDarkMode ? {color: '#6b7280'} : undefined}>
                   No shared media yet.
                 </div>
               )}

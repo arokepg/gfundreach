@@ -114,6 +114,10 @@ body {
   background-color: var(--bg);
   color: var(--text);
   transition: background-color 360ms ease, color 360ms ease;
+  /* Respect safe-area insets on notched devices */
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
 /* Smooth theme transitions when toggling dark/light */
@@ -635,6 +639,14 @@ html.dark .mobile-center-btn {
 /* Smooth scrolling */
 html {
   scroll-behavior: smooth;
+}
+
+/* Extra utility classes layered for Tailwind build */
+@layer utilities {
+  .touch-target { min-height: 44px; min-width: 44px; }
+  .tap-highlight-none { -webkit-tap-highlight-color: transparent; }
+  .safe-px { padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right); }
+  .safe-pb { padding-bottom: env(safe-area-inset-bottom); }
 }
 
 /* Prevent text selection on interactive elements */
