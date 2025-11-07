@@ -231,38 +231,6 @@ export default function AdminDashboard() {
     }
   };
 
-  const verifyCampaign = async (campaignId) => {
-    if (!window.confirm('Verify this campaign creator? This shows a blue checkmark badge.')) return;
-    try {
-      await updateDoc(doc(db, 'posts', campaignId), { 
-        verified: true,
-        verifiedAt: new Date().toISOString(),
-        verifiedBy: currentUser.uid,
-      });
-      setCampaignsList(prev => prev.map(c => c.id === campaignId ? { ...c, verified: true } : c));
-      alert('Campaign verified successfully');
-    } catch (e) {
-      console.error('Failed to verify campaign', e);
-      alert('Failed to verify campaign');
-    }
-  };
-
-  const unVerifyCampaign = async (campaignId) => {
-    if (!window.confirm('Remove verification badge from this campaign?')) return;
-    try {
-      await updateDoc(doc(db, 'posts', campaignId), { 
-        verified: false,
-        verifiedAt: null,
-        verifiedBy: null,
-      });
-      setCampaignsList(prev => prev.map(c => c.id === campaignId ? { ...c, verified: false } : c));
-      alert('Verification removed');
-    } catch (e) {
-      console.error('Failed to remove verification', e);
-      alert('Failed to remove verification');
-    }
-  };
-
   const verifyUser = async (userId) => {
     if (!window.confirm('Verify this user? This shows a blue checkmark badge next to their name.')) return;
     try {
