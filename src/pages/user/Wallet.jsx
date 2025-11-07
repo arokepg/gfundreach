@@ -197,7 +197,12 @@ const Wallet = () => {
       return;
     }
 
-    if (amount > (userProfile?.walletBalance || 0)) {
+    const totalReceivedCalc = transactions
+      .filter((t) => t.role === 'recipient')
+      .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+    const availableBalance = (Number(userProfile?.walletBalance) || 0) + totalReceivedCalc;
+
+    if (amount > availableBalance) {
       alert('Insufficient balance for withdrawal');
       return;
     }
@@ -256,14 +261,13 @@ const Wallet = () => {
 
   // Derived totals
   const totalDonatedCalc = transactions
-    .filter((t) => t.role === 'donor')
+    .filter((t) => t.role === 'donor' && t.type === 'donation')
     .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
   const totalReceivedCalc = transactions
     .filter((t) => t.role === 'recipient')
     .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
-  // Wallet balance shows only liquid funds available for withdrawal or donations
-  // Received donations stay with campaigns and don't add to personal wallet
-  const actualBalance = Number(userProfile?.walletBalance) || 0;
+  // Wallet balance includes liquid funds plus received donations
+  const actualBalance = (Number(userProfile?.walletBalance) || 0) + totalReceivedCalc;
 
   return (
     <Layout>
@@ -307,7 +311,6 @@ const Wallet = () => {
                   Withdraw
                 </button>
               </div>
-              <p className="text-white/70 text-xs sm:text-sm mt-2">Wallet: {formatCurrency(userProfile?.walletBalance || 0)} • Received: {formatCurrency(totalReceivedCalc)}</p>
             </div>
             <AccountBalanceWalletIcon sx={{ fontSize: { xs: 80, sm: 120 }, opacity: 0.2, color: 'white' }} className="hidden sm:block" />
           </div>
@@ -362,7 +365,7 @@ const Wallet = () => {
                 placeholder="Enter amount"
                 min="1"
                 step="0.01"
-                max={userProfile?.walletBalance || 0}
+                max={actualBalance}
                 required
               />
               <button
@@ -381,7 +384,7 @@ const Wallet = () => {
               </button>
             </form>
             <p className="text-sm text-gray-500 mt-2">
-              Available balance: {formatCurrency(userProfile?.walletBalance || 0)}
+              Available balance: {formatCurrency(actualBalance)}
             </p>
           </div>
         )}

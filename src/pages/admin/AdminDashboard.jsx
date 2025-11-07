@@ -387,7 +387,6 @@ export default function AdminDashboard() {
         <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
           {[
             { key: 'overview', label: 'Overview', icon: DashboardIcon },
-            { key: 'verification', label: 'Verification', icon: VerifiedIcon },
             { key: 'campaigns', label: 'Campaigns', icon: CampaignIcon },
             { key: 'reports', label: 'Reports', icon: FlagIcon },
             { key: 'users', label: 'Users', icon: PeopleIcon },
@@ -430,30 +429,11 @@ export default function AdminDashboard() {
                   color="#2563eb"
                 />
                 <StatCard
-                  title="Total Raised"
-                  value={formatCurrencyShort(stats.totalDonations)}
-                  icon={MoneyIcon}
-                  color="#dc2626"
-                />
-                <StatCard
-                  title="Total Views"
-                  value={(stats.totalViews)}
-                  icon={VisibilityIcon}
-                  color="#9333ea"
-                />
-                <StatCard
                   title="Verified Users"
                   value={stats.verifiedUsers}
                   subtitle={`${((stats.verifiedUsers / Math.max(stats.totalUsers, 1)) * 100).toFixed(1)}% verified`}
                   icon={VerifiedIcon}
                   color="#0891b2"
-                />
-                <StatCard
-                  title="Platform Health"
-                  value={reports.length}
-                  subtitle="pending reports"
-                  icon={FlagIcon}
-                  color="#ea580c"
                 />
               </div>
             )}
@@ -461,15 +441,7 @@ export default function AdminDashboard() {
             {/* Quick Actions */}
             <div className="card p-6">
               <h2 className="text-xl font-semibold text-themed mb-4">Quick Actions</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-                <button
-                  onClick={() => setTab('verification')}
-                  className="p-4 rounded-lg border-2 border-green-500 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors text-left"
-                >
-                  <VerifiedIcon className="text-green-600 mb-2" />
-                  <p className="font-semibold text-themed">Verify Creators</p>
-                  <p className="text-xs text-themed-muted">Review pending verifications</p>
-                </button>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                 <button
                   onClick={() => setTab('reports')}
                   className="p-4 rounded-lg border-2 border-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-colors text-left"
@@ -505,117 +477,6 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {/* Verification Tab */}
-        {tab === 'verification' && (
-          <div className="card p-6">
-            <div className="flex items-center gap-3 mb-6">
-              <VerifiedIcon className="text-blue-600" style={{ fontSize: 32 }} />
-              <div>
-                <h2 className="text-xl font-semibold text-themed">Creator Verification</h2>
-                <p className="text-sm text-themed-muted">Verify campaign creators to build trust with donors</p>
-              </div>
-            </div>
-            
-            {/* Info Box */}
-            <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-              <h3 className="font-semibold text-blue-900 dark:text-blue-100 mb-2">About Verification</h3>
-              <p className="text-sm text-blue-800 dark:text-blue-200 mb-2">
-                Verified users display a blue checkmark badge next to their name, indicating they have passed identity verification.
-                This significantly increases donor trust and donation likelihood.
-              </p>
-              <p className="text-xs text-blue-700 dark:text-blue-300">
-                Review each user carefully before verifying. Check their identity, campaign legitimacy, and contact information.
-              </p>
-            </div>
-
-            {loading ? (
-              <p className="text-themed-secondary">Loading campaigns...</p>
-            ) : campaignsList.length === 0 ? (
-              <p className="text-themed-secondary">No campaigns found</p>
-            ) : (
-              <div className="space-y-3">
-                {/* Filter buttons */}
-                <div className="flex gap-2 mb-4">
-                  <button className="pill pill-active text-xs">All Campaigns</button>
-                  <button className="pill text-xs">Unverified Only</button>
-                  <button className="pill text-xs">Verified Only</button>
-                </div>
-
-                {campaignsList.map(c => (
-                  <div key={c.id} className="p-4 border border-outline-variant rounded-xl hover:shadow-md transition-shadow">
-                    <div className="flex flex-col lg:flex-row lg:items-center gap-4">
-                      {/* Campaign Image */}
-                      <div className="w-full lg:w-24 h-24 rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-800 shrink-0">
-                        {c.imageUrl ? (
-                          <img src={c.imageUrl} alt={c.title} className="w-full h-full object-cover" />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center">
-                            <CampaignIcon className="text-gray-400" />
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Campaign Info */}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-start gap-2 mb-1">
-                          <Link to={`/post/${c.id}`} className="font-semibold text-themed hover:underline flex-1">
-                            {c.title || 'Untitled Campaign'}
-                          </Link>
-                          {c.verified && (
-                            <div className="flex items-center gap-1 text-blue-600 bg-blue-50 dark:bg-blue-900/30 px-2 py-1 rounded-full">
-                              <VerifiedIcon fontSize="small" />
-                              <span className="text-xs font-medium">Verified</span>
-                            </div>
-                          )}
-                        </div>
-                        <p className="text-sm text-themed-muted line-clamp-2 mb-2">{c.description || 'No description'}</p>
-                        <div className="flex flex-wrap gap-3 text-xs text-themed-secondary">
-                          <span>By: {c.authorName || 'Anonymous'}</span>
-                          <span>•</span>
-                          <span>Raised: {formatCurrencyShort(c.raised || 0)}</span>
-                          <span>•</span>
-                          <span>Goal: {formatCurrencyShort(c.goal || 0)}</span>
-                          <span>•</span>
-                          <span className={`font-medium ${c.status === 'active' ? 'text-green-600' : 'text-orange-600'}`}>
-                            {c.status || 'unknown'}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Actions */}
-                      <div className="flex flex-wrap gap-2 justify-end">
-                        {!c.verified ? (
-                          <button
-                            onClick={() => verifyCampaign(c.id)}
-                            className="flex items-center gap-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
-                          >
-                            <CheckIcon fontSize="small" />
-                            Verify
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => unVerifyCampaign(c.id)}
-                            className="flex items-center gap-1 px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors text-sm font-medium"
-                          >
-                            <CancelIcon fontSize="small" />
-                            Unverify
-                          </button>
-                        )}
-                        <Link
-                          to={`/post/${c.id}`}
-                          className="px-4 py-2 border border-outline-variant rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-sm font-medium text-themed"
-                        >
-                          View
-                        </Link>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
         {/* Campaigns Tab */}
         {tab === 'campaigns' && (
           <div className="card p-6">
@@ -634,7 +495,6 @@ export default function AdminDashboard() {
                           <Link to={`/post/${c.id}`} className="font-semibold text-themed hover:underline">
                             {c.title || 'Untitled Campaign'}
                           </Link>
-                          {c.verified && <VerifiedIcon className="text-blue-600" fontSize="small" />}
                           {c.hidden && (
                             <span className="text-xs bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-2 py-1 rounded">Hidden</span>
                           )}
@@ -646,23 +506,6 @@ export default function AdminDashboard() {
                         </div>
                       </div>
                       <div className="flex flex-wrap gap-2 justify-end">
-                        {!c.verified ? (
-                          <button
-                            onClick={() => verifyCampaign(c.id)}
-                            className="flex items-center gap-1 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
-                          >
-                            <VerifiedIcon fontSize="small" />
-                            Verify
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => unVerifyCampaign(c.id)}
-                            className="flex items-center gap-1 px-3 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors text-sm"
-                          >
-                            <CancelIcon fontSize="small" />
-                            Unverify
-                          </button>
-                        )}
                         {c.hidden ? (
                           <button
                             onClick={() => unhideCampaign(c.id)}

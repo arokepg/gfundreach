@@ -742,7 +742,7 @@ const Profile = () => {
 
         {/* Tabs */}
         <div className="card mb-6">
-          <div className="grid grid-cols-3 border-b border-gray-200 dark:border-gray-700" role="tablist" aria-label="Profile sections">
+          <div className="grid grid-cols-3 md:grid-cols-6 border-b border-gray-200 dark:border-gray-700" role="tablist" aria-label="Profile sections">
             <button
               onClick={() => setActiveTab('personal')}
               className={`relative py-2.5 sm:py-3 font-medium transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500/40 text-xs sm:text-sm md:text-base border-b-2 ${
