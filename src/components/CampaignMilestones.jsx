@@ -93,7 +93,7 @@ const CampaignMilestones = ({ campaign, isOwner, donors = [] }) => {
               className={`flex items-center gap-3 p-3 rounded-lg transition-all ${
                 milestone.reached 
                   ? 'bg-green-50 dark:bg-green-900/20' 
-                  : 'bg-gray-50 dark:bg-gray-800/50'
+                  : ''
               }`}
             >
               {milestone.reached ? (

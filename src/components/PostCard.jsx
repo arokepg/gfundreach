@@ -29,6 +29,25 @@ const PostCard = ({ post }) => {
   const isCompleted = (post.currentAmount || 0) >= (post.goalAmount || Infinity);
   const [groupName, setGroupName] = useState('');
   const [openShare, setOpenShare] = useState(false);
+  const [authorVerified, setAuthorVerified] = useState(false);
+
+  // Fetch author verification status
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        if (!post.authorId) return;
+        const snap = await getDoc(doc(db, 'users', String(post.authorId)));
+        if (mounted && snap.exists()) {
+          setAuthorVerified(snap.data().verified === true);
+        }
+      } catch (err) {
+        // non-fatal - may fail if user is not signed in or has insufficient permissions
+        console.warn('Could not fetch author verification status:', err.message);
+      }
+    })();
+    return () => { mounted = false; };
+  }, [post.authorId]);
 
   // Fetch group name for group campaigns
   useEffect(() => {
@@ -220,47 +239,47 @@ const PostCard = ({ post }) => {
     }}
   >
       {/* Header */}
-      <div className="p-3 md:p-4 flex items-start justify-between">
-        <div className="flex items-center space-x-3 flex-1">
+      <div className="p-3 md:p-4 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
           <Link
             to={`/profile/${post.authorId}`}
             onClick={(e) => e.stopPropagation()}
             title={`View ${post.authorName || 'profile'}`}
-            className="avatar-link w-10 h-10 rounded-full overflow-hidden transition-transform duration-300 hover:scale-110 focus:outline-none focus:ring-2 focus:ring-green-500"
+            className="avatar-link w-9 h-9 sm:w-10 sm:h-10 md:w-12 md:h-12 rounded-full overflow-hidden transition-transform duration-300 hover:scale-110 focus:outline-none focus:ring-2 focus:ring-green-500 flex-shrink-0"
           >
             <img
               src={post.authorPhoto || 'https://via.placeholder.com/40'}
               alt={post.authorName}
-              className="w-10 h-10 object-cover"
+              className="w-full h-full object-cover"
             />
           </Link>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center space-x-1">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-1">
               <Link
                 to={`/profile/${post.authorId}`}
-                className="font-semibold text-themed hover:underline"
+                className="font-semibold text-xs sm:text-sm md:text-base text-themed hover:underline truncate block"
                 onClick={(e) => e.stopPropagation()}
               >
                 {post.authorName}
               </Link>
-              {post.verified && (
-                <VerifiedIcon className="text-blue-500" style={{ fontSize: 18 }} titleAccess="Verified Campaign" />
+              {authorVerified && (
+                <VerifiedIcon className="text-blue-500 flex-shrink-0" style={{ fontSize: 16 }} titleAccess="Verified User" />
               )}
             </div>
-            <p className="text-xs text-themed-muted">
+            <p className="text-[10px] sm:text-xs text-themed-muted truncate">
               {timeAgo(post.createdAt)}
             </p>
           </div>
         </div>
-        <div className="flex flex-wrap gap-2">
-          {post.verified && (
-            <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800">
+        <div className="flex flex-wrap gap-1 sm:gap-2 flex-shrink-0">
+          {authorVerified && (
+            <div className="hidden sm:flex items-center gap-1 px-2 py-1 rounded-full bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800">
               <VerifiedIcon className="text-blue-600" style={{ fontSize: 14 }} />
-              <span className="text-xs font-medium text-blue-600">Verified</span>
+              <span className="text-xs font-medium text-blue-600 whitespace-nowrap">Verified User</span>
             </div>
           )}
           {post.priority && (
-            <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getPriorityColor(post.priority)}`}>
+            <span className={`px-2 sm:px-3 py-1 rounded-full text-[10px] sm:text-xs font-semibold ${getPriorityColor(post.priority)} whitespace-nowrap`}>
               {post.priority === 'high' ? 'Need Help' : post.priority === 'low' ? 'Low Priority' : 'High Priority'}
             </span>
           )}
@@ -269,27 +288,27 @@ const PostCard = ({ post }) => {
 
       {/* Content */}
       <Link to={`/post/${post.id}`} className="block px-3 md:px-4 pb-3" onClick={(e) => e.stopPropagation()}>
-        <h3 className="text-themed font-semibold mb-2 line-clamp-2 text-sm md:text-base">
+        <h3 className="text-themed font-semibold mb-2 line-clamp-2 text-sm md:text-base leading-tight">
           {post.title}
         </h3>
-        {post.category && (
-          <span className="text-xs md:text-sm text-blue-600 dark:text-blue-400">
-            #{post.category}
-          </span>
-        )}
-        {post.groupId && (
-          <span className="ml-2 inline-flex items-center gap-1 text-[11px] md:text-xs px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 align-middle whitespace-nowrap max-w-[60%] overflow-hidden text-ellipsis">
-            <span className="shrink-0">Group:</span>
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
+          {post.category && (
+            <span className="text-xs md:text-sm text-blue-600 dark:text-blue-400 flex-shrink-0">
+              #{post.category}
+            </span>
+          )}
+          {post.groupId && (
             <Link
               to={`/group/${post.groupId}`}
               onClick={(e)=> e.stopPropagation()}
-              className="hover:underline font-medium truncate inline-block max-w-[140px]"
+              className="inline-flex items-center gap-1 text-[10px] sm:text-xs px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 hover:underline font-medium max-w-full"
               title={groupName || 'Group'}
             >
-              {groupName || 'Group'}
+              <span className="flex-shrink-0">Group:</span>
+              <span className="truncate">{groupName || 'Group'}</span>
             </Link>
-          </span>
-        )}
+          )}
+        </div>
       </Link>
 
       {/* Image */}
@@ -305,9 +324,9 @@ const PostCard = ({ post }) => {
 
       {/* Location */}
       {post.location && (
-        <div className="px-3 md:px-4 py-2 flex items-center space-x-1 text-xs md:text-sm text-themed-secondary">
-          <LocationOnIcon className="text-sm" />
-          <span>{post.location}</span>
+        <div className="px-3 md:px-4 py-2 flex items-center gap-1 text-xs md:text-sm text-themed-secondary">
+          <LocationOnIcon fontSize="small" className="flex-shrink-0" />
+          <span className="truncate">{post.location}</span>
         </div>
       )}
 
@@ -319,76 +338,76 @@ const PostCard = ({ post }) => {
             style={{ width: `${Math.min(progress, 100)}%` }}
           />
         </div>
-        <div className="flex justify-between items-center mt-2">
-          <span className={`text-xs md:text-sm font-semibold ${isCompleted ? 'text-blue-600 dark:text-blue-400' : 'text-green-600 dark:text-green-400'}`}>
-            {formatCurrencyShort(post.currentAmount || 0, { maxDigits: 5 })} {isCompleted && <span className="ml-1 inline-block px-2 py-0.5 rounded-full text-[10px] bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300 align-middle">Completed</span>}
+        <div className="flex justify-between items-center mt-2 gap-2">
+          <span className={`text-xs md:text-sm font-semibold ${isCompleted ? 'text-blue-600 dark:text-blue-400' : 'text-green-600 dark:text-green-400'} truncate`}>
+            {formatCurrencyShort(post.currentAmount || 0, { maxDigits: 5 })} {isCompleted && <span className="ml-1 inline-block px-2 py-0.5 rounded-full text-[10px] bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300 align-middle whitespace-nowrap">Completed</span>}
           </span>
-          <span className="text-xs md:text-sm text-themed-muted">
+          <span className="text-xs md:text-sm text-themed-muted flex-shrink-0">
             {formatCurrencyShort(post.goalAmount || 0, { maxDigits: 5 })}
           </span>
         </div>
       </div>
 
       {/* Actions */}
-  <div className="px-3 md:px-4 py-3 border-t border-surface flex items-center justify-between">
-        <div className="flex items-center space-x-4 md:space-x-6">
+  <div className="px-3 md:px-4 py-3 border-t border-surface flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 sm:gap-3 md:gap-4 flex-1 min-w-0 overflow-x-auto scrollbar-hide">
           <button 
             onClick={handleLike}
-            className={`flex items-center space-x-1 bg-transparent hover:bg-transparent focus:bg-transparent transition-all duration-300 active:scale-110 md:hover:scale-110 md:active:scale-95 ${
+            className={`flex items-center gap-1 bg-transparent hover:bg-transparent focus:bg-transparent transition-all duration-300 active:scale-110 md:hover:scale-110 md:active:scale-95 flex-shrink-0 ${
               isLiked 
                 ? 'text-red-600' 
                 : 'text-themed-secondary hover:text-red-500 dark:hover:text-red-400'
             }`}
           >
             {isLiked ? (
-              <FavoriteIcon className="text-sm md:text-base" />
+              <FavoriteIcon fontSize="small" />
             ) : (
-              <FavoriteBorderIcon className="text-sm md:text-base" />
+              <FavoriteBorderIcon fontSize="small" />
             )}
-            <span className="text-xs md:text-sm font-medium">{likesCount}</span>
+            <span className="text-xs sm:text-sm font-medium">{likesCount}</span>
           </button>
           <button 
             onClick={(e) => {
               e.stopPropagation();
               navigateToPost();
             }}
-            className="flex items-center space-x-1 text-themed-secondary hover:text-blue-500 dark:hover:text-blue-400 transition-all duration-300 active:scale-110 md:hover:scale-110 md:active:scale-95"
+            className="flex items-center gap-1 text-themed-secondary hover:text-blue-500 dark:hover:text-blue-400 transition-all duration-300 active:scale-110 md:hover:scale-110 md:active:scale-95 flex-shrink-0"
           >
-            <ChatBubbleOutlineIcon className="text-sm md:text-base" />
-            <span className="text-xs md:text-sm font-medium">{post.updateCount || 0}</span>
+            <ChatBubbleOutlineIcon fontSize="small" />
+            <span className="text-xs sm:text-sm font-medium">{post.updateCount || 0}</span>
           </button>
           <button 
             onClick={handleShare}
-            className="flex items-center space-x-1 text-themed-secondary hover:text-green-500 dark:hover:text-green-400 transition-all duration-300 active:scale-110 md:hover:scale-110 md:active:scale-95"
+            className="flex items-center gap-1 text-themed-secondary hover:text-green-500 dark:hover:text-green-400 transition-all duration-300 active:scale-110 md:hover:scale-110 md:active:scale-95 flex-shrink-0"
           >
-            <ShareIcon className="text-sm md:text-base" />
-            <span className="text-xs md:text-sm font-medium">{sharesCount}</span>
+            <ShareIcon fontSize="small" />
+            <span className="text-xs sm:text-sm font-medium">{sharesCount}</span>
           </button>
           <button 
             onClick={handleSave}
-            className={`flex items-center space-x-1 transition-all duration-300 active:scale-110 md:hover:scale-110 md:active:scale-95 ${
+            className={`flex items-center gap-1 transition-all duration-300 active:scale-110 md:hover:scale-110 md:active:scale-95 flex-shrink-0 ${
               isSaved
                 ? 'text-yellow-500'
                 : 'text-themed-secondary hover:text-yellow-500 dark:hover:text-yellow-400'
             }`}
           >
             {isSaved ? (
-              <BookmarkIcon className="text-sm md:text-base" />
+              <BookmarkIcon fontSize="small" />
             ) : (
-              <BookmarkBorderIcon className="text-sm md:text-base" />
+              <BookmarkBorderIcon fontSize="small" />
             )}
           </button>
           <button
             onClick={handleReport}
-            className="flex items-center space-x-1 text-themed-secondary hover:text-red-600 dark:hover:text-red-400 transition-all duration-300 active:scale-110 md:hover:scale-110 md:active:scale-95"
+            className="flex items-center gap-1 text-themed-secondary hover:text-red-600 dark:hover:text-red-400 transition-all duration-300 active:scale-110 md:hover:scale-110 md:active:scale-95 flex-shrink-0"
             title="Report"
           >
-            <FlagIcon className="text-sm md:text-base" />
+            <FlagIcon fontSize="small" />
           </button>
         </div>
         <Link
           to={`/post/${post.id}`}
-          className="px-4 md:px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-full text-xs md:text-sm font-medium transition-all duration-300 hover:shadow-lg active:scale-95 md:hover:-translate-y-0.5 md:active:translate-y-0"
+          className="px-3 sm:px-4 md:px-6 py-1.5 sm:py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-full text-xs sm:text-sm font-medium transition-all duration-300 hover:shadow-lg active:scale-95 md:hover:-translate-y-0.5 md:active:translate-y-0 whitespace-nowrap flex-shrink-0"
           onClick={(e) => e.stopPropagation()}
         >
           Help Now

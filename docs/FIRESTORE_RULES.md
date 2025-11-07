@@ -20,6 +20,7 @@ service cloud.firestore {
       );
       // Only admins can set roles or delete a profile
       allow delete: if isAdmin();
+      allow update: if isAdmin();
     }
 
     // --- Campaign Posts ---

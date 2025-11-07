@@ -42,6 +42,7 @@ const CampaignDetail = () => {
   const [canGroupModerate, setCanGroupModerate] = useState(false);
   const [donors, setDonors] = useState([]);
   const [supportersData, setSupportersData] = useState([]); // Array of {uid, displayName, photoURL}
+  const [authorVerified, setAuthorVerified] = useState(false); // Track if author is verified
   const { currentUser, userProfile } = useAuth();
   const navigate = useNavigate();
 
@@ -117,6 +118,21 @@ const CampaignDetail = () => {
         const postData = { id: postDoc.id, ...postDoc.data() };
         console.log('Post data:', postData);
         setPost(postData);
+        
+        // Fetch author verification status
+        try {
+          if (postData.authorId) {
+            const authorDoc = await getDoc(doc(db, 'users', postData.authorId));
+            if (authorDoc.exists()) {
+              const authorData = authorDoc.data();
+              setAuthorVerified(authorData.verified === true);
+            }
+          }
+        } catch (err) {
+          console.error('Error fetching author verification:', err);
+          setAuthorVerified(false);
+        }
+         
         // Fetch group info if applicable (non-fatal)
         try {
           if (postData.groupId) {
@@ -466,11 +482,11 @@ const CampaignDetail = () => {
             <div className="card p-6">
               {/* Verified Badge Banner */}
               {post.verified && (
-                <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg flex items-center gap-2">
-                  <VerifiedIcon className="text-blue-600" style={{ fontSize: 24 }} />
+                <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg flex items-center gap-2">
+                  <VerifiedIcon className="text-blue-600 dark:text-blue-400" style={{ fontSize: 24 }} />
                   <div>
-                    <p className="font-semibold text-blue-900 dark:text-blue-100">Verified Campaign</p>
-                    <p className="text-xs text-blue-700 dark:text-blue-300">This campaign creator has been verified by our team</p>
+                    <p className="font-semibold text-gray-900 dark:text-blue-300">Verified Campaign</p>
+                    <p className="text-xs text-gray-700 dark:text-blue-400">This campaign creator has been verified by our team</p>
                   </div>
                 </div>
               )}
@@ -500,8 +516,8 @@ const CampaignDetail = () => {
                       >
                         {post.authorName}
                       </Link>
-                      {post.verified && (
-                        <VerifiedIcon className="text-blue-500" style={{ fontSize: 18 }} titleAccess="Verified Creator" />
+                      {authorVerified && (
+                        <VerifiedIcon className="text-blue-500" style={{ fontSize: 18 }} titleAccess="Verified User" />
                       )}
                     </div>
                     <p className="text-sm text-themed-muted">
@@ -679,7 +695,7 @@ const CampaignDetail = () => {
           {/* Sidebar - Donation Section */}
           <div className="lg:col-span-1">
             <div className="card p-6 sticky top-20">
-              {/* Progress */}
+              {/* no  */}
               <div className="mb-6">
                 <div className="flex justify-between items-center mb-2">
                   <span className="text-3xl font-bold text-primary">

@@ -39,7 +39,7 @@ export default function AdminDashboard() {
     totalDonations: 0,
     totalViews: 0,
     activeCampaigns: 0,
-    verifiedCampaigns: 0,
+    verifiedUsers: 0,
   });
 
   const isAdmin = !!(userProfile?.role && String(userProfile.role).toLowerCase() === 'admin');
@@ -73,17 +73,18 @@ export default function AdminDashboard() {
         getDocs(collection(db, 'users')),
       ]);
       const campaigns = campaignsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const users = usersSnap.docs.map(d => ({ id: d.id, ...d.data() }));
       const totalDonations = campaigns.reduce((sum, c) => sum + (Number(c.raised) || 0), 0);
       const totalViews = campaigns.reduce((sum, c) => sum + (Number(c.viewCount) || 0), 0);
       const activeCampaigns = campaigns.filter(c => c.status === 'active').length;
-      const verifiedCampaigns = campaigns.filter(c => c.verified === true).length;
+      const verifiedUsers = users.filter(u => u.verified === true).length;
       setStats({
         totalCampaigns: campaigns.length,
         totalUsers: usersSnap.docs.length,
         totalDonations,
         totalViews,
         activeCampaigns,
-        verifiedCampaigns,
+        verifiedUsers,
       });
     } catch (e) {
       console.error('Failed to load stats', e);
@@ -262,6 +263,38 @@ export default function AdminDashboard() {
     }
   };
 
+  const verifyUser = async (userId) => {
+    if (!window.confirm('Verify this user? This shows a blue checkmark badge next to their name.')) return;
+    try {
+      await updateDoc(doc(db, 'users', userId), { 
+        verified: true,
+        verifiedAt: new Date().toISOString(),
+        verifiedBy: currentUser.uid,
+      });
+      setUsersList(prev => prev.map(u => u.id === userId ? { ...u, verified: true } : u));
+      alert('User verified successfully');
+    } catch (e) {
+      console.error('Failed to verify user', e);
+      alert('Failed to verify user');
+    }
+  };
+
+  const unVerifyUser = async (userId) => {
+    if (!window.confirm('Remove verification badge from this user?')) return;
+    try {
+      await updateDoc(doc(db, 'users', userId), { 
+        verified: false,
+        verifiedAt: null,
+        verifiedBy: null,
+      });
+      setUsersList(prev => prev.map(u => u.id === userId ? { ...u, verified: false } : u));
+      alert('User verification removed');
+    } catch (e) {
+      console.error('Failed to remove user verification', e);
+      alert('Failed to remove user verification');
+    }
+  };
+
   // Note: Campaign pause/activate removed in favor of hide/delete/verify controls
 
   const hideCampaign = async (campaignId) => {
@@ -404,14 +437,14 @@ export default function AdminDashboard() {
                 />
                 <StatCard
                   title="Total Views"
-                  value={formatCurrencyShort(stats.totalViews)}
+                  value={(stats.totalViews)}
                   icon={VisibilityIcon}
                   color="#9333ea"
                 />
                 <StatCard
-                  title="Verified Campaigns"
-                  value={stats.verifiedCampaigns}
-                  subtitle={`${((stats.verifiedCampaigns / Math.max(stats.totalCampaigns, 1)) * 100).toFixed(1)}% verified`}
+                  title="Verified Users"
+                  value={stats.verifiedUsers}
+                  subtitle={`${((stats.verifiedUsers / Math.max(stats.totalUsers, 1)) * 100).toFixed(1)}% verified`}
                   icon={VerifiedIcon}
                   color="#0891b2"
                 />
@@ -487,11 +520,11 @@ export default function AdminDashboard() {
             <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
               <h3 className="font-semibold text-blue-900 dark:text-blue-100 mb-2">About Verification</h3>
               <p className="text-sm text-blue-800 dark:text-blue-200 mb-2">
-                Verified campaigns display a blue checkmark badge, indicating the creator has passed identity verification.
+                Verified users display a blue checkmark badge next to their name, indicating they have passed identity verification.
                 This significantly increases donor trust and donation likelihood.
               </p>
               <p className="text-xs text-blue-700 dark:text-blue-300">
-                Review each campaign carefully before verifying. Check creator identity, campaign legitimacy, and contact information.
+                Review each user carefully before verifying. Check their identity, campaign legitimacy, and contact information.
               </p>
             </div>
 
@@ -789,6 +822,23 @@ export default function AdminDashboard() {
                         <div className="flex flex-wrap gap-2 justify-end">
                           {u.id !== currentUser?.uid && (
                             <>
+                              {u.verified ? (
+                                <button 
+                                  onClick={() => unVerifyUser(u.id)} 
+                                  className="flex items-center gap-1 px-3 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors text-sm font-medium"
+                                >
+                                  <CancelIcon fontSize="small" />
+                                  Unverify
+                                </button>
+                              ) : (
+                                <button 
+                                  onClick={() => verifyUser(u.id)} 
+                                  className="flex items-center gap-1 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+                                >
+                                  <CheckIcon fontSize="small" />
+                                  Verify
+                                </button>
+                              )}
                               {u.role !== 'admin' ? (
                                 <button onClick={() => promoteToAdmin(u.id)} className="btn-primary text-sm px-3 py-2">Make admin</button>
                               ) : (

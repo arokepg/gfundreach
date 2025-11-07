@@ -44,6 +44,26 @@ const CommunityPostCard = ({ post }) => {
   const [isSaved, setIsSaved] = useState(false);
   const [campaignTitle, setCampaignTitle] = useState(post.campaignTitle || 'Campaign');
   const [openShare, setOpenShare] = useState(false);
+  const [authorVerified, setAuthorVerified] = useState(false);
+
+  // Fetch author verification status
+  useEffect(() => {
+    let mounted = true;
+    const fetchAuthor = async () => {
+      try {
+        if (!post.authorId) return;
+        const snap = await getDoc(doc(db, 'users', post.authorId));
+        if (mounted && snap.exists()) {
+          setAuthorVerified(snap.data().verified === true);
+        }
+      } catch (err) {
+        // non-fatal - may fail if user is not signed in or has insufficient permissions
+        console.warn('Could not fetch author verification status:', err.message);
+      }
+    };
+    fetchAuthor();
+    return () => { mounted = false; };
+  }, [post.authorId]);
 
   // Ensure we have campaign title
   useEffect(() => {
@@ -215,7 +235,9 @@ const CommunityPostCard = ({ post }) => {
               >
                 {post.authorName || 'Anonymous'}
               </Link>
-              <VerifiedIcon className="text-blue-500 text-sm" />
+              {authorVerified && (
+                <VerifiedIcon className="text-blue-500 text-sm" />
+              )}
             </div>
             <p className="text-xs text-themed-muted">{timeAgo(post.createdAt)}</p>
             <div className="text-xs mt-1">
