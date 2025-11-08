@@ -245,7 +245,7 @@ const PostCard = ({ post }) => {
             to={`/profile/${post.authorId}`}
             onClick={(e) => e.stopPropagation()}
             title={`View ${post.authorName || 'profile'}`}
-            className="avatar-link w-9 h-9 sm:w-10 sm:h-10 md:w-12 md:h-12 rounded-full overflow-hidden transition-transform duration-300 hover:scale-110 focus:outline-none focus:ring-2 focus:ring-green-500 flex-shrink-0"
+            className="avatar-link w-9 h-9 sm:w-10 sm:h-10 md:w-12 md:h-12 rounded-full overflow-hidden transition-transform duration-300 hover:scale-110 focus:outline-none focus:ring-2 focus:ring-green-500 shrink-0"
           >
             <img
               src={post.authorPhoto || 'https://via.placeholder.com/40'}
@@ -253,20 +253,20 @@ const PostCard = ({ post }) => {
               className="w-full h-full object-cover"
             />
           </Link>
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-1">
+          <div className="min-w-0 flex-1 flex flex-col justify-center gap-0.5 md:gap-1">
+            <div className="flex items-center gap-1 md:gap-1.5">
               <Link
                 to={`/profile/${post.authorId}`}
-                className="font-semibold text-xs sm:text-sm md:text-base text-themed hover:underline truncate block"
+                className="font-semibold text-xs sm:text-sm md:text-base text-themed hover:underline truncate block leading-tight"
                 onClick={(e) => e.stopPropagation()}
               >
                 {post.authorName}
               </Link>
               {authorVerified && (
-                <VerifiedIcon className="text-blue-500 flex-shrink-0" style={{ fontSize: 16 }} titleAccess="Verified User" />
+                <VerifiedIcon className="text-blue-500 shrink-0" sx={{ fontSize: { xs: 14, sm: 16 } }} titleAccess="Verified User" />
               )}
             </div>
-            <p className="text-[10px] sm:text-xs text-themed-muted truncate">
+            <p className="text-[10px] sm:text-xs text-themed-muted truncate leading-tight">
               {timeAgo(post.createdAt)}
             </p>
           </div>
@@ -407,7 +407,7 @@ const PostCard = ({ post }) => {
         </div>
         <Link
           to={`/post/${post.id}`}
-          className="px-3 sm:px-4 md:px-6 py-1.5 sm:py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-full text-xs sm:text-sm font-medium transition-all duration-300 hover:shadow-lg active:scale-95 md:hover:-translate-y-0.5 md:active:translate-y-0 whitespace-nowrap flex-shrink-0"
+          className="px-3 sm:px-4 md:px-6 py-1.5 sm:py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-full text-xs sm:text-sm font-medium transition-all duration-300 hover:shadow-lg active:scale-95 md:hover:-translate-y-0.5 md:active:translate-y-0 whitespace-nowrap flex-shrink-0 flex items-center justify-center"
           onClick={(e) => e.stopPropagation()}
         >
           Help Now

@@ -679,7 +679,13 @@ button, .pill, .nav-link {
 }
 
 .mobile-bottom-item .mobile-icon-wrap.active {
-  background-color: #A8F0BA; /* light green active background */
+  background-color: #A8F0BA; /* light green active background in light mode */
+}
+
+/* Dark mode: use a different green with better contrast */
+.dark .mobile-bottom-item .mobile-icon-wrap.active {
+  background-color: #16a34a; /* darker green for dark mode */
+  color: #ffffff; /* white text for better contrast */
 }
 
 /* Center floating create button */

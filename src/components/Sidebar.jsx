@@ -430,10 +430,10 @@ const Sidebar = () => {
               className={`mobile-bottom-item flex flex-col items-center gap-1 justify-center`}
               aria-label={item.label}
             >
-              <span className={`mobile-icon-wrap ${active ? 'active' : ''}`}>
+              <span className={`mobile-icon-wrap ${active ? 'active md:!bg-transparent md:dark:!bg-transparent' : ''}`}>
                 {item.icon}
               </span>
-              <span className={`text-xs font-medium ${active ? 'text-green-700' : 'text-themed-secondary'}`}>{item.label}</span>
+              <span className={`text-xs font-medium ${active ? 'text-green-600 dark:text-green-400 md:text-green-700 md:dark:text-green-400' : 'text-themed-secondary'}`}>{item.label}</span>
             </Link>
           );
         })()}
@@ -449,10 +449,10 @@ const Sidebar = () => {
               className={`mobile-bottom-item flex flex-col items-center gap-1 justify-center`}
               aria-label={item.label}
             >
-              <span className={`mobile-icon-wrap ${active ? 'active' : ''}`}>
+              <span className={`mobile-icon-wrap ${active ? 'active md:!bg-transparent md:dark:!bg-transparent' : ''}`}>
                 {item.icon}
               </span>
-              <span className={`text-xs font-medium ${active ? 'text-green-700' : 'text-themed-secondary'}`}>{item.label}</span>
+              <span className={`text-xs font-medium ${active ? 'text-green-600 dark:text-green-400 md:text-green-700 md:dark:text-green-400' : 'text-themed-secondary'}`}>{item.label}</span>
             </Link>
           );
         })()}
@@ -471,10 +471,10 @@ const Sidebar = () => {
               className={`mobile-bottom-item flex flex-col items-center gap-1 justify-center`}
               aria-label={item.label}
             >
-              <span className={`mobile-icon-wrap ${active ? 'active' : ''}`}>
+              <span className={`mobile-icon-wrap ${active ? 'active md:!bg-transparent md:dark:!bg-transparent' : ''}`}>
                 {item.icon}
               </span>
-              <span className={`text-xs font-medium ${active ? 'text-green-700' : 'text-themed-secondary'}`}>{item.label}</span>
+              <span className={`text-xs font-medium ${active ? 'text-green-600 dark:text-green-400 md:text-green-700 md:dark:text-green-400' : 'text-themed-secondary'}`}>{item.label}</span>
             </Link>
           );
         })()}
@@ -490,10 +490,10 @@ const Sidebar = () => {
               className={`mobile-bottom-item flex flex-col items-center gap-1 justify-center`}
               aria-label={item.label}
             >
-              <span className={`mobile-icon-wrap ${active ? 'active' : ''}`}>
+              <span className={`mobile-icon-wrap ${active ? 'active md:!bg-transparent md:dark:!bg-transparent' : ''}`}>
                 {item.icon}
               </span>
-              <span className={`text-xs font-medium ${active ? 'text-green-700' : 'text-themed-secondary'}`}>{item.label}</span>
+              <span className={`text-xs font-medium ${active ? 'text-green-600 dark:text-green-400 md:text-green-700 md:dark:text-green-400' : 'text-themed-secondary'}`}>{item.label}</span>
             </Link>
           );
         })()}

@@ -24,7 +24,6 @@ import AddIcon from '@mui/icons-material/Add';
 import LockIcon from '@mui/icons-material/Lock';
 import PublicIcon from '@mui/icons-material/Public';
 import AddFriendButton from '../../components/AddFriendButton';
-import GreetingSettings from '../../components/GreetingSettings';
 import { listFriendIds, getFriendshipStatus, acceptFriendRequest, cancelFriendRequest } from '../../utils/friends';
 import { calculateWalletStats } from '../../utils/walletHelpers';
 import { getOrCreateConversation } from '../../utils/messaging';
@@ -625,33 +624,33 @@ const Profile = () => {
       <div className="max-w-7xl mx-auto px-4 animate-fade-in">
         {/* Profile Header */}
         <div
-          className="card p-6 mb-6 animate-slide-in-up"
+          className="card p-4 sm:p-6 mb-6 animate-slide-in-up"
           style={{
             transform: acceptedAnim ? 'scale(1.02)' : 'scale(1)',
             transition: 'transform 320ms ease, box-shadow 320ms ease',
             boxShadow: acceptedAnim ? '0 8px 30px rgba(34,197,94,0.08)' : undefined
           }}
         >
-          <div className="flex items-center gap-6">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6">
             {/* Profile Picture */}
-            <div className="w-32 h-32 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center shrink-0">
+            <div className="w-24 h-24 sm:w-32 sm:h-32 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center shrink-0">
               {(userProfile?.photoURL || currentUser?.photoURL) ? (
                 <img
                   src={userProfile?.photoURL || currentUser?.photoURL}
                   alt={currentUser?.displayName || 'Profile Avatar'}
-                  className="w-32 h-32 rounded-full object-cover"
+                  className="w-24 h-24 sm:w-32 sm:h-32 rounded-full object-cover"
                   loading="lazy"
                   referrerPolicy="no-referrer"
                 />
               ) : (
-                <PersonIcon sx={{ fontSize: 64 }} className="text-gray-400" />
+                <PersonIcon sx={{ fontSize: { xs: 48, sm: 64 } }} className="text-gray-400" />
               )}
             </div>
 
             {/* Profile Name and Title */}
-            <div className="flex-1">
-              <div className="flex items-center gap-3">
-                <h1 className="text-3xl font-bold mb-1" style={{ color: 'var(--text)' }}>
+            <div className="flex-1 w-full sm:w-auto">
+              <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+                <h1 className="text-xl sm:text-2xl md:text-3xl font-bold break-words" style={{ color: 'var(--text)' }}>
                   {isOwnProfile 
                     ? (userProfile?.displayName || currentUser?.displayName || currentUser?.email || 'Anonymous User')
                     : (userProfile?.displayName || userProfile?.email || 'Anonymous User')
@@ -663,51 +662,55 @@ const Profile = () => {
                     className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-all duration-300 hover:scale-110 active:scale-95"
                     title="Edit Profile"
                   >
-                    <EditIcon className="text-gray-600 dark:text-gray-400" style={{ fontSize: '20px' }} />
+                    <EditIcon className="text-gray-600 dark:text-gray-400" style={{ fontSize: '18px' }} />
                   </button>
                 )}
               </div>
-              <p className="text-lg text-gray-600 dark:text-gray-400">
+              <p className="text-sm sm:text-base md:text-lg text-gray-600 dark:text-gray-400 mt-1 break-words">
                 {userProfile?.title || userProfile?.bio || 'username'}
               </p>
               {!isOwnProfile && (
-                <div className="mt-3 flex items-center gap-3">
+                <div className="mt-3 flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3">
                   {/* If already friends, show badge on the left */}
                   {profileFriendStatus === 'friends' && (
-                    <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-green-50 text-green-700 font-medium">Friends</span>
+                    <span className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-full bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400 font-medium text-xs sm:text-sm">
+                      Friends
+                    </span>
                   )}
 
-                  <AddFriendButton 
-                    targetUserId={profileUserId} 
-                    targetName={userProfile?.displayName || ''} 
-                    hideInlineActions={true}
-                    onStatusChange={(newStatus) => setProfileFriendStatus(newStatus)}
-                  />
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <AddFriendButton 
+                      targetUserId={profileUserId} 
+                      targetName={userProfile?.displayName || ''} 
+                      hideInlineActions={true}
+                      onStatusChange={(newStatus) => setProfileFriendStatus(newStatus)}
+                    />
 
-                  {/* Message Button */}
-                  <button
-                    onClick={async () => {
-                      try {
-                        const conversationId = await getOrCreateConversation(
-                          currentUser.uid,
-                          profileUserId,
-                          currentUser.displayName || 'You',
-                          userProfile?.displayName || 'User',
-                          currentUser.photoURL || '',
-                          userProfile?.photoURL || ''
-                        );
-                        navigate(`/messages/${conversationId}`);
-                      } catch (error) {
-                        console.error('Error starting conversation:', error);
-                        alert('Failed to start conversation. Please try again.');
-                      }
-                    }}
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-full font-medium transition-colors shadow-sm"
-                    title="Send Message"
-                  >
-                    <MessageIcon style={{ fontSize: '20px' }} />
-                    <span>Message</span>
-                  </button>
+                    {/* Message Button */}
+                    <button
+                      onClick={async () => {
+                        try {
+                          const conversationId = await getOrCreateConversation(
+                            currentUser.uid,
+                            profileUserId,
+                            currentUser.displayName || 'You',
+                            userProfile?.displayName || 'User',
+                            currentUser.photoURL || '',
+                            userProfile?.photoURL || ''
+                          );
+                          navigate(`/messages/${conversationId}`);
+                        } catch (error) {
+                          console.error('Error starting conversation:', error);
+                          alert('Failed to start conversation. Please try again.');
+                        }
+                      }}
+                      className="inline-flex items-center gap-1.5 px-3 sm:px-4 py-1.5 sm:py-2 bg-green-600 hover:bg-green-700 text-white rounded-full font-medium transition-colors shadow-sm text-xs sm:text-sm"
+                      title="Send Message"
+                    >
+                      <MessageIcon style={{ fontSize: '18px' }} />
+                      <span>Message</span>
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
@@ -725,7 +728,8 @@ const Profile = () => {
                 onMouseLeave={(e)=>{ e.currentTarget.style.backgroundColor = 'var(--hover-bg)'; }}
               >
                 <AddIcon sx={{ fontSize: { xs: 18, sm: 20, md: 24 } }} />
-                <span className="font-medium">Create</span>
+                <span className="font-medium md:hidden">Create</span>
+                <span className="font-medium hidden md:inline">Create Campaign</span>
               </Link>
 
               {/* Logout Button */}
@@ -753,7 +757,8 @@ const Profile = () => {
               role="tab"
               aria-selected={activeTab === 'personal'}
             >
-              Info
+              <span className="md:hidden">Info</span>
+              <span className="hidden md:inline">User Information</span>
             </button>
             <button
               onClick={() => setActiveTab('campaigns')}
@@ -765,7 +770,8 @@ const Profile = () => {
               role="tab"
               aria-selected={activeTab === 'campaigns'}
             >
-              Posts
+              <span className="md:hidden">Posts</span>
+              <span className="hidden md:inline">Campaign Posts</span>
             </button>
             <button
               onClick={() => setActiveTab('community')}
@@ -777,7 +783,8 @@ const Profile = () => {
               role="tab"
               aria-selected={activeTab === 'community'}
             >
-              Community
+              <span className="md:hidden">Community</span>
+              <span className="hidden md:inline">Community Posts</span>
             </button>
             {(isOwnProfile || transactionsPrivacy === 'public') && (
               <button
@@ -790,7 +797,8 @@ const Profile = () => {
                 role="tab"
                 aria-selected={activeTab === 'donations'}
               >
-                Sent
+                <span className="md:hidden">Sent</span>
+                <span className="hidden md:inline">Donation Sent</span>
               </button>
             )}
             {(isOwnProfile || transactionsPrivacy === 'public') && (
@@ -804,7 +812,8 @@ const Profile = () => {
                 role="tab"
                 aria-selected={activeTab === 'received'}
               >
-                Receive
+                <span className="md:hidden">Receive</span>
+                <span className="hidden md:inline">Donation Received</span>
               </button>
             )}
             <button
@@ -963,13 +972,6 @@ const Profile = () => {
                     </div>
                   </div>
                 </div>
-                
-                {/* Greeting Settings - Only visible on own profile */}
-                {isOwnProfile && (
-                  <div className="mt-8">
-                    <GreetingSettings userId={currentUser.uid} />
-                  </div>
-                )}
               </div>
             )}
 

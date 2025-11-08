@@ -698,9 +698,9 @@ const ChatWindow = () => {
 
   return (
     <Layout>
-      <div className="w-full md:max-w-4xl mx-auto h-[calc(100vh-120px)] md:h-[calc(100vh-120px)] flex flex-col">
-        {/* Header */}
-  <div className={`shrink-0 p-2 md:p-4 flex items-center justify-between gap-2 md:gap-4 border-b sticky top-0 z-10 ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+      <div className="w-full md:max-w-4xl mx-auto flex flex-col h-[calc(100vh-140px)] md:h-[calc(100vh-120px)]">
+        {/* Header - Fixed on mobile (below app navbar), sticky on desktop */}
+  <div className={`shrink-0 p-2 md:p-4 flex items-center justify-between gap-2 md:gap-4 border-b fixed md:sticky top-[60px] md:top-0 left-0 right-0 md:left-auto md:right-auto z-20 ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
           <div className="flex items-center gap-2 md:gap-4 min-w-0 flex-1">
             <button
               onClick={() => navigate('/messages')}
@@ -785,8 +785,8 @@ const ChatWindow = () => {
           )}
         </div>
 
-  {/* Messages Area */}
-  <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-2 md:p-4 space-y-3 md:space-y-4 scrollbar-themed">
+  {/* Messages Area - Scrollable content only, with padding for fixed header/footer on mobile */}
+  <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-2 md:p-4 space-y-3 md:space-y-4 scrollbar-themed pt-20 md:pt-2 pb-36 md:pb-4">
           {/* Load More Button */}
           {hasMoreMessages && messages.length > 0 && (
             <div className="flex justify-center mb-4">
@@ -1052,9 +1052,9 @@ const ChatWindow = () => {
           <div ref={messagesEndRef} />
         </div>
 
-  {/* Input Area */}
+  {/* Input Area - Fixed bottom on mobile (above bottom nav), sticky on desktop */}
   {/* Force light/dark styles explicitly */}
-  <form onSubmit={handleSendMessage} className={`shrink-0 p-2 md:p-4 border-t ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+  <form onSubmit={handleSendMessage} className={`shrink-0 p-2 md:p-4 border-t fixed md:sticky bottom-[88px] md:bottom-0 left-0 right-0 md:left-auto md:right-auto z-20 ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
     <div className="flex gap-2">
             {/* Image upload button */}
             <input

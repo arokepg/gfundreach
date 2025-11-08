@@ -1,11 +1,18 @@
+rules
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // Helpers
     function isSignedIn() { return request.auth != null; }
-    function uid() { return request.auth != null ? request.auth.uid : null; }
+    function uid() { return isSignedIn() ? request.auth.uid : null; }
     function userDoc(u) { return get(/databases/$(database)/documents/users/$(u)); }
     function isAdmin() { return isSignedIn() && userDoc(uid()).data.role == 'admin'; }
+    function isGroupAdminOrMod(groupId) {
+      return isSignedIn() &&
+        exists(/databases/$(database)/documents/groups/$(groupId)/members/$(uid())) &&
+        get(/databases/$(database)/documents/groups/$(groupId)/members/$(uid())).data.role in ['admin','moderator'];
+    }
 
     // --- Users ---
     match /users/{userId} {
@@ -18,7 +25,7 @@ service cloud.firestore {
         // Role cannot be changed by non-admins
         (request.resource.data.role == resource.data.role)
       );
-      // Only admins can set roles or delete a profile
+      // Only admins can delete a profile
       allow delete: if isAdmin();
       allow update: if isAdmin();
     }
@@ -36,7 +43,7 @@ service cloud.firestore {
           request.resource.data.verified == resource.data.verified &&
           request.resource.data.hidden == resource.data.hidden &&
           request.resource.data.status == resource.data.status
-        )
+        ) || (resource.data.groupId != null && isGroupAdminOrMod(resource.data.groupId))
       );
       allow delete: if isAdmin() || (isSignedIn() && resource.data.authorId == uid());
 
@@ -46,6 +53,22 @@ service cloud.firestore {
         allow create, update, delete: if isAdmin() || (
           isSignedIn() && get(/databases/$(database)/documents/posts/$(postId)).data.authorId == uid()
         );
+      }
+
+      // Optional analytics subcollections used by the app
+      match /views/{viewId} {
+        allow create: if true;
+        allow read: if true;
+        allow update, delete: if false;
+      }
+
+      match /visitors/{key} {
+        allow create, update: if true;
+        allow read: if isSignedIn() && (
+          get(/databases/$(database)/documents/posts/$(postId)).data.authorId == uid() ||
+          isAdmin()
+        );
+        allow delete: if false;
       }
     }
 
@@ -57,7 +80,7 @@ service cloud.firestore {
       // Donor creates the donation record (recommended to move to Cloud Functions in production)
       allow create: if isSignedIn() && request.resource.data.donorId == uid();
 
-      // Updates/deletes restricted to admin in this client-driven model
+      // Updates/deletes restricted to admins in this client-driven model
       allow update, delete: if isAdmin();
     }
 
@@ -94,15 +117,15 @@ service cloud.firestore {
     // --- Saved Items & Collections ---
     match /savedItems/{savedId} {
       allow read, write: if isSignedIn() && (
-        (resource.data.ownerId != null && resource.data.ownerId == uid()) ||
-        (request.resource.data.ownerId != null && request.resource.data.ownerId == uid())
+        (resource.data.userId != null && resource.data.userId == uid()) ||
+        (request.resource.data.userId != null && request.resource.data.userId == uid())
       );
     }
 
     match /collections/{collectionId} {
       allow read, write: if isSignedIn() && (
-        (resource.data.ownerId != null && resource.data.ownerId == uid()) ||
-        (request.resource.data.ownerId != null && request.resource.data.ownerId == uid())
+        (resource.data.userId != null && resource.data.userId == uid()) ||
+        (request.resource.data.userId != null && request.resource.data.userId == uid())
       );
     }
 
@@ -114,23 +137,6 @@ service cloud.firestore {
 
     match /moderationTrash/{docId} {
       allow read, write: if isAdmin();
-    }
-
-    // --- Conversations & Messages ---
-    match /conversations/{conversationId} {
-      function isParticipant() { return isSignedIn() && (request.auth.uid in resource.data.participants); }
-      function isCreatingParticipant() { return isSignedIn() && (request.auth.uid in request.resource.data.participants); }
-
-      allow read: if isAdmin() || isParticipant();
-      allow create: if isAdmin() || isCreatingParticipant();
-      allow update, delete: if isAdmin() || isParticipant();
-
-      match /messages/{messageId} {
-        allow read: if isAdmin() || isParticipant();
-        allow create: if isAdmin() || isParticipant();
-        // Allow sender (participant) to update/delete their own message; admins can also act
-        allow update, delete: if isAdmin() || (isParticipant() && resource.data.senderId == uid());
-      }
     }
 
     // --- Verification Codes (Register + 2FA Login) ---
@@ -164,8 +170,6 @@ service cloud.firestore {
       );
 
       // Delete rules: allow cleanup after success or expiry
-      // We cannot inspect the submitted code on delete, so we permit caller (auth or unauth)
-      // to delete, accepting DoS risk limited to this collection. Prefer moving to Cloud Functions in production.
       allow delete: if request.auth == null || (request.auth.token.email != null && request.auth.token.email == emailLower);
     }
 
@@ -177,11 +181,100 @@ service cloud.firestore {
       allow update, delete: if isSignedIn() && resource.data.recipientId == uid();
     }
 
-    // --- Groups (minimal) ---
+    // --- Groups (with members and posts) ---
     match /groups/{groupId} {
       allow read: if true;
       allow create: if isSignedIn();
       allow update, delete: if isAdmin() || (isSignedIn() && resource.data.ownerId == uid());
+
+      match /posts/{postId} {
+        allow read: if true;
+        allow create: if isSignedIn();
+        allow update, delete: if isSignedIn() && (resource.data.authorId == uid() || isGroupAdminOrMod(groupId) || isAdmin());
+        allow update: if isSignedIn() &&
+          request.resource.data.diff(resource.data).changedKeys().hasOnly(["likesCount","sharesCount","likedBy"]);
+      }
+
+      match /members/{memberUid} {
+        allow read: if isSignedIn();
+        allow create: if isSignedIn() && memberUid == uid();
+        allow delete: if isSignedIn() && (memberUid == uid() || isGroupAdminOrMod(groupId));
+        allow update: if isSignedIn() && isGroupAdminOrMod(groupId);
+      }
+    }
+
+    // --- Conversations & Messages ---
+    match /conversations/{conversationId} {
+      function isConvParticipant() {
+        return isSignedIn() && (uid() in resource.data.participants);
+      }
+      function isCreateValid() {
+        return isSignedIn() &&
+          ('participants' in request.resource.data) &&
+          request.resource.data.participants.size() >= 2 &&
+          (uid() in request.resource.data.participants);
+      }
+      function isGroupAdminConv() {
+        return isSignedIn() &&
+          resource.data.type == 'group' &&
+          (
+            ('createdBy' in resource.data && resource.data.createdBy == uid()) ||
+            ('roles' in resource.data && resource.data.roles[uid()] == 'admin')
+          );
+      }
+
+      allow read: if isConvParticipant();
+      allow create: if isCreateValid();
+
+      // Allow updates for regular activity, admin-only group settings, auto-invite, and leave/kick flows
+      allow update: if isConvParticipant() && (
+        request.resource.data.diff(resource.data).changedKeys().hasOnly(['lastMessageAt','lastMessage','lastSenderId','unreadCount','typing','firstMessageSent','participantNames','participantPhotos','hasReplied']) ||
+        (isGroupAdminConv() && resource.data.type == 'group') ||
+        (isConvParticipant() && resource.data.type == 'group' &&
+         resource.data.settings.invitePermission == 'auto' &&
+         request.resource.data.diff(resource.data).changedKeys().hasOnly(['participants','participantNames','participantPhotos','unreadCount','roles'])) ||
+        (
+          isConvParticipant() &&
+          resource.data.type == 'group' &&
+          request.resource.data.participants.size() < resource.data.participants.size() &&
+          (
+            (!(uid() in request.resource.data.participants) && uid() in resource.data.participants) ||
+            isGroupAdminConv()
+          ) &&
+          request.resource.data.diff(resource.data).changedKeys().hasOnly(['participants','lastMessage','lastMessageAt','participantNames','participantPhotos','unreadCount','roles'])
+        )
+      );
+
+      allow delete: if isConvParticipant() && (
+        resource.data.type != 'group' || (resource.data.type == 'group' && isGroupAdminConv())
+      );
+
+      match /messages/{messageId} {
+        function parentParticipants() {
+          return get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants;
+        }
+        allow read: if isSignedIn() && (uid() in parentParticipants());
+
+        // Allow creating messages: sender must match or system message by any participant
+        allow create: if isSignedIn() && (uid() in parentParticipants()) && (
+          (request.resource.data.senderId == uid()) ||
+          (request.resource.data.type == 'system')
+        );
+
+        allow update: if isSignedIn() && (
+          uid() == resource.data.senderId || (
+            uid() in parentParticipants() && (
+              (
+                request.resource.data.diff(resource.data).changedKeys().hasOnly(['read']) &&
+                request.resource.data.read == true
+              ) ||
+              request.resource.data.diff(resource.data).changedKeys().hasOnly(['reactions'])
+            )
+          )
+        );
+
+        allow delete: if isSignedIn() && (uid() in parentParticipants());
+      }
     }
   }
 }
