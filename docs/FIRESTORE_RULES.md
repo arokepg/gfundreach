@@ -1,4 +1,3 @@
-rules
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -53,6 +52,9 @@ service cloud.firestore {
         allow create, update, delete: if isAdmin() || (
           isSignedIn() && get(/databases/$(database)/documents/posts/$(postId)).data.authorId == uid()
         );
+        // NOTE: Public read allows a user's profile to aggregate their community posts
+        // across campaigns they don't own. This supports viewing all authored updates
+        // on the profile page without additional per-campaign permission checks.
       }
 
       // Optional analytics subcollections used by the app

@@ -786,7 +786,7 @@ const ChatWindow = () => {
         </div>
 
   {/* Messages Area - Scrollable content only, with padding for fixed header/footer on mobile */}
-  <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-2 md:p-4 space-y-3 md:space-y-4 scrollbar-themed pt-20 md:pt-2 pb-36 md:pb-4">
+  <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-2 md:p-4 space-y-3 md:space-y-4 scrollbar-themed pt-20 md:pt-2 pb-36 md:pb-4" style={{ paddingBottom: 'calc(150px + env(safe-area-inset-bottom))' }}>
           {/* Load More Button */}
           {hasMoreMessages && messages.length > 0 && (
             <div className="flex justify-center mb-4">
@@ -1054,7 +1054,7 @@ const ChatWindow = () => {
 
   {/* Input Area - Fixed bottom on mobile (above bottom nav), sticky on desktop */}
   {/* Force light/dark styles explicitly */}
-  <form onSubmit={handleSendMessage} className={`shrink-0 p-2 md:p-4 border-t fixed md:sticky bottom-[88px] md:bottom-0 left-0 right-0 md:left-auto md:right-auto z-20 ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+  <form onSubmit={handleSendMessage} className={`shrink-0 p-2 md:p-4 border-t fixed md:sticky md:bottom-0 left-0 right-0 md:left-auto md:right-auto z-20 ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`} style={{ bottom: 'calc(96px + env(safe-area-inset-bottom))' }}>
     <div className="flex gap-2">
             {/* Image upload button */}
             <input
@@ -1086,13 +1086,19 @@ const ChatWindow = () => {
             </button>
             
             <div className="flex-1 relative">
-              <input
+              <textarea
                 ref={inputRef}
-                type="text"
                 value={newMessage}
                 onChange={handleInputChange}
+                onInput={(e) => {
+                  // auto-grow up to ~6 lines
+                  e.target.style.height = 'auto';
+                  const max = 6 * 24; // 6 lines * ~24px line-height
+                  e.target.style.height = Math.min(e.target.scrollHeight, max) + 'px';
+                }}
                 placeholder="Type a message..."
-                className={`w-full px-3 md:px-4 py-2.5 md:py-3 rounded-xl placeholder-gray-500 focus:outline-none focus:ring-2 focus:border-transparent ${isDarkMode ? 'bg-gray-800 text-gray-100 border border-gray-700 focus:ring-green-500' : 'bg-white text-gray-900 border border-gray-200 focus:ring-green-600'}`}
+                rows={1}
+                className={`w-full px-3 md:px-4 py-2.5 md:py-3 rounded-xl placeholder-gray-500 focus:outline-none focus:ring-2 focus:border-transparent resize-none ${isDarkMode ? 'bg-gray-800 text-gray-100 border border-gray-700 focus:ring-green-500' : 'bg-white text-gray-900 border border-gray-200 focus:ring-green-600'}`}
                 disabled={sending || sendingImage}
               />
               

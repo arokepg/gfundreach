@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { formatCurrencyShort } from '../../utils/numberFormat';
-import { collection, query, where, getDocs, orderBy, deleteDoc, doc, getDoc, collectionGroup, updateDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, orderBy, limit, deleteDoc, doc, getDoc, collectionGroup, updateDoc } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -427,58 +427,57 @@ const Profile = () => {
 
   const fetchUserCommunityPosts = async () => {
     try {
-      // Try index-based query first
+      // Attempt direct authorId filter first (may need index)
+      let collected = [];
       try {
-        const q1 = query(collectionGroup(db, 'updates'), where('authorId', '==', profileUserId));
-        const snap1 = await getDocs(q1);
-        const items1 = snap1.docs.map(d => ({ id: d.id, ...d.data(), campaignId: d.ref.parent.parent.id }));
-        if (items1.length > 0) {
-          const sorted = items1.sort((a, b) => {
-            const ta = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : new Date(a.createdAt || 0).getTime();
-            const tb = b.createdAt?.toDate ? b.createdAt.toDate().getTime() : new Date(b.createdAt || 0).getTime();
-            return tb - ta;
-          });
-          setUserCommunityPosts(sorted);
-          return;
-        }
-      } catch (primaryErr) {
-        console.warn('Primary community posts query failed (likely missing index); falling back:', primaryErr?.message);
+        const qAuthor = query(collectionGroup(db, 'updates'), where('authorId', '==', profileUserId));
+        const snapAuthor = await getDocs(qAuthor);
+        collected = snapAuthor.docs.map(d => ({ id: d.id, ...d.data(), campaignId: d.ref.parent.parent.id }));
+      } catch (err) {
+        console.warn('AuthorId filtered community updates query failed, using broad scan fallback:', err?.message);
       }
 
-      // Fallback A: collectionGroup without filters then client-side filter (limit to avoid heavy reads)
-      let items = [];
-      try {
-        const snapA = await getDocs(collectionGroup(db, 'updates'));
-        items = snapA.docs
-          .map(d => ({ id: d.id, ...d.data(), campaignId: d.ref.parent.parent.id }))
-          .filter(u => (u.authorId || '') === profileUserId);
-      } catch (aErr) {
-        console.warn('CollectionGroup fallback failed; trying per-campaign fallback:', aErr?.message);
-      }
-
-      // Fallback B: if still empty, fetch campaigns by this user and then their updates filtered by authorId
-      if (items.length === 0) {
+      // Broad scan fallback across all updates (only if filtered query produced few / none)
+      if (collected.length === 0) {
         try {
-          const postsQ = query(collection(db, 'posts'), where('authorId', '==', profileUserId));
-          const postsSnap = await getDocs(postsQ);
-          const campaigns = postsSnap.docs.map(d => ({ id: d.id }));
-          const perCampaignFetches = campaigns.map(async (c) => {
-            try {
-              const upSnap = await getDocs(collection(db, 'posts', c.id, 'updates'));
-              return upSnap.docs
-                .map(u => ({ id: u.id, ...u.data(), campaignId: c.id }))
-                .filter(u => (u.authorId || '') === profileUserId);
-            } catch { return []; }
-          });
-          const all = await Promise.all(perCampaignFetches);
-          items = all.flat();
-        } catch (fallbackErr) {
-          console.warn('Per-campaign fallback failed:', fallbackErr);
-          items = [];
+          const snapAll = await getDocs(collectionGroup(db, 'updates'));
+          collected = snapAll.docs
+            .map(d => ({ id: d.id, ...d.data(), campaignId: d.ref.parent.parent.id }))
+            .filter(u => (u.authorId || '') === profileUserId);
+        } catch (errAll) {
+          console.warn('Broad scan of updates failed:', errAll?.message);
         }
       }
 
-      const sorted = items.sort((a, b) => {
+      // Per-campaign fallback: iterate recent campaigns and filter authorId within each updates subcollection
+      if (collected.length === 0) {
+        try {
+          const postsSnap = await getDocs(query(collection(db, 'posts'), orderBy('createdAt', 'desc'), limit(60)));
+          const campaignIds = postsSnap.docs.map(d => d.id);
+          const perCampaign = await Promise.all(
+            campaignIds.map(async (pid) => {
+              try {
+                const upSnap = await getDocs(query(collection(db, 'posts', pid, 'updates'), where('authorId', '==', profileUserId)));
+                return upSnap.docs.map(u => ({ id: u.id, ...u.data(), campaignId: pid }));
+              } catch {
+                // If where fails due to indexes, do unfiltered then client-side filter
+                try {
+                  const upAll = await getDocs(collection(db, 'posts', pid, 'updates'));
+                  return upAll.docs
+                    .map(u => ({ id: u.id, ...u.data(), campaignId: pid }))
+                    .filter(u => (u.authorId || '') === profileUserId);
+                } catch { return []; }
+              }
+            })
+          );
+          collected = perCampaign.flat();
+        } catch (errPer) {
+          console.warn('Per-campaign updates fallback failed:', errPer?.message);
+        }
+      }
+
+      // Sort newest first
+      const sorted = collected.sort((a, b) => {
         const ta = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : new Date(a.createdAt || 0).getTime();
         const tb = b.createdAt?.toDate ? b.createdAt.toDate().getTime() : new Date(b.createdAt || 0).getTime();
         return tb - ta;
@@ -650,7 +649,7 @@ const Profile = () => {
             {/* Profile Name and Title */}
             <div className="flex-1 w-full sm:w-auto">
               <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-                <h1 className="text-xl sm:text-2xl md:text-3xl font-bold break-words" style={{ color: 'var(--text)' }}>
+                <h1 className="text-xl sm:text-2xl md:text-3xl font-bold wrap-break-word" style={{ color: 'var(--text)' }}>
                   {isOwnProfile 
                     ? (userProfile?.displayName || currentUser?.displayName || currentUser?.email || 'Anonymous User')
                     : (userProfile?.displayName || userProfile?.email || 'Anonymous User')
@@ -666,7 +665,7 @@ const Profile = () => {
                   </button>
                 )}
               </div>
-              <p className="text-sm sm:text-base md:text-lg text-gray-600 dark:text-gray-400 mt-1 break-words">
+              <p className="text-sm sm:text-base md:text-lg text-gray-600 dark:text-gray-400 mt-1 wrap-break-word">
                 {userProfile?.title || userProfile?.bio || 'username'}
               </p>
               {!isOwnProfile && (

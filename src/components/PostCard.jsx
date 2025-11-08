@@ -254,10 +254,10 @@ const PostCard = ({ post }) => {
             />
           </Link>
           <div className="min-w-0 flex-1 flex flex-col justify-center gap-0.5 md:gap-1">
-            <div className="flex items-center gap-1 md:gap-1.5">
+            <div className="flex items-center gap-1 md:gap-1.5 whitespace-nowrap">
               <Link
                 to={`/profile/${post.authorId}`}
-                className="font-semibold text-xs sm:text-sm md:text-base text-themed hover:underline truncate block leading-tight"
+                className="font-semibold text-xs sm:text-sm md:text-base text-themed hover:underline truncate block leading-tight max-w-[80%]"
                 onClick={(e) => e.stopPropagation()}
               >
                 {post.authorName}
@@ -317,7 +317,7 @@ const PostCard = ({ post }) => {
           <img
             src={post.imageUrl}
             alt={post.title}
-            className="w-full max-h-64 md:max-h-96 object-cover transition-transform duration-500 hover:scale-105"
+            className="w-full max-h-64 md:max-h-96 object-cover transition-transform duration-500 md:hover:scale-105"
           />
         </Link>
       )}

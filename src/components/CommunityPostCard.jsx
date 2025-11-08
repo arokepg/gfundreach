@@ -227,10 +227,10 @@ const CommunityPostCard = ({ post }) => {
             )}
           </Link>
           <div className="flex-1 min-w-0 flex flex-col justify-center gap-0.5 md:gap-1">
-            <div className="flex items-center gap-1 md:gap-1.5">
+            <div className="flex items-center gap-1 md:gap-1.5 whitespace-nowrap">
               <Link
                 to={`/profile/${post.authorId}`}
-                className="font-semibold text-xs sm:text-sm md:text-base text-themed hover:underline truncate leading-tight"
+                className="font-semibold text-xs sm:text-sm md:text-base text-themed hover:underline truncate leading-tight max-w-[80%]"
                 onClick={(e) => e.stopPropagation()}
               >
                 {post.authorName || 'Anonymous'}
@@ -266,7 +266,7 @@ const CommunityPostCard = ({ post }) => {
           <img
             src={post.imageUrl}
             alt="Post attachment"
-            className="w-full max-h-96 object-cover transition-transform duration-500 hover:scale-105"
+            className="w-full max-h-96 object-cover transition-transform duration-500 md:hover:scale-105"
             loading="lazy"
             decoding="async"
             sizes="(max-width: 768px) 100vw, 640px"
