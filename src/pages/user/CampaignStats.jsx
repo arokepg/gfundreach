@@ -20,7 +20,6 @@ const CampaignStats = () => {
   const [loading, setLoading] = useState(true);
   const [campaign, setCampaign] = useState(null);
   const [donations, setDonations] = useState([]);
-  const [uniqueDonors, setUniqueDonors] = useState(0);
   const [likesCount, setLikesCount] = useState(0);
   const [sharesCount, setSharesCount] = useState(0);
   const [donationsChartData, setDonationsChartData] = useState([]);
@@ -56,29 +55,54 @@ const CampaignStats = () => {
 
         // Fetch donations for this campaign using transactions (type=='donation')
         try {
-          // Primary query (may require composite index)
-          let donationsQuery = query(
-            collection(db, 'transactions'),
-            where('type', '==', 'donation'),
-            where('postId', '==', id),
-            orderBy('createdAt', 'desc')
-          );
-          let donationsSnap;
+          // Try multiple safe strategies to avoid index issues and support legacy fields
+          const txCol = collection(db, 'transactions');
+          let docs = [];
+          // Strategy A: by type+postId ordered (best, may need composite index)
           try {
-            donationsSnap = await getDocs(donationsQuery);
-          } catch (primaryErr) {
-            // Fallback: avoid composite index by querying only by postId and sorting client-side
-            console.warn('Primary donations query failed (falling back):', primaryErr);
-            const fallbackQuery = query(
-              collection(db, 'transactions'),
-              where('postId', '==', id)
-            );
-            donationsSnap = await getDocs(fallbackQuery);
+            const qA = query(txCol, where('type', '==', 'donation'), where('postId', '==', id), orderBy('createdAt', 'desc'));
+            const snapA = await getDocs(qA);
+            docs = snapA.docs;
+          } catch (eA) {
+            console.warn('Donations primary query failed, falling back:', eA?.message);
           }
 
-          const donationsData = donationsSnap.docs
-            .map(d => ({ id: d.id, ...d.data() }))
-            .filter(d => d.type === 'donation');
+          // Strategy B: by postId only (no order), filter client-side
+          if (docs.length === 0) {
+            try {
+              const qB = query(txCol, where('postId', '==', id));
+              const snapB = await getDocs(qB);
+              docs = snapB.docs.filter(d => (d.data()?.type || 'donation') === 'donation');
+            } catch (eB) {
+              console.warn('Donations fallback by postId failed:', eB?.message);
+            }
+          }
+
+          // Strategy C: by recipientId (owner) then filter by postId (covers legacy writes)
+          if (docs.length === 0 && currentUser?.uid) {
+            try {
+              const qC = query(txCol, where('recipientId', '==', currentUser.uid));
+              const snapC = await getDocs(qC);
+              docs = snapC.docs.filter(d => {
+                const data = d.data() || {};
+                const pId = data.postId || data.campaignId; // support legacy field name
+                return (data.type || 'donation') === 'donation' && String(pId) === String(id);
+              });
+            } catch (eC) {
+              console.warn('Donations recipient fallback failed:', eC?.message);
+            }
+          }
+
+          // Normalize
+          const donationsData = docs.map(d => {
+            const data = d.data() || {};
+            return {
+              id: d.id,
+              ...data,
+              amount: Number(data.amount) || 0,
+              donorId: data.donorId || data.senderId || null, // legacy senderId support
+            };
+          });
 
           // Sort client-side by createdAt desc
           donationsData.sort((a, b) => {
@@ -88,7 +112,6 @@ const CampaignStats = () => {
           });
 
           setDonations(donationsData);
-          setUniqueDonors(new Set(donationsData.map(d => d.donorId).filter(Boolean)).size);
 
           // Build a continuous last-14-days series with zeros
           const days = 14;
@@ -106,14 +129,15 @@ const CampaignStats = () => {
             const dt = donation.createdAt?.toDate ? donation.createdAt.toDate() : (donation.createdAt ? new Date(donation.createdAt) : null);
             if (!dt) return;
             const key = dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-            if (byKey[key]) byKey[key].amount += (donation.amount || 0);
+            if (byKey[key]) byKey[key].amount += (Number(donation.amount) || 0);
           });
-          setDonationsChartData(series);
+          // Ensure new array reference for Recharts
+          setDonationsChartData([...series]);
 
           // Donation distribution by donor (top 5 + Others) for PieChart
           const totalsByDonor = donationsData.reduce((acc, d) => {
             const name = d.donorName || d.donorId || 'Anonymous';
-            acc[name] = (acc[name] || 0) + (d.amount || 0);
+            acc[name] = (acc[name] || 0) + (Number(d.amount) || 0);
             return acc;
           }, {});
           const sorted = Object.entries(totalsByDonor)
@@ -127,7 +151,6 @@ const CampaignStats = () => {
           setDonations([]);
           setDonationsChartData([]);
           setDonationDistribution([]);
-          setUniqueDonors(0);
         }
 
         // Fetch views data for chart (last 14 days)
@@ -334,17 +357,7 @@ const CampaignStats = () => {
               </div>
             </div>
 
-            <div className="card p-6">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="p-3 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
-                  <PeopleIcon className="text-purple-600" />
-                </div>
-                <div>
-                  <p className="text-sm text-themed-secondary">Unique Donors</p>
-                  <p className="text-2xl font-bold text-themed">{uniqueDonors}</p>
-                </div>
-              </div>
-            </div>
+            {/* Unique Donors metric removed */}
 
             <div className="card p-6">
               <div className="flex items-center gap-3 mb-2">
