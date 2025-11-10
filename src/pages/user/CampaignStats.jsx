@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { doc, getDoc, collection, query, where, getDocs, orderBy, getCountFromServer, Timestamp } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, getDocs, orderBy, Timestamp } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import { useAuth } from '../../contexts/AuthContext';
 import Layout from '../../components/Layout';
@@ -20,14 +20,8 @@ const CampaignStats = () => {
   const [loading, setLoading] = useState(true);
   const [campaign, setCampaign] = useState(null);
   const [donations, setDonations] = useState([]);
-  const [uniqueDonors, setUniqueDonors] = useState(0);
   const [likesCount, setLikesCount] = useState(0);
   const [sharesCount, setSharesCount] = useState(0);
-  const [viewsTotal, setViewsTotal] = useState(0);
-  const [views7d, setViews7d] = useState(0);
-  const [uniqueVisitorsTotal, setUniqueVisitorsTotal] = useState(0);
-  const [uniqueVisitors30d, setUniqueVisitors30d] = useState(0);
-  const [viewsChartData, setViewsChartData] = useState([]);
   const [donationsChartData, setDonationsChartData] = useState([]);
   const [donationDistribution, setDonationDistribution] = useState([]);
   const [categoryData, setCategoryData] = useState([]);
@@ -57,58 +51,58 @@ const CampaignStats = () => {
   setLikesCount(data.likesCount || 0);
   setSharesCount(data.sharesCount || 0);
 
-        // Views and Visitors counts (using subcollections created by view tracker)
-        try {
-          const viewsCol = collection(db, 'posts', id, 'views');
-          const totalViewsSnap = await getCountFromServer(query(viewsCol));
-          setViewsTotal(totalViewsSnap.data().count || 0);
-
-          const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-          const sevenTs = Timestamp.fromDate(sevenDaysAgo);
-          const views7Snap = await getCountFromServer(
-            query(viewsCol, where('createdAt', '>=', sevenTs))
-          );
-          setViews7d(views7Snap.data().count || 0);
-
-          const visitorsCol = collection(db, 'posts', id, 'visitors');
-          const totalVisitorsSnap = await getCountFromServer(query(visitorsCol));
-          setUniqueVisitorsTotal(totalVisitorsSnap.data().count || 0);
-
-          const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-          const thirtyTs = Timestamp.fromDate(thirtyDaysAgo);
-          const visitors30Snap = await getCountFromServer(
-            query(visitorsCol, where('lastViewedAt', '>=', thirtyTs))
-          );
-          setUniqueVisitors30d(visitors30Snap.data().count || 0);
-        } catch (viewErr) {
-          console.log('View stats not available yet:', viewErr);
-        }
+        // Views counts removed - no longer tracking views
 
         // Fetch donations for this campaign using transactions (type=='donation')
         try {
-          // Primary query (may require composite index)
-          let donationsQuery = query(
-            collection(db, 'transactions'),
-            where('type', '==', 'donation'),
-            where('postId', '==', id),
-            orderBy('createdAt', 'desc')
-          );
-          let donationsSnap;
+          // Try multiple safe strategies to avoid index issues and support legacy fields
+          const txCol = collection(db, 'transactions');
+          let docs = [];
+          // Strategy A: by type+postId ordered (best, may need composite index)
           try {
-            donationsSnap = await getDocs(donationsQuery);
-          } catch (primaryErr) {
-            // Fallback: avoid composite index by querying only by postId and sorting client-side
-            console.warn('Primary donations query failed (falling back):', primaryErr);
-            const fallbackQuery = query(
-              collection(db, 'transactions'),
-              where('postId', '==', id)
-            );
-            donationsSnap = await getDocs(fallbackQuery);
+            const qA = query(txCol, where('type', '==', 'donation'), where('postId', '==', id), orderBy('createdAt', 'desc'));
+            const snapA = await getDocs(qA);
+            docs = snapA.docs;
+          } catch (eA) {
+            console.warn('Donations primary query failed, falling back:', eA?.message);
           }
 
-          const donationsData = donationsSnap.docs
-            .map(d => ({ id: d.id, ...d.data() }))
-            .filter(d => d.type === 'donation');
+          // Strategy B: by postId only (no order), filter client-side
+          if (docs.length === 0) {
+            try {
+              const qB = query(txCol, where('postId', '==', id));
+              const snapB = await getDocs(qB);
+              docs = snapB.docs.filter(d => (d.data()?.type || 'donation') === 'donation');
+            } catch (eB) {
+              console.warn('Donations fallback by postId failed:', eB?.message);
+            }
+          }
+
+          // Strategy C: by recipientId (owner) then filter by postId (covers legacy writes)
+          if (docs.length === 0 && currentUser?.uid) {
+            try {
+              const qC = query(txCol, where('recipientId', '==', currentUser.uid));
+              const snapC = await getDocs(qC);
+              docs = snapC.docs.filter(d => {
+                const data = d.data() || {};
+                const pId = data.postId || data.campaignId; // support legacy field name
+                return (data.type || 'donation') === 'donation' && String(pId) === String(id);
+              });
+            } catch (eC) {
+              console.warn('Donations recipient fallback failed:', eC?.message);
+            }
+          }
+
+          // Normalize
+          const donationsData = docs.map(d => {
+            const data = d.data() || {};
+            return {
+              id: d.id,
+              ...data,
+              amount: Number(data.amount) || 0,
+              donorId: data.donorId || data.senderId || null, // legacy senderId support
+            };
+          });
 
           // Sort client-side by createdAt desc
           donationsData.sort((a, b) => {
@@ -118,7 +112,6 @@ const CampaignStats = () => {
           });
 
           setDonations(donationsData);
-          setUniqueDonors(new Set(donationsData.map(d => d.donorId).filter(Boolean)).size);
 
           // Build a continuous last-14-days series with zeros
           const days = 14;
@@ -136,14 +129,15 @@ const CampaignStats = () => {
             const dt = donation.createdAt?.toDate ? donation.createdAt.toDate() : (donation.createdAt ? new Date(donation.createdAt) : null);
             if (!dt) return;
             const key = dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-            if (byKey[key]) byKey[key].amount += (donation.amount || 0);
+            if (byKey[key]) byKey[key].amount += (Number(donation.amount) || 0);
           });
-          setDonationsChartData(series);
+          // Ensure new array reference for Recharts
+          setDonationsChartData([...series]);
 
           // Donation distribution by donor (top 5 + Others) for PieChart
           const totalsByDonor = donationsData.reduce((acc, d) => {
             const name = d.donorName || d.donorId || 'Anonymous';
-            acc[name] = (acc[name] || 0) + (d.amount || 0);
+            acc[name] = (acc[name] || 0) + (Number(d.amount) || 0);
             return acc;
           }, {});
           const sorted = Object.entries(totalsByDonor)
@@ -157,7 +151,6 @@ const CampaignStats = () => {
           setDonations([]);
           setDonationsChartData([]);
           setDonationDistribution([]);
-          setUniqueDonors(0);
         }
 
         // Fetch views data for chart (last 14 days)
@@ -189,20 +182,8 @@ const CampaignStats = () => {
             if (byKey[key]) byKey[key].views += 1;
           });
 
-          setViewsChartData(series);
         } catch (viewChartErr) {
           console.log('Views chart data not available:', viewChartErr);
-          // Still show zeroed series to ensure a chart renders
-          const days = 14;
-          const series = [];
-          const today = new Date();
-          for (let i = days - 1; i >= 0; i--) {
-            const d = new Date(today);
-            d.setDate(today.getDate() - i);
-            const key = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-            series.push({ date: key, views: 0 });
-          }
-          setViewsChartData(series);
         }
 
         // Create category breakdown data
@@ -345,32 +326,8 @@ const CampaignStats = () => {
           </div>
 
           {/* Statistics Cards */}
-          <div className="grid md:grid-cols-4 gap-6">
-            <div className="card p-6">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="p-3 bg-gray-100 dark:bg-gray-800 rounded-lg">
-                  <VisibilityIcon className="text-gray-600 dark:text-gray-300" />
-                </div>
-                <div>
-                  <p className="text-sm text-themed-secondary">Total Views</p>
-                  <p className="text-2xl font-bold text-themed">{viewsTotal}</p>
-                </div>
-              </div>
-              <p className="text-xs text-themed-muted">Last 7 days: {views7d}</p>
-            </div>
-
-            <div className="card p-6">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="p-3 bg-gray-100 dark:bg-gray-800 rounded-lg">
-                  <PeopleIcon className="text-gray-600 dark:text-gray-300" />
-                </div>
-                <div>
-                  <p className="text-sm text-themed-secondary">Unique Viewers</p>
-                  <p className="text-2xl font-bold text-themed">{uniqueVisitorsTotal}</p>
-                </div>
-              </div>
-              <p className="text-xs text-themed-muted">Last 30 days: {uniqueVisitors30d}</p>
-            </div>
+          <div className="grid md:grid-cols-3 gap-6">
+            {/* View Count metric removed as requested */}
 
             <div className="card p-6">
               <div className="flex items-center gap-3 mb-2">
@@ -400,17 +357,7 @@ const CampaignStats = () => {
               </div>
             </div>
 
-            <div className="card p-6">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="p-3 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
-                  <PeopleIcon className="text-purple-600" />
-                </div>
-                <div>
-                  <p className="text-sm text-themed-secondary">Unique Donors</p>
-                  <p className="text-2xl font-bold text-themed">{uniqueDonors}</p>
-                </div>
-              </div>
-            </div>
+            {/* Unique Donors metric removed */}
 
             <div className="card p-6">
               <div className="flex items-center gap-3 mb-2">
@@ -466,53 +413,8 @@ const CampaignStats = () => {
           </div>
 
           {/* Charts Section */}
-          <div className="grid md:grid-cols-2 gap-6 mb-6">
-            {/* Views Over Time Chart */}
-            <div className="card p-6">
-              <h2 className="text-xl font-bold text-themed mb-4 flex items-center gap-2">
-                <TrendingUpIcon className="text-blue-600" />
-                Views Trend (Last 14 Days)
-              </h2>
-              {viewsChartData.length > 0 ? (
-                <ResponsiveContainer width="100%" height={300}>
-                  <LineChart data={viewsChartData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                    <XAxis 
-                      dataKey="date" 
-                      stroke="#6b7280"
-                      style={{ fontSize: '12px' }}
-                    />
-                    <YAxis 
-                      stroke="#6b7280"
-                      style={{ fontSize: '12px' }}
-                    />
-                    <Tooltip 
-                      contentStyle={{ 
-                        backgroundColor: 'var(--card-bg)', 
-                        border: '1px solid var(--border-color)',
-                        borderRadius: '8px'
-                      }}
-                    />
-                    <Legend />
-                    <Line 
-                      type="monotone" 
-                      dataKey="views" 
-                      stroke="#3b82f6" 
-                      strokeWidth={2}
-                      dot={{ fill: '#3b82f6', r: 4 }}
-                      activeDot={{ r: 6 }}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="h-[300px] flex items-center justify-center text-themed-secondary">
-                  <div className="text-center">
-                    <VisibilityIcon sx={{ fontSize: 48 }} className="mb-2 opacity-50" />
-                    <p>No view data available yet</p>
-                  </div>
-                </div>
-              )}
-            </div>
+          <div className="grid md:grid-cols-1 gap-6 mb-6">
+            {/* Views Over Time Chart - REMOVED as requested */}
 
             {/* Donations Over Time Chart */}
             <div className="card p-6">

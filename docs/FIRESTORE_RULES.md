@@ -1,301 +1,271 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // NOTE: This project stores images as base64 data URLs inside Firestore documents
-    // (no Firebase Storage). Fields like imageUrl or bannerUrl will be data URLs
-    // starting with "data:image/...". It's recommended to also store a numeric
-    // field imageSizeKB to enforce size limits in rules.
-    // Example constraint idea (pseudocode in comments):
-    // allow create, update: if request.resource.data.imageUrl.matches('^data:image/')
-    //   && request.resource.data.imageSizeKB <= 500
 
     // Helpers
-    function isSignedIn() {
-      return request.auth != null;
-    }
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
-    }
-    // NOTE: Keep helper functions minimal to reduce syntax issues in editors.
+    function isSignedIn() { return request.auth != null; }
+    function uid() { return isSignedIn() ? request.auth.uid : null; }
+    function userDoc(u) { return get(/databases/$(database)/documents/users/$(u)); }
+    function isAdmin() { return isSignedIn() && userDoc(uid()).data.role == 'admin'; }
     function isGroupAdminOrMod(groupId) {
       return isSignedIn() &&
-        exists(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid)) &&
-        get(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid)).data.role in ['admin', 'moderator'];
+        exists(/databases/$(database)/documents/groups/$(groupId)/members/$(uid())) &&
+        get(/databases/$(database)/documents/groups/$(groupId)/members/$(uid())).data.role in ['admin','moderator'];
     }
 
-    // Optional: Global Admin helper
-    // Use Firebase Auth custom claims (request.auth.token.admin) or a role field on the user document
-    function isAdmin() {
-      return isSignedIn() && (
-        (request.auth.token.admin == true) || (
-          exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
-        )
-      );
-    }
-
-    // Users collection
+    // --- Users ---
     match /users/{userId} {
-      // Allow read access to all signed-in users for:
-      // 1. User search in messaging (finding new people to message)
-      // 2. Profile viewing
-      // 3. Friend requests and social features
+      // Allow signed-in users to read user profiles (needed to render names/avatars)
       allow read: if isSignedIn();
-      
-      allow create: if isSignedIn();
-      allow update, delete: if isOwner(userId);
-      
-      // Allow users to update their own greeting message
-      allow update: if isSignedIn() && request.auth.uid == userId &&
-        request.resource.data.diff(resource.data).changedKeys().hasOnly(['greetingMessage']);
-      
-      // Note: User search implementation in Messages.jsx:
-      // - Uses prefix matching on displayName field
-      // - Requires Firestore index: displayName (ascending)
-      // - Query pattern: where('displayName', '>=', searchLower).where('displayName', '<=', searchLower + '\uf8ff')
-      // - For production, consider Algolia/ElasticSearch for better full-text search
+
+      // Users can create or update their own profile, but cannot elevate role
+      allow create: if isSignedIn() && uid() == userId;
+      allow update: if isSignedIn() && uid() == userId && (
+        // Role cannot be changed by non-admins
+        (request.resource.data.role == resource.data.role)
+      );
+      // Only admins can delete a profile
+      allow delete: if isAdmin();
+      allow update: if isAdmin();
     }
 
-    // Campaign posts
+    // --- Campaign Posts ---
     match /posts/{postId} {
-      allow read: if true;
-      // Only the signed-in user may create a campaign with themself as the author
-      allow create: if isSignedIn() && request.resource.data.authorId == request.auth.uid;
-      // Owner can update/delete their campaign
-      allow update, delete: if isSignedIn() && request.auth.uid == resource.data.authorId;
+      allow read: if true; // public campaigns
 
-      // Group admins/moderators can manage campaigns that belong to their group
-      allow update, delete: if isSignedIn() && resource.data.groupId != null && isGroupAdminOrMod(resource.data.groupId);
+      // Author creates and can update their own campaign, but cannot toggle admin-only flags
+      allow create: if isSignedIn() && request.resource.data.authorId == uid();
+      allow update: if isSignedIn() && (
+        isAdmin() || (
+          resource.data.authorId == uid() &&
+          // Prevent non-admins from changing moderation fields
+          request.resource.data.verified == resource.data.verified &&
+          request.resource.data.hidden == resource.data.hidden &&
+          request.resource.data.status == resource.data.status
+        ) || (resource.data.groupId != null && isGroupAdminOrMod(resource.data.groupId))
+      );
+      allow delete: if isAdmin() || (isSignedIn() && resource.data.authorId == uid());
 
-      // Platform admins can manage any campaign (needed for moderation delete/restore)
-      // Admins can also set verification status (verified, verifiedAt, verifiedBy fields)
-      allow update, delete: if isAdmin();
-
-      // Public increments for donation and reactions only
-      allow update: if isSignedIn() &&
-        request.resource.data.diff(resource.data).changedKeys().hasOnly(["currentAmount","supporters","likesCount","sharesCount","likedBy","lastUpdateAt","lastUpdatePreview","updateCount"]);
-
-      // Image fields stored as base64 in Firestore
-      // Optional: If you store imageSizeKB numeric fields, constrain them here
-      // allow create, update: if (!('imageSizeKB' in request.resource.data) || request.resource.data.imageSizeKB <= 500);
-
-      // Community updates subcollection
+      // Campaign updates subcollection
       match /updates/{updateId} {
         allow read: if true;
-        // Only the signed-in user may create an update as themself
-        allow create: if isSignedIn() && request.resource.data.authorId == request.auth.uid;
-        allow update, delete: if isSignedIn() && request.auth.uid == resource.data.authorId;
-        // Platform admins can delete/restore any update during moderation
-        allow update, delete: if isAdmin();
-        // Public reaction counters
-        allow update: if isSignedIn() &&
-          request.resource.data.diff(resource.data).changedKeys().hasOnly(["likesCount","sharesCount","likedBy"]);
+        allow create, update, delete: if isAdmin() || (
+          isSignedIn() && get(/databases/$(database)/documents/posts/$(postId)).data.authorId == uid()
+        );
+        // NOTE: Public read allows a user's profile to aggregate their community posts
+        // across campaigns they don't own. This supports viewing all authored updates
+        // on the profile page without additional per-campaign permission checks.
       }
 
-      // View tracking subcollections
-      // 1) Views: one document per view (anonymous allowed). Structure suggestion:
-      //    { visitorId, visitorKey, userId?, dateKey, createdAt }
+      // Optional analytics subcollections used by the app
       match /views/{viewId} {
-        // Anyone can create a view record; reads are public
         allow create: if true;
         allow read: if true;
-        // Disallow updates/deletes to keep events immutable
         allow update, delete: if false;
       }
 
-      // 2) Visitors: one document per unique person (userId) or per device if anonymous
-      //    { visitorId, userId?, keyType: 'user'|'device', lastViewedAt }
       match /visitors/{key} {
-        // Anyone can upsert their own visit marker
         allow create, update: if true;
-        // Only the campaign owner (or admin) should read unique visitor markers
         allow read: if isSignedIn() && (
-          get(/databases/$(database)/documents/posts/$(postId)).data.authorId == request.auth.uid ||
+          get(/databases/$(database)/documents/posts/$(postId)).data.authorId == uid() ||
           isAdmin()
         );
-        // No deletes from clients
         allow delete: if false;
       }
     }
 
-    // Transactions (donations/topups/withdrawals)
+    // --- Transactions (Donations) ---
     match /transactions/{txId} {
-      allow read: if isSignedIn();
-      // Accept either senderId or donorId as the actor field (legacy compatibility)
-      allow create: if isSignedIn() &&
-        request.resource.data.type in ['donation', 'topup', 'withdraw'] &&
-        (
-          (request.resource.data.senderId != null && request.resource.data.senderId == request.auth.uid) ||
-          (request.resource.data.donorId != null && request.resource.data.donorId == request.auth.uid)
-        );
+      // Only donor or recipient can read their transactions
+      allow read: if isSignedIn() && (resource.data.donorId == uid() || resource.data.recipientId == uid());
+
+      // Donor creates the donation record (recommended to move to Cloud Functions in production)
+      allow create: if isSignedIn() && request.resource.data.donorId == uid();
+
+      // Updates/deletes restricted to admins in this client-driven model
+      allow update, delete: if isAdmin();
     }
 
-    // Reports (content moderation)
-    // Structure suggestion: { targetType: 'post'|'groupPost'|'comment', targetId, groupId?, reason, comment, status }
-    match /reports/{rid} {
-      allow read, create: if isSignedIn(); // anyone can file a report; listing is admin-only in UI
-      allow update, delete: if isAdmin();  // only admins can modify/delete reports
-    }
-
-    // Moderation trash (soft-deletes with 3-day undo)
-    // Structure: { refPath: string, targetType: string, createdAt: string, expireAt: string, original: map }
-    // Only admins can read/write/delete here.
-    match /moderationTrash/{tid} {
-      allow read, create, update, delete: if isAdmin();
-    }
-
-    // Saved items (bookmarks)
-    match /savedItems/{sid} {
-      // Doc ID convention: `${userId}_${itemId}`
-      // Owner can create, read their own, and remove their own saved items
-      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
-      allow update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
-    }
-
-    // Collections (user-defined lists)
-    match /collections/{cid} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
-      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
-    }
-
-    // Notifications
-    match /notifications/{nid} {
-      allow read, update, delete: if isSignedIn() && resource.data.recipientId == request.auth.uid;
-      allow create: if isSignedIn();
-    }
-
-    // Friendships (symmetric friend system)
+    // --- Friendships ---
     match /friendships/{friendshipId} {
-      allow read: if isSignedIn() && request.auth.uid in resource.data.users;
-      allow create: if isSignedIn() && request.auth.uid in request.resource.data.users;
-      allow update, delete: if isSignedIn() && request.auth.uid in resource.data.users;
+      // Friendships use deterministic IDs (sorted pair) and store:
+      //  - users: array of 2 user IDs (sorted)
+      //  - status: 'pending' or 'accepted'
+      //  - requestedBy: userId who initiated the request
+
+      // Allow read if current user is one of the participants
+      allow read: if isSignedIn() && (uid() in resource.data.users);
+
+      // Allow create if current user is the requester and is in the users array
+      allow create: if isSignedIn() &&
+        request.resource.data.requestedBy == uid() &&
+        uid() in request.resource.data.users &&
+        request.resource.data.status == 'pending';
+
+      // Allow update if:
+      // - User is accepting a request (changing status to 'accepted' when they're NOT the requester)
+      // - Or user is the requester (timestamp bumps, etc.)
+      allow update: if isSignedIn() &&
+        uid() in resource.data.users &&
+        (
+          (resource.data.requestedBy != uid() && request.resource.data.status == 'accepted') ||
+          (resource.data.requestedBy == uid())
+        );
+
+      // Either participant can delete (cancel request or unfriend)
+      allow delete: if isSignedIn() && (uid() in resource.data.users);
     }
 
-    // Groups
+    // --- Saved Items & Collections ---
+    match /savedItems/{savedId} {
+      allow read, write: if isSignedIn() && (
+        (resource.data.userId != null && resource.data.userId == uid()) ||
+        (request.resource.data.userId != null && request.resource.data.userId == uid())
+      );
+    }
+
+    match /collections/{collectionId} {
+      allow read, write: if isSignedIn() && (
+        (resource.data.userId != null && resource.data.userId == uid()) ||
+        (request.resource.data.userId != null && request.resource.data.userId == uid())
+      );
+    }
+
+    // --- Reports & Moderation ---
+    match /reports/{reportId} {
+      allow create: if isSignedIn();
+      allow read, update, delete: if isAdmin();
+    }
+
+    match /moderationTrash/{docId} {
+      allow read, write: if isAdmin();
+    }
+
+    // --- Verification Codes (Register + 2FA Login) ---
+    // Notes:
+    //  - Register flow may occur BEFORE sign-in, so unauthenticated writes must be allowed with constraints.
+    //  - Login 2FA may also occur pre-session. We therefore validate fields strictly and limit what can change.
+    //  - Reads remain disallowed to prevent leakage of codes.
+    match /verificationCodes/{emailLower} {
+      allow read: if false; // never expose codes
+
+      // Create rules (register/login): allow unauth OR same-email signed-in user
+      allow create: if (
+        // Unauthenticated create allowed with strict validation
+        request.auth == null ||
+        // Or signed-in user creating for their own email
+        (request.auth.token.email != null && request.auth.token.email == emailLower)
+      ) &&
+      // Required minimal fields and values
+      (request.resource.data.keys().hasOnly(['email','code','type','createdAt','expiresAt','attempts'])
+        && request.resource.data.email == emailLower
+        && request.resource.data.type in ['register','login']
+        && request.resource.data.code is string
+        && request.resource.data.attempts == 0);
+
+      // Update rules: allow resend (code/expiresAt) and attempt increments only
+      allow update: if (
+        request.auth == null || (request.auth.token.email != null && request.auth.token.email == emailLower)
+      ) && (
+        request.resource.data.diff(resource.data).changedKeys().hasOnly(['code','expiresAt','attempts'])
+        && request.resource.data.attempts <= 5
+      );
+
+      // Delete rules: allow cleanup after success or expiry
+      allow delete: if request.auth == null || (request.auth.token.email != null && request.auth.token.email == emailLower);
+    }
+
+    // --- Notifications ---
+    match /notifications/{notifId} {
+      allow read: if isSignedIn() && resource.data.recipientId == uid();
+      // Client-created notifications allowed for self; prefer Functions in production
+      allow create: if isAdmin() || (isSignedIn() && request.resource.data.recipientId == uid());
+      allow update, delete: if isSignedIn() && resource.data.recipientId == uid();
+    }
+
+    // --- Groups (with members and posts) ---
     match /groups/{groupId} {
       allow read: if true;
       allow create: if isSignedIn();
-      // Group owner, group admins/moderators, and platform admins can manage a group
-      allow update: if isSignedIn() && (
-        request.auth.uid == resource.data.ownerId ||
-        isGroupAdminOrMod(groupId) ||
-        isAdmin()
-      );
-      allow delete: if isSignedIn() && (
-        request.auth.uid == resource.data.ownerId ||
-        isGroupAdminOrMod(groupId) ||
-        isAdmin()
-      );
+      allow update, delete: if isAdmin() || (isSignedIn() && resource.data.ownerId == uid());
 
-      // Group posts
       match /posts/{postId} {
         allow read: if true;
         allow create: if isSignedIn();
-        allow update, delete: if isSignedIn() && (request.auth.uid == resource.data.authorId || isGroupAdminOrMod(groupId) || isAdmin());
+        allow update, delete: if isSignedIn() && (resource.data.authorId == uid() || isGroupAdminOrMod(groupId) || isAdmin());
         allow update: if isSignedIn() &&
           request.resource.data.diff(resource.data).changedKeys().hasOnly(["likesCount","sharesCount","likedBy"]);
       }
 
-      // Members
-      match /members/{uid} {
+      match /members/{memberUid} {
         allow read: if isSignedIn();
-        allow create: if isSignedIn() && request.auth.uid == uid;
-        allow delete: if isSignedIn() && (request.auth.uid == uid || isGroupAdminOrMod(groupId));
+        allow create: if isSignedIn() && memberUid == uid();
+        allow delete: if isSignedIn() && (memberUid == uid() || isGroupAdminOrMod(groupId));
         allow update: if isSignedIn() && isGroupAdminOrMod(groupId);
       }
     }
 
-    // Direct Messaging (Conversations)
-    // Note: If you see "permission-denied" when starting a conversation,
-    // ensure these rules are DEPLOYED in Firebase console.
-    // 
-    // The isStranger field is computed client-side by checking friendship status.
-    // It's not stored in Firestore, so no special rules are needed for it.
-    //
-    // For group conversations, the creator is stored in createdBy field and
-    // automatically becomes the admin. Only the creator/admin can update group settings.
+    // --- Conversations & Messages ---
     match /conversations/{conversationId} {
-      // Helpers within this match
       function isConvParticipant() {
-        return isSignedIn() && request.auth.uid in resource.data.participants;
+        return isSignedIn() && (uid() in resource.data.participants);
       }
       function isCreateValid() {
-        return isSignedIn()
-          && ('participants' in request.resource.data)
-          && request.resource.data.participants.size() >= 2
-          && request.auth.uid in request.resource.data.participants;
+        return isSignedIn() &&
+          ('participants' in request.resource.data) &&
+          request.resource.data.participants.size() >= 2 &&
+          (uid() in request.resource.data.participants);
       }
-      function isGroupAdmin() {
-        return isSignedIn() 
-          && resource.data.type == 'group'
-          && (
-            // Creator is always admin
-            ('createdBy' in resource.data && resource.data.createdBy == request.auth.uid) ||
-            // Or explicitly set as admin in roles
-            ('roles' in resource.data && resource.data.roles[request.auth.uid] == 'admin')
+      function isGroupAdminConv() {
+        return isSignedIn() &&
+          resource.data.type == 'group' &&
+          (
+            ('createdBy' in resource.data && resource.data.createdBy == uid()) ||
+            ('roles' in resource.data && resource.data.roles[uid()] == 'admin')
           );
       }
 
-      // Users can read only their conversations
       allow read: if isConvParticipant();
-
-      // Create when caller is one of participants (supports 1-1 and groups)
-      // For group conversations, automatically set createdBy to creator's UID
       allow create: if isCreateValid();
 
-      // Updates depend on what's being changed:
-      // - Participants can update: lastMessageAt, lastMessage, lastSenderId, unreadCount, typing, firstMessageSent, hasReplied
-      // - Only group admins can update: settings (name, groupImageUrl, invitePermission), roles
-      // - Group admins can approve/reject invites (pendingInvites)
-      // - Participants can be removed (leave group or kicked by admin)
+      // Allow updates for regular activity, admin-only group settings, auto-invite, and leave/kick flows
       allow update: if isConvParticipant() && (
-        // Regular conversation updates (messaging activity)
-        request.resource.data.diff(resource.data).changedKeys().hasOnly(['lastMessageAt', 'lastMessage', 'lastSenderId', 'unreadCount', 'typing', 'firstMessageSent', 'participantNames', 'participantPhotos', 'hasReplied']) ||
-        // Admin-only: settings, roles, and invite management
-        (isGroupAdmin() && resource.data.type == 'group') ||
-        // Allow removing participants (leave group or admin kicks member)
-        (resource.data.type == 'group' && 
-         request.resource.data.diff(resource.data).changedKeys().hasOnly(['participants', 'lastMessageAt', 'lastMessage']) &&
-         // Either user is removing themselves OR admin is removing someone
-         (!request.resource.data.participants.hasAll([request.auth.uid]) || isGroupAdmin())
+        request.resource.data.diff(resource.data).changedKeys().hasOnly(['lastMessageAt','lastMessage','lastSenderId','unreadCount','typing','firstMessageSent','participantNames','participantPhotos','hasReplied']) ||
+        (isGroupAdminConv() && resource.data.type == 'group') ||
+        (isConvParticipant() && resource.data.type == 'group' &&
+         resource.data.settings.invitePermission == 'auto' &&
+         request.resource.data.diff(resource.data).changedKeys().hasOnly(['participants','participantNames','participantPhotos','unreadCount','roles'])) ||
+        (
+          isConvParticipant() &&
+          resource.data.type == 'group' &&
+          request.resource.data.participants.size() < resource.data.participants.size() &&
+          (
+            (!(uid() in request.resource.data.participants) && uid() in resource.data.participants) ||
+            isGroupAdminConv()
+          ) &&
+          request.resource.data.diff(resource.data).changedKeys().hasOnly(['participants','lastMessage','lastMessageAt','participantNames','participantPhotos','unreadCount','roles'])
         )
       );
 
-      // Delete conversation:
-      // - 1-1 conversations: any participant can delete
-      // - Group conversations: only group admins (creator or assigned admin) can delete
-      // Note: Client must handle message deletion separately using batch operations
-      // Implementation in messaging.js uses writeBatch to delete messages first, then conversation
       allow delete: if isConvParticipant() && (
-        // 1-1 conversations: any participant can delete
-        resource.data.type != 'group' ||
-        // Group conversations: only admins can delete
-        (resource.data.type == 'group' && isGroupAdmin())
+        resource.data.type != 'group' || (resource.data.type == 'group' && isGroupAdminConv())
       );
 
-      // Messages subcollection
       match /messages/{messageId} {
         function parentParticipants() {
           return get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants;
         }
-        // Participants can read all messages in their conversations
-        allow read: if isSignedIn() && request.auth.uid in parentParticipants();
+        allow read: if isSignedIn() && (uid() in parentParticipants());
 
-        // Participants can send messages; sender must match
-        // Support text, audio, image, campaign card types
-        allow create: if isSignedIn()
-          && request.auth.uid in parentParticipants()
-          && request.auth.uid == request.resource.data.senderId;
+        // Allow creating messages: sender must match or system message by any participant
+        allow create: if isSignedIn() && (uid() in parentParticipants()) && (
+          (request.resource.data.senderId == uid()) ||
+          (request.resource.data.type == 'system')
+        );
 
-        // 1) Sender may update their own message (e.g., minor edits handled in UI)
-        // 2) Any participant may mark a message as read (read only field change)
-        // 3) Any participant may add/remove reactions (reactions field)
         allow update: if isSignedIn() && (
-          request.auth.uid == resource.data.senderId || (
-            request.auth.uid in parentParticipants() &&
-            (
+          uid() == resource.data.senderId || (
+            uid() in parentParticipants() && (
               (
                 request.resource.data.diff(resource.data).changedKeys().hasOnly(['read']) &&
                 request.resource.data.read == true
@@ -305,9 +275,7 @@ service cloud.firestore {
           )
         );
 
-        // Delete message: any participant can delete messages
-        // Used during conversation deletion (bulk delete via writeBatch)
-        allow delete: if isSignedIn() && request.auth.uid in parentParticipants();
+        allow delete: if isSignedIn() && (uid() in parentParticipants());
       }
     }
   }

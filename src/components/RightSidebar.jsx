@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../config/firebase';
-import { calculateWalletStats } from '../utils/walletHelpers';
+// No longer computing wallet stats client-wide (blocked by Firestore rules for other users)
+// We'll use denormalized fields on user docs instead: totalDonated and helpedRecipientIds
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
 import { formatCurrencyShort } from '../utils/numberFormat';
@@ -25,27 +26,18 @@ const RightSidebar = () => {
         ...doc.data()
       }));
 
-      // Calculate actual donation stats for each user
-      const usersWithStats = await Promise.all(
-        users.map(async (user) => {
-          const stats = await calculateWalletStats(user.id);
-          // Derive number of unique recipients helped
-          const helped = new Set(
-            (stats.transactions || [])
-              .filter(t => t.role === 'donor' && t.type === 'donation' && t.recipientId)
-              .map(t => t.recipientId)
-          ).size;
-          return {
-            ...user,
-            totalDonated: stats.totalDonated,
-            totalHelped: helped
-          };
-        })
-      );
+      // Use denormalized totals on user docs
+      const usersWithStats = users.map(user => {
+        const totalDonated = Number(user.totalDonated || 0);
+        const totalHelped = Array.isArray(user.helpedRecipientIds)
+          ? user.helpedRecipientIds.length
+          : Number(user.uniqueHelped || 0) || 0;
+        return { ...user, totalDonated, totalHelped };
+      });
 
       // Sort by totalDonated and take top 3
       const topDonatorsList = usersWithStats
-        .filter(u => u.totalDonated > 0)
+        .filter(u => (u.totalDonated || 0) > 0)
         .sort((a, b) => b.totalDonated - a.totalDonated)
         .slice(0, 3);
 

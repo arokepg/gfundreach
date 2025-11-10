@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
-import { X, Download } from 'lucide-react';
+import CloseIcon from '@mui/icons-material/Close';
+import DownloadIcon from '@mui/icons-material/Download';
 
 /**
  * Simple fullscreen image viewer with download button
@@ -21,7 +22,7 @@ const ImageViewer = ({ open, src, alt = 'Image', onClose, fileName = 'image.jpg'
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm">
+  <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/70 backdrop-blur-sm">
       {/* Backdrop */}
       <button aria-label="Close" className="absolute inset-0" onClick={onClose} />
 
@@ -33,14 +34,14 @@ const ImageViewer = ({ open, src, alt = 'Image', onClose, fileName = 'image.jpg'
           className="px-3 py-2 rounded-lg bg-white/90 hover:bg-white text-gray-900 text-sm font-medium flex items-center gap-2 shadow"
           onClick={(e) => e.stopPropagation()}
         >
-          <Download size={18} /> Download
+          <DownloadIcon fontSize="small" /> Download
         </a>
         <button
           onClick={onClose}
           className="p-2 rounded-lg bg-white/90 hover:bg-white text-gray-900 shadow"
           aria-label="Close image viewer"
         >
-          <X size={18} />
+          <CloseIcon fontSize="small" />
         </button>
       </div>
 

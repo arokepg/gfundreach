@@ -1,6 +1,17 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft, Send, Loader2, Mic, StopCircle, Image as ImageIcon, Smile, TrendingUp, ChevronUp, Users, Trash2, LogOut } from 'lucide-react';
+import { default as ArrowLeft } from '@mui/icons-material/ArrowBack';
+import { default as Send } from '@mui/icons-material/Send';
+import { default as Loader2 } from '@mui/icons-material/Autorenew';
+import { default as Mic } from '@mui/icons-material/Mic';
+import { default as StopCircle } from '@mui/icons-material/StopCircle';
+import { default as ImageIcon } from '@mui/icons-material/Image';
+import { default as Smile } from '@mui/icons-material/SentimentSatisfiedAlt';
+import { default as TrendingUp } from '@mui/icons-material/TrendingUp';
+import { default as ChevronUp } from '@mui/icons-material/ExpandLess';
+import { default as Users } from '@mui/icons-material/Group';
+import { default as Trash2 } from '@mui/icons-material/DeleteOutline';
+import { default as LogOut } from '@mui/icons-material/Logout';
 import { useAuth } from '../../contexts/AuthContext';
 import { 
   subscribeToMessages, 
@@ -687,16 +698,16 @@ const ChatWindow = () => {
 
   return (
     <Layout>
-      <div className="w-full md:max-w-4xl mx-auto h-[calc(100vh-120px)] md:h-[calc(100vh-120px)] flex flex-col">
-        {/* Header */}
-  <div className={`shrink-0 p-4 flex items-center justify-between gap-4 border-b ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
-          <div className="flex items-center gap-4">
+      <div className="w-full md:max-w-4xl mx-auto flex flex-col h-[calc(100vh-140px)] md:h-[calc(100vh-120px)]">
+        {/* Header - Fixed on mobile (below app navbar), sticky on desktop */}
+  <div className={`shrink-0 p-2 md:p-4 flex items-center justify-between gap-2 md:gap-4 border-b fixed md:sticky top-[60px] md:top-0 left-0 right-0 md:left-auto md:right-auto z-20 ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+          <div className="flex items-center gap-2 md:gap-4 min-w-0 flex-1">
             <button
               onClick={() => navigate('/messages')}
-              className={`p-2 rounded-lg transition-colors ${isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-themed-tertiary'}`}
+              className={`p-1.5 md:p-2 rounded-lg transition-colors shrink-0 ${isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-themed-tertiary'}`}
               aria-label="Back to messages"
             >
-              <ArrowLeft size={24} className={`${isDarkMode ? 'text-gray-100' : 'text-themed'}`} />
+              <ArrowLeft size={20} className={`md:w-6 md:h-6 ${isDarkMode ? 'text-gray-100' : 'text-themed'}`} />
             </button>
             
             <button
@@ -708,24 +719,24 @@ const ChatWindow = () => {
                   setShowPersonalInfo(true);
                 }
               }}
-              className={`flex items-center gap-3 rounded-lg px-2 py-1 ${isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-themed-tertiary'}`}
+              className={`flex items-center gap-2 md:gap-3 rounded-lg px-1 md:px-2 py-1 min-w-0 flex-1 ${isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-themed-tertiary'}`}
               title={other.isGroup ? 'View group info' : `View chat info`}
             >
               {other.photo ? (
                 <img
                   src={other.photo}
                   alt={other.name}
-                  className="w-10 h-10 rounded-full object-cover"
+                  className="w-8 h-8 md:w-10 md:h-10 rounded-full object-cover shrink-0"
                 />
               ) : (
-                <div className="w-10 h-10 rounded-full bg-linear-to-br from-green-500 to-emerald-500 flex items-center justify-center text-white font-bold">
-                  {other.isGroup ? <Users size={20} /> : other.name.charAt(0).toUpperCase()}
+                <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-linear-to-br from-green-500 to-emerald-500 flex items-center justify-center text-white font-bold shrink-0">
+                  {other.isGroup ? <Users size={16} className="md:w-5 md:h-5" /> : other.name.charAt(0).toUpperCase()}
                 </div>
               )}
               
-              <div className="text-left">
-                <h2 className={`font-semibold ${isDarkMode ? 'text-gray-100' : 'text-themed'}`}>{other.name}</h2>
-                <p className={`text-xs ${isDarkMode ? 'text-gray-300' : 'text-themed-muted'}`}>
+              <div className="text-left min-w-0 flex-1">
+                <h2 className={`font-semibold text-sm md:text-base truncate ${isDarkMode ? 'text-gray-100' : 'text-themed'}`}>{other.name}</h2>
+                <p className={`text-xs truncate ${isDarkMode ? 'text-gray-300' : 'text-themed-muted'}`}>
                   {other.isGroup ? `${other.participantCount} members` : 'Online'}
                 </p>
               </div>
@@ -738,7 +749,7 @@ const ChatWindow = () => {
             <button
               onClick={handleLeaveGroup}
               disabled={deleting}
-              className={`p-2 rounded-lg transition-colors ${
+              className={`p-1.5 md:p-2 rounded-lg transition-colors shrink-0 ${
                 deleting 
                   ? 'opacity-50 cursor-not-allowed' 
                   : 'hover:bg-orange-50 dark:hover:bg-orange-900/20'
@@ -747,9 +758,9 @@ const ChatWindow = () => {
               aria-label="Leave group"
             >
               {deleting ? (
-                <Loader2 size={20} className="animate-spin text-orange-600 dark:text-orange-400" />
+                <Loader2 size={18} className="md:w-5 md:h-5 animate-spin text-orange-600 dark:text-orange-400" />
               ) : (
-                <LogOut size={20} className="text-orange-600 dark:text-orange-400" />
+                <LogOut size={18} className="md:w-5 md:h-5 text-orange-600 dark:text-orange-400" />
               )}
             </button>
           ) : (
@@ -757,7 +768,7 @@ const ChatWindow = () => {
             <button
               onClick={handleDeleteConversation}
               disabled={deleting}
-              className={`p-2 rounded-lg transition-colors ${
+              className={`p-1.5 md:p-2 rounded-lg transition-colors shrink-0 ${
                 deleting 
                   ? 'opacity-50 cursor-not-allowed' 
                   : 'hover:bg-red-50 dark:hover:bg-red-900/20'
@@ -766,16 +777,16 @@ const ChatWindow = () => {
               aria-label="Delete conversation"
             >
               {deleting ? (
-                <Loader2 size={20} className="animate-spin text-red-600 dark:text-red-400" />
+                <Loader2 size={18} className="md:w-5 md:h-5 animate-spin text-red-600 dark:text-red-400" />
               ) : (
-                <Trash2 size={20} className="text-red-600 dark:text-red-400" />
+                <Trash2 size={18} className="md:w-5 md:h-5 text-red-600 dark:text-red-400" />
               )}
             </button>
           )}
         </div>
 
-  {/* Messages Area */}
-  <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-themed">
+  {/* Messages Area - Scrollable content only, with padding for fixed header/footer on mobile */}
+  <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-2 md:p-4 space-y-3 md:space-y-4 scrollbar-themed pt-20 md:pt-2 pb-36 md:pb-4" style={{ paddingBottom: 'calc(150px + env(safe-area-inset-bottom))' }}>
           {/* Load More Button */}
           {hasMoreMessages && messages.length > 0 && (
             <div className="flex justify-center mb-4">
@@ -1041,10 +1052,10 @@ const ChatWindow = () => {
           <div ref={messagesEndRef} />
         </div>
 
-  {/* Input Area */}
+  {/* Input Area - Fixed bottom on mobile (above bottom nav), sticky on desktop */}
   {/* Force light/dark styles explicitly */}
-  <form onSubmit={handleSendMessage} className={`shrink-0 p-4 border-t ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
-          <div className="flex gap-2">
+  <form onSubmit={handleSendMessage} className={`shrink-0 p-2 md:p-4 border-t fixed md:sticky md:bottom-0 left-0 right-0 md:left-auto md:right-auto z-20 ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`} style={{ bottom: 'calc(96px + env(safe-area-inset-bottom))' }}>
+    <div className="flex gap-2">
             {/* Image upload button */}
             <input
               ref={imageInputRef}
@@ -1075,13 +1086,19 @@ const ChatWindow = () => {
             </button>
             
             <div className="flex-1 relative">
-              <input
+              <textarea
                 ref={inputRef}
-                type="text"
                 value={newMessage}
                 onChange={handleInputChange}
+                onInput={(e) => {
+                  // auto-grow up to ~6 lines
+                  e.target.style.height = 'auto';
+                  const max = 6 * 24; // 6 lines * ~24px line-height
+                  e.target.style.height = Math.min(e.target.scrollHeight, max) + 'px';
+                }}
                 placeholder="Type a message..."
-                className={`w-full px-4 py-3 rounded-xl placeholder-gray-500 focus:outline-none focus:ring-2 focus:border-transparent ${isDarkMode ? 'bg-gray-800 text-gray-100 border border-gray-700 focus:ring-green-500' : 'bg-white text-gray-900 border border-gray-200 focus:ring-green-600'}`}
+                rows={1}
+                className={`w-full px-3 md:px-4 py-2.5 md:py-3 rounded-xl placeholder-gray-500 focus:outline-none focus:ring-2 focus:border-transparent resize-none ${isDarkMode ? 'bg-gray-800 text-gray-100 border border-gray-700 focus:ring-green-500' : 'bg-white text-gray-900 border border-gray-200 focus:ring-green-600'}`}
                 disabled={sending || sendingImage}
               />
               
@@ -1135,7 +1152,7 @@ const ChatWindow = () => {
             <button
               type="submit"
               disabled={!newMessage.trim() || sending || sendingImage}
-              className="px-6 py-3 rounded-xl bg-green-600 hover:bg-green-700 text-white font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              className="px-4 md:px-6 py-2.5 md:py-3 rounded-xl bg-green-600 hover:bg-green-700 text-white font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               aria-label="Send message"
             >
               {sending ? (

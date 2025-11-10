@@ -44,6 +44,26 @@ const CommunityPostCard = ({ post }) => {
   const [isSaved, setIsSaved] = useState(false);
   const [campaignTitle, setCampaignTitle] = useState(post.campaignTitle || 'Campaign');
   const [openShare, setOpenShare] = useState(false);
+  const [authorVerified, setAuthorVerified] = useState(false);
+
+  // Fetch author verification status
+  useEffect(() => {
+    let mounted = true;
+    const fetchAuthor = async () => {
+      try {
+        if (!post.authorId) return;
+        const snap = await getDoc(doc(db, 'users', post.authorId));
+        if (mounted && snap.exists()) {
+          setAuthorVerified(snap.data().verified === true);
+        }
+      } catch (err) {
+        // non-fatal - may fail if user is not signed in or has insufficient permissions
+        console.warn('Could not fetch author verification status:', err.message);
+      }
+    };
+    fetchAuthor();
+    return () => { mounted = false; };
+  }, [post.authorId]);
 
   // Ensure we have campaign title
   useEffect(() => {
@@ -192,33 +212,35 @@ const CommunityPostCard = ({ post }) => {
       }}
     >
       {/* Header */}
-      <div className="p-3 md:p-4 flex items-start justify-between">
-        <div className="flex items-center space-x-3 flex-1">
+      <div className="p-3 md:p-4 flex items-center justify-between">
+        <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
           <Link
             to={`/profile/${post.authorId}`}
-            className="avatar-link w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center overflow-hidden"
+            className="avatar-link w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center overflow-hidden shrink-0"
             onClick={(e) => e.stopPropagation()}
             title={`View ${post.authorName || 'profile'}`}
           >
             {post.authorPhoto ? (
-              <img src={post.authorPhoto} alt={post.authorName} className="w-10 h-10 object-cover" referrerPolicy="no-referrer" loading="lazy" decoding="async" />
+              <img src={post.authorPhoto} alt={post.authorName} className="w-full h-full object-cover" referrerPolicy="no-referrer" loading="lazy" decoding="async" />
             ) : (
               <PersonIcon className="text-gray-600 dark:text-gray-300" />
             )}
           </Link>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center space-x-1">
+          <div className="flex-1 min-w-0 flex flex-col justify-center gap-0.5 md:gap-1">
+            <div className="flex items-center gap-1 md:gap-1.5 whitespace-nowrap">
               <Link
                 to={`/profile/${post.authorId}`}
-                className="font-semibold text-themed hover:underline"
+                className="font-semibold text-xs sm:text-sm md:text-base text-themed hover:underline truncate leading-tight max-w-[80%]"
                 onClick={(e) => e.stopPropagation()}
               >
                 {post.authorName || 'Anonymous'}
               </Link>
-              <VerifiedIcon className="text-blue-500 text-sm" />
+              {authorVerified && (
+                <VerifiedIcon className="text-blue-500 shrink-0" sx={{ fontSize: { xs: 14, sm: 16 } }} titleAccess="Verified User" />
+              )}
             </div>
-            <p className="text-xs text-themed-muted">{timeAgo(post.createdAt)}</p>
-            <div className="text-xs mt-1">
+            <p className="text-[10px] sm:text-xs text-themed-muted truncate leading-tight">{timeAgo(post.createdAt)}</p>
+            <div className="text-[10px] sm:text-xs mt-0.5">
               <Link
                 to={`/post/${post.campaignId}`}
                 className="text-green-600 dark:text-green-400 hover:underline"
@@ -244,7 +266,7 @@ const CommunityPostCard = ({ post }) => {
           <img
             src={post.imageUrl}
             alt="Post attachment"
-            className="w-full max-h-96 object-cover transition-transform duration-500 hover:scale-105"
+            className="w-full max-h-96 object-cover transition-transform duration-500 md:hover:scale-105"
             loading="lazy"
             decoding="async"
             sizes="(max-width: 768px) 100vw, 640px"
@@ -288,7 +310,7 @@ const CommunityPostCard = ({ post }) => {
         </div>
         <Link
           to={`/community-post/${post.campaignId}/${post.id}`}
-          className="px-4 md:px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-full text-xs md:text-sm font-medium transition-all duration-300 hover:shadow-lg active:scale-95 md:hover:-translate-y-0.5 md:active:translate-y-0"
+          className="px-4 md:px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-full text-xs md:text-sm font-medium transition-all duration-300 hover:shadow-lg active:scale-95 md:hover:-translate-y-0.5 md:active:translate-y-0 flex items-center justify-center"
           onClick={(e) => e.stopPropagation()}
         >
           View

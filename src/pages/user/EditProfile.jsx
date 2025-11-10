@@ -5,12 +5,18 @@ import { db } from '../../config/firebase';
 import { useAuth } from '../../contexts/AuthContext';
 import Layout from '../../components/Layout';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import PersonIcon from '@mui/icons-material/Person';
+import PhotoCameraIcon from '@mui/icons-material/PhotoCamera';
+import { uploadImage } from '../../utils/uploadHelpers';
 
 const EditProfile = () => {
   const navigate = useNavigate();
-  const { currentUser } = useAuth();
+  const { currentUser, fetchUserProfile } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [profilePicture, setProfilePicture] = useState(null);
+  const [profilePicturePreview, setProfilePicturePreview] = useState(null);
+  const [uploadingPicture, setUploadingPicture] = useState(false);
   const [formData, setFormData] = useState({
     title: '',
     age: '',
@@ -47,6 +53,10 @@ const EditProfile = () => {
           bio: data.bio || '',
           website: data.website || '',
         });
+        // Set current profile picture as preview
+        if (data.photoURL) {
+          setProfilePicturePreview(data.photoURL);
+        }
       }
     } catch (error) {
       console.error('Error fetching profile:', error);
@@ -56,13 +66,39 @@ const EditProfile = () => {
     }
   };
 
+  const handleProfilePictureChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      alert('Please select an image file');
+      return;
+    }
+    
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Image size should be less than 5MB');
+      return;
+    }
+    
+    setProfilePicture(file);
+    
+    // Create preview
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setProfilePicturePreview(reader.result);
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSaving(true);
 
     try {
       const docRef = doc(db, 'users', currentUser.uid);
-      await updateDoc(docRef, {
+      const updateData = {
         title: formData.title,
         age: formData.age,
         gender: formData.gender,
@@ -71,7 +107,28 @@ const EditProfile = () => {
         bio: formData.bio,
         website: formData.website,
         updatedAt: new Date(),
-      });
+      };
+
+      // Upload profile picture if a new one is selected
+      if (profilePicture) {
+        setUploadingPicture(true);
+        try {
+          const photoURL = await uploadImage(profilePicture, `profile-pictures/${currentUser.uid}`);
+          updateData.photoURL = photoURL;
+        } catch (uploadError) {
+          console.error('Error uploading profile picture:', uploadError);
+          alert('Failed to upload profile picture, but other changes will be saved.');
+        } finally {
+          setUploadingPicture(false);
+        }
+      }
+
+      await updateDoc(docRef, updateData);
+
+      // Refresh user profile to show new picture
+      if (fetchUserProfile) {
+        await fetchUserProfile(currentUser.uid);
+      }
 
       alert('Profile updated successfully!');
       navigate('/profile');
@@ -124,6 +181,54 @@ const EditProfile = () => {
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Profile Picture Upload */}
+            <div className="flex flex-col items-center">
+              <label className="block text-sm font-medium mb-3 text-center w-full" style={{ color: 'var(--text)' }}>
+                Profile Picture
+              </label>
+              <div className="relative">
+                {/* Profile Picture Display */}
+                <div className="w-32 h-32 sm:w-40 sm:h-40 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center overflow-hidden border-4 border-gray-200 dark:border-gray-700">
+                  {profilePicturePreview ? (
+                    <img
+                      src={profilePicturePreview}
+                      alt="Profile Preview"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <PersonIcon sx={{ fontSize: { xs: 64, sm: 80 } }} className="text-gray-400" />
+                  )}
+                </div>
+                
+                {/* Camera Button Overlay */}
+                <label
+                  htmlFor="profile-picture-upload"
+                  className="absolute bottom-0 right-0 bg-green-600 hover:bg-green-700 text-white rounded-full p-3 cursor-pointer shadow-lg transition-all hover:scale-110 active:scale-95"
+                  title="Upload Profile Picture"
+                >
+                  <PhotoCameraIcon sx={{ fontSize: 20 }} />
+                  <input
+                    id="profile-picture-upload"
+                    type="file"
+                    accept="image/*"
+                    onChange={handleProfilePictureChange}
+                    className="hidden"
+                  />
+                </label>
+              </div>
+              
+              <p className="text-xs text-gray-500 mt-3 text-center max-w-xs">
+                Click the camera icon to upload a new profile picture (max 5MB)
+              </p>
+              
+              {uploadingPicture && (
+                <div className="mt-2 flex items-center gap-2 text-green-600">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-600"></div>
+                  <span className="text-sm">Uploading picture...</span>
+                </div>
+              )}
+            </div>
+
             {/* Title/Bio */}
             <div>
               <label htmlFor="title" className="block text-sm font-medium mb-2" style={{ color: 'var(--text)' }}>

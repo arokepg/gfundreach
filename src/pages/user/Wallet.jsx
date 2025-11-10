@@ -197,7 +197,12 @@ const Wallet = () => {
       return;
     }
 
-    if (amount > (userProfile?.walletBalance || 0)) {
+    const totalReceivedCalc = transactions
+      .filter((t) => t.role === 'recipient')
+      .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+    const availableBalance = (Number(userProfile?.walletBalance) || 0) + totalReceivedCalc;
+
+    if (amount > availableBalance) {
       alert('Insufficient balance for withdrawal');
       return;
     }
@@ -256,14 +261,13 @@ const Wallet = () => {
 
   // Derived totals
   const totalDonatedCalc = transactions
-    .filter((t) => t.role === 'donor')
+    .filter((t) => t.role === 'donor' && t.type === 'donation')
     .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
   const totalReceivedCalc = transactions
     .filter((t) => t.role === 'recipient')
     .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
-  // Wallet balance shows only liquid funds available for withdrawal or donations
-  // Received donations stay with campaigns and don't add to personal wallet
-  const actualBalance = Number(userProfile?.walletBalance) || 0;
+  // Wallet balance includes liquid funds plus received donations
+  const actualBalance = (Number(userProfile?.walletBalance) || 0) + totalReceivedCalc;
 
   return (
     <Layout>
@@ -307,7 +311,6 @@ const Wallet = () => {
                   Withdraw
                 </button>
               </div>
-              <p className="text-white/70 text-xs sm:text-sm mt-2">Wallet: {formatCurrency(userProfile?.walletBalance || 0)} • Received: {formatCurrency(totalReceivedCalc)}</p>
             </div>
             <AccountBalanceWalletIcon sx={{ fontSize: { xs: 80, sm: 120 }, opacity: 0.2, color: 'white' }} className="hidden sm:block" />
           </div>
@@ -317,31 +320,33 @@ const Wallet = () => {
         {showTopUp && (
           <div className="card p-6 mb-8">
             <h3 className="text-xl font-bold text-themed mb-4">Top Up Wallet</h3>
-            <form onSubmit={handleTopUp} className="flex gap-4">
+            <form onSubmit={handleTopUp} className="flex flex-col gap-3">
               <input
                 type="number"
                 value={topUpAmount}
                 onChange={(e) => setTopUpAmount(e.target.value)}
-                className="input-field flex-1"
+                className="input-field w-full"
                 placeholder="Enter amount"
                 min="1"
                 step="0.01"
                 required
               />
-              <button
-                type="submit"
-                disabled={processing}
-                className="btn-primary"
-              >
-                {processing ? 'Processing...' : 'Add Funds'}
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowTopUp(false)}
-                className="btn-outline"
-              >
-                Cancel
-              </button>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <button
+                  type="submit"
+                  disabled={processing}
+                  className="btn-primary w-full sm:w-auto"
+                >
+                  {processing ? 'Processing...' : 'Add Funds'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowTopUp(false)}
+                  className="btn-outline w-full sm:w-auto"
+                >
+                  Cancel
+                </button>
+              </div>
             </form>
             <p className="text-sm text-gray-500 mt-2">
               Note: In a production app, this would integrate with a payment gateway like Stripe
@@ -353,35 +358,37 @@ const Wallet = () => {
         {showWithdraw && (
           <div className="card p-6 mb-8">
             <h3 className="text-xl font-bold text-themed mb-4">Withdraw Funds</h3>
-            <form onSubmit={handleWithdraw} className="flex gap-4">
+            <form onSubmit={handleWithdraw} className="flex flex-col gap-3">
               <input
                 type="number"
                 value={withdrawAmount}
                 onChange={(e) => setWithdrawAmount(e.target.value)}
-                className="input-field flex-1"
+                className="input-field w-full"
                 placeholder="Enter amount"
                 min="1"
                 step="0.01"
-                max={userProfile?.walletBalance || 0}
+                max={actualBalance}
                 required
               />
-              <button
-                type="submit"
-                disabled={processing}
-                className="btn-primary bg-error hover:bg-error/90"
-              >
-                {processing ? 'Processing...' : 'Withdraw'}
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowWithdraw(false)}
-                className="btn-outline"
-              >
-                Cancel
-              </button>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <button
+                  type="submit"
+                  disabled={processing}
+                  className="btn-primary bg-error hover:bg-error/90 w-full sm:w-auto"
+                >
+                  {processing ? 'Processing...' : 'Withdraw'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowWithdraw(false)}
+                  className="btn-outline w-full sm:w-auto"
+                >
+                  Cancel
+                </button>
+              </div>
             </form>
             <p className="text-sm text-gray-500 mt-2">
-              Available balance: {formatCurrency(userProfile?.walletBalance || 0)}
+              Available balance: {formatCurrency(actualBalance)}
             </p>
           </div>
         )}

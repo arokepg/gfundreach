@@ -117,15 +117,15 @@ const Group = () => {
 
   {/* Main list */}
   <div className="flex-1 lg:order-1">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-3">
             <h1 className="text-2xl font-bold text-themed">Discover groups</h1>
-            <div className="flex items-center gap-2 p-2 rounded-lg" style={{ backgroundColor: 'var(--hover-bg)' }}>
+            <div className="flex items-center gap-2 p-2 rounded-lg w-full sm:w-auto" style={{ backgroundColor: 'var(--hover-bg)' }}>
               <SearchIcon className="text-themed-secondary" />
               <input
                 value={q}
                 onChange={(e)=> setQ(e.target.value)}
                 placeholder="Search groups"
-                className="bg-transparent outline-none text-themed"
+                className="bg-transparent outline-none text-themed w-full sm:w-auto"
               />
             </div>
           </div>
