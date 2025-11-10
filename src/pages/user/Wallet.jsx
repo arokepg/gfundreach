@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { formatCurrencyShort } from '../../utils/numberFormat';
-import { collection, query, where, getDocs, orderBy, doc, updateDoc, increment, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, where, getDocs, orderBy, doc, updateDoc, setDoc, increment, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import { useAuth } from '../../contexts/AuthContext';
 import Layout from '../../components/Layout';
@@ -140,11 +140,19 @@ const Wallet = () => {
       console.log('User ID:', currentUser.uid);
       console.log('Display Name:', userProfile?.displayName || currentUser.displayName);
 
-      // Update user wallet balance
-      await updateDoc(doc(db, 'users', currentUser.uid), {
-        walletBalance: increment(amount)
-      });
-      console.log('Wallet balance updated successfully');
+      // Update user wallet balance. If the user document doesn't exist, fallback to setDoc with merge
+      try {
+        await updateDoc(doc(db, 'users', currentUser.uid), {
+          walletBalance: increment(amount)
+        });
+        console.log('Wallet balance updated successfully');
+      } catch (err) {
+        console.warn('updateDoc failed when updating walletBalance, attempting setDoc merge:', err?.message || err);
+        await setDoc(doc(db, 'users', currentUser.uid), {
+          walletBalance: increment(amount)
+        }, { merge: true });
+        console.log('Wallet balance set/merged successfully via setDoc');
+      }
 
       // Create transaction record for top-up
       const transactionData = {
@@ -175,7 +183,7 @@ const Wallet = () => {
       console.log('Fetching transactions...');
       await fetchTransactions();
 
-      alert(`Successfully added ${formatCurrency(amount)} to your wallet!`);
+  alert(`Successfully added ${formatCurrencyShort(amount)} to your wallet!`);
       setTopUpAmount('');
       setShowTopUp(false);
     } catch (error) {
@@ -212,11 +220,19 @@ const Wallet = () => {
       console.log('Starting withdrawal process...');
       console.log('Amount:', amount);
 
-      // Update user wallet balance
-      await updateDoc(doc(db, 'users', currentUser.uid), {
-        walletBalance: increment(-amount)
-      });
-      console.log('Wallet balance updated successfully');
+      // Update user wallet balance. If the user document doesn't exist, fallback to setDoc with merge
+      try {
+        await updateDoc(doc(db, 'users', currentUser.uid), {
+          walletBalance: increment(-amount)
+        });
+        console.log('Wallet balance updated successfully');
+      } catch (err) {
+        console.warn('updateDoc failed when decrementing walletBalance, attempting setDoc merge:', err?.message || err);
+        await setDoc(doc(db, 'users', currentUser.uid), {
+          walletBalance: increment(-amount)
+        }, { merge: true });
+        console.log('Wallet balance set/merged successfully via setDoc');
+      }
 
       // Create transaction record for withdrawal
       const transactionData = {
@@ -244,7 +260,7 @@ const Wallet = () => {
       await fetchUserProfile(currentUser.uid);
       await fetchTransactions();
 
-      alert(`Successfully withdrawn ${formatCurrency(amount)} from your wallet!`);
+  alert(`Successfully withdrawn ${formatCurrencyShort(amount)} from your wallet!`);
       setWithdrawAmount('');
       setShowWithdraw(false);
     } catch (error) {
@@ -257,7 +273,7 @@ const Wallet = () => {
     }
   };
 
-  const formatCurrency = (amount) => formatCurrencyShort(amount, { maxDigits: 5 });
+  
 
   // Derived totals
   const totalDonatedCalc = transactions
@@ -284,7 +300,7 @@ const Wallet = () => {
             <div className="w-full sm:w-auto">
               <p className="text-white/80 mb-2 text-sm sm:text-base">Available Balance</p>
               <h2 className="text-3xl sm:text-5xl font-bold mb-4 sm:mb-6 text-white">
-                {formatCurrency(actualBalance)}
+                {formatCurrencyShort(actualBalance)}
               </h2>
               <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
                 <button
@@ -388,7 +404,7 @@ const Wallet = () => {
               </div>
             </form>
             <p className="text-sm text-gray-500 mt-2">
-              Available balance: {formatCurrency(actualBalance)}
+              Available balance: {formatCurrencyShort(actualBalance)}
             </p>
           </div>
         )}
@@ -403,7 +419,7 @@ const Wallet = () => {
               <p className="text-themed-secondary">Total Donated</p>
             </div>
             <p className="text-3xl font-bold text-primary">
-              {formatCurrency(totalDonatedCalc || userProfile?.totalDonated || 0)}
+              {formatCurrencyShort(totalDonatedCalc || userProfile?.totalDonated || 0)}
             </p>
           </div>
 
@@ -415,7 +431,7 @@ const Wallet = () => {
               <p className="text-themed-secondary">Total Received</p>
             </div>
             <p className="text-3xl font-bold text-secondary">
-              {formatCurrency(totalReceivedCalc || userProfile?.totalReceived || 0)}
+              {formatCurrencyShort(totalReceivedCalc || userProfile?.totalReceived || 0)}
             </p>
           </div>
 
@@ -536,7 +552,7 @@ const Wallet = () => {
                       }`}
                     >
                       {isDonor && !isTopUp && !isWithdraw ? '-' : isWithdraw ? '-' : '+'}
-                      {formatCurrency(transaction.amount)}
+                      {formatCurrencyShort(transaction.amount)}
                     </p>
                   </div>
                 </div>
