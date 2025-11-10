@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { formatCurrencyShort } from '../../utils/numberFormat';
-import { collection, query, where, getDocs, orderBy, doc, updateDoc, setDoc, increment, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, where, getDocs, orderBy, doc, setDoc, increment, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import { useAuth } from '../../contexts/AuthContext';
 import Layout from '../../components/Layout';
@@ -142,10 +142,11 @@ const Wallet = () => {
 
       // Update user wallet balance. If the user document doesn't exist, fallback to setDoc with merge
       try {
-        await updateDoc(doc(db, 'users', currentUser.uid), {
+        // Update (or create) user wallet balance using setDoc with merge so missing user doc won't break
+        await setDoc(doc(db, 'users', currentUser.uid), {
           walletBalance: increment(amount)
-        });
-        console.log('Wallet balance updated successfully');
+        }, { merge: true });
+        console.log('Wallet balance updated/created successfully');
       } catch (err) {
         console.warn('updateDoc failed when updating walletBalance, attempting setDoc merge:', err?.message || err);
         await setDoc(doc(db, 'users', currentUser.uid), {
@@ -222,10 +223,11 @@ const Wallet = () => {
 
       // Update user wallet balance. If the user document doesn't exist, fallback to setDoc with merge
       try {
-        await updateDoc(doc(db, 'users', currentUser.uid), {
+        // Update (or create) user wallet balance using setDoc with merge so missing user doc won't break
+        await setDoc(doc(db, 'users', currentUser.uid), {
           walletBalance: increment(-amount)
-        });
-        console.log('Wallet balance updated successfully');
+        }, { merge: true });
+        console.log('Wallet balance updated/created successfully');
       } catch (err) {
         console.warn('updateDoc failed when decrementing walletBalance, attempting setDoc merge:', err?.message || err);
         await setDoc(doc(db, 'users', currentUser.uid), {

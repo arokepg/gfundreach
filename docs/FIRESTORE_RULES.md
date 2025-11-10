@@ -18,13 +18,16 @@ service cloud.firestore {
       // Allow signed-in users to read user profiles (needed to render names/avatars)
       allow read: if isSignedIn();
 
-      // Users can create or update their own profile, but cannot elevate role
+      // Users can create their own profile
       allow create: if isSignedIn() && uid() == userId;
+
+      // Users can update their own profile but may NOT change the 'role' field.
+      // Allow updates that either do not include 'role' or where 'role' is unchanged.
       allow update: if isSignedIn() && uid() == userId && (
-        // Role cannot be changed by non-admins
-        (request.resource.data.role == resource.data.role)
+        (!('role' in request.resource.data)) || (request.resource.data.role == resource.data.role)
       );
-      // Only admins can delete a profile
+
+      // Only admins can delete or update anyone's profile arbitrarily
       allow delete: if isAdmin();
       allow update: if isAdmin();
     }
