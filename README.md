@@ -27,10 +27,3 @@ Gfundreach is a clean, mobile‑first experience for running and growing fundrai
 
 ## Try it
 
-Want a demo or access? Reach out to the owner/maintainer to learn more and discuss fit. Production deployment and configuration are available on request.
-
-## Notes
-
-- Screens, interactions, and copy are subject to change.
-- This repository does not include instructions to self‑host. Please contact for commercial use, partnership, or licensing.
-
